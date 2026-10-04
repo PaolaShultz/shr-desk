@@ -168,9 +168,15 @@ fn real_grant_controls_engine_review_and_no_replay_reconnect() {
     }
     assert!(f.state.as_ref().unwrap().status.contains("read-only"));
     tick_until(&mut f, |f| {
-        f.modules.as_ref().is_some_and(|m| m.status.is_none())
+        f.modules
+            .as_ref()
+            .is_some_and(|m| m.fresh() && m.status.as_ref().is_some_and(|s| !s.available))
     });
-    assert!(f.modules.as_ref().unwrap().message.contains("UNAVAILABLE"));
+    let modules = f.modules.as_ref().unwrap().status.as_ref().unwrap();
+    assert_eq!(modules.readiness, "unavailable");
+    assert!(modules.recording.is_none());
+    assert!(modules.fx.is_none());
+    assert!(modules.pa.is_none());
     tick_until(&mut f, |f| f.fresh());
     let initial = target(&f, "fader").as_i64().unwrap();
     let r = revision(&f);

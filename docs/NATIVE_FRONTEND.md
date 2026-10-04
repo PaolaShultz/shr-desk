@@ -101,6 +101,9 @@ Offscreen regression `tests/frontend.rs` executes WGPU only when the exact CPU
 ICD is explicitly selected; otherwise it checks refusal before adapter discovery.
 The opt-in `tests/frontend_real.rs` uses `SHR_DESK_GP03` for the exact accepted
 provider binary and `--ignored --nocapture`; verify its accepted SHA256 first.
+The current-provider run also checks the explicit GP05 `available=false` response
+when no module graph is enabled; transport failure and an available graph are
+different outcomes, covered separately.
 It creates only owned synthetic private endpoints, and joins/stops its children.
 Historical/exhaustive/long, physical endpoints/display/controller, playback,
 services/host changes and shared-load classes are intentionally skipped.
