@@ -1,0 +1,8 @@
+/target/
+/artifacts/
+/user/
+*.wav
+*.flac
+*.mp3
+*.log
+__pycache__/

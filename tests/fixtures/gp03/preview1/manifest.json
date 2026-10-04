@@ -1,0 +1,15 @@
+{
+  "amendment": "preview-flow:1",
+  "baseline": "99eb0f08050a9a86039af9f1ba2a3541649ca7b6",
+  "capability": "GP03-rendered:1",
+  "contract_sha256": "54a887f4a300d049d3ba67077a2e0446f7a92c57c41cef9d3b7da13735a092ac",
+  "fixture_sha256": "0e6dca421c5e5a1f5812653d35ddbcf6a5abb5bcb2c0fe30b6969d624a877abb",
+  "producer": "actual OfflineEngine::handle_encoded/process; each pump48frames synthetic input01=0.125",
+  "retained_original_fixture_sha256": "f41286ddabb915f6a18231e0de6e163b2926d44b926414c5e31dceb5755c97e1",
+  "source_sha256": {
+    "src/control_model.rs": "75935d6ef2646701fc02dc6a50584244e7ad179498f6561e907261fdfc32e0fc",
+    "src/mixer.rs": "a4b2841fc92675946e7a34205f46317efef79305a9f8298ee4227222ec9e41ab",
+    "src/mixer_control.rs": "b934baf30f22372d00aed893e223b3187b8993f8f3869b5f94eb01ff2aa80c20",
+    "tests/gp03_preview_corpus.rs": "3a3525fa56e83e5aa1cd519c0fceaee41f32e22047c5fc1620509f10fe0a0ce5"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "format": "gigpies-role-process-corpus",
+  "version": 1,
+  "steps": [
+    {
+      "operation": "acquire",
+      "request": "acquire-a.json",
+      "generation": "1"
+    },
+    {
+      "operation": "acquire",
+      "request": "acquire-b.json",
+      "generation": "2"
+    },
+    {
+      "operation": "verify",
+      "role": "audio-desk",
+      "generation": "1",
+      "registry_generation": "2"
+    },
+    {
+      "operation": "kill",
+      "role": "audio-desk"
+    },
+    {
+      "operation": "acquire",
+      "request": "reclaim-a.json",
+      "generation": "3"
+    },
+    {
+      "operation": "verify",
+      "role": "lighting-desk",
+      "generation": "2",
+      "registry_generation": "3"
+    },
+    {
+      "operation": "eof",
+      "role": "audio-desk"
+    },
+    {
+      "operation": "eof",
+      "role": "lighting-desk"
+    }
+  ]
+}

@@ -1,0 +1,502 @@
+{
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "epoch": "9",
+  "revision": "12",
+  "sequence": "1",
+  "page": 0,
+  "page_count": 1,
+  "durability": "volatile",
+  "validity": "unavailable",
+  "acquisition_frame": null,
+  "age_ms": null,
+  "rendered_application": false,
+  "release_commit": false,
+  "session_history_capacity": 1024,
+  "inputs": [
+    "input-01",
+    "input-02",
+    "input-03",
+    "input-04",
+    "input-05",
+    "input-06",
+    "input-07",
+    "input-08"
+  ],
+  "monitors": [
+    "monitor-1",
+    "monitor-2"
+  ],
+  "modes": [
+    [
+      "foh",
+      "manual"
+    ],
+    [
+      "monitor1",
+      "manual"
+    ],
+    [
+      "monitor2",
+      "manual"
+    ]
+  ],
+  "automation_bounds": [],
+  "parameters": [
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-01"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-01"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-01"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-01",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-01",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-02"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-02"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-02"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-02",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-02",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-03"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-03"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-03"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-03",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-03",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-04"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-04"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-04"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-04",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-04",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-05"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-05"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-05"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-05",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-05",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-06"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-06"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-06"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-06",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-06",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-07"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-07"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-07"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-07",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-07",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "fader",
+        "input": "input-08"
+      },
+      "actual": null,
+      "target_value": -6000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "pan",
+        "input": "input-08"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "mute",
+        "input": "input-08"
+      },
+      "actual": null,
+      "target_value": false,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-08",
+        "monitor": "monitor-1"
+      },
+      "actual": null,
+      "target_value": 0,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    },
+    {
+      "target": {
+        "parameter": "send",
+        "input": "input-08",
+        "monitor": "monitor-2"
+      },
+      "actual": null,
+      "target_value": -60000,
+      "proposal": null,
+      "hold": null,
+      "owner": null
+    }
+  ]
+}

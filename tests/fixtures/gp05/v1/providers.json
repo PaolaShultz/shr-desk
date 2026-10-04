@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "providers": {
+    "rec": {
+      "repository": "https://github.com/PaolaShultz/shr-rec",
+      "commit": "df93dc4f8ca487e52d6f7c26ee9aa75462e8856b",
+      "library_sha256": "4343ad90098ff068c58a195451567311f630a9ca7d94e421cbaf986eac2d6ed2",
+      "header_sha256": "c5131431e46642698956fb608913688275ea93b5a93d1d03a6f34377216e7175"
+    },
+    "fx": {
+      "repository": "https://github.com/PaolaShultz/shr-fx",
+      "commit": "e501e09b6721340a95516abc86da2c0480b6ddb4",
+      "library_sha256": "2427d5931a07f379c7a558a7ba108880d07dd3db0be850c7c82445fdc0d57f78",
+      "header_sha256": "dd290ad01c231fb522c215d1a8337c163e2e682c759c5895917e739a928ee8f9"
+    },
+    "pa": {
+      "repository": "https://github.com/PaolaShultz/shr-pa",
+      "commit": "44a111f0e2e2d640d3fff1378a7f6131b3df3151",
+      "library_sha256": "0d9669269e43866688a5d3400cf65047da3b961d9ea9de95ea8ae4623201496c",
+      "header_sha256": "72d2bd69a0a5ae1f74800d3fc8deb407f2cfde3e496eab4bc4d5d9be34cea009"
+    }
+  },
+  "limits": [
+    "independently built release artifacts; no binaries distributed",
+    "synthetic fixed-v1 integration; hardware unverified"
+  ]
+}

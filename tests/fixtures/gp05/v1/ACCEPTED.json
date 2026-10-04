@@ -1,0 +1,77 @@
+{
+  "state": "accepted-read-only-wire-data-and-actual-provider-release",
+  "contract": "GP05-modules:1",
+  "review": "root and independent baseline_audio_review R3",
+  "source": {
+    "src/module_wire.rs": "e43ba68c2984ff277569fffa8bf1578a010b453765fa5f69be2c0a3f843af47a",
+    "src/module_graph.rs": "f55563fa9fe45ef3fdcdd2721c279faadcf12f7a037ee1b66a71761cb020fd85",
+    "src/host/adapters.rs": "d2381ce26a1b10d96352efdb10feb6238aa455f0e738f9f808b65a1135137df5",
+    "tests/fixtures/gp05/v1/status-finalized.json": "99150152d22bf612ab2ecce69281ef2a80c0d61649b0ca5da8cb2e46bdd0be6e",
+    "tests/fixtures/gp05/v1/status-unavailable.json": "8398d65b1775668eddfbb161888929f921d1f472b548ef295559c69de5baf5fe",
+    "tests/fixtures/gp05/v1/status-request.json": "f3a18d60656780f65e2c88e27e39284bf8a80d7b07e962e654693a6778d6ebb8",
+    "tests/fixtures/gp05/v1/record-start.json": "d34375932c257c92035dcb48f2b6f6e7f9c8bf461b883e17a172505804d80d3d",
+    "tests/fixtures/gp05/v1/record-stop.json": "ee74a7828f0635ee9a2616b4a1a5cb3d1edf87346e56e594d86ed70b96fe3b83",
+    "tests/fixtures/gp05/v1/providers.json": "b190703f17f9a03107c2c52f41eeadf0076e1ba741d8e3117ab51b365553fcd7"
+  },
+  "files": {
+    "status-finalized.json": "99150152d22bf612ab2ecce69281ef2a80c0d61649b0ca5da8cb2e46bdd0be6e",
+    "status-unavailable.json": "8398d65b1775668eddfbb161888929f921d1f472b548ef295559c69de5baf5fe",
+    "status-request.json": "f3a18d60656780f65e2c88e27e39284bf8a80d7b07e962e654693a6778d6ebb8",
+    "record-start.json": "d34375932c257c92035dcb48f2b6f6e7f9c8bf461b883e17a172505804d80d3d",
+    "record-stop.json": "ee74a7828f0635ee9a2616b4a1a5cb3d1edf87346e56e594d86ed70b96fe3b83",
+    "providers.json": "b190703f17f9a03107c2c52f41eeadf0076e1ba741d8e3117ab51b365553fcd7",
+    "MODULE_GRAPH.md": "6e21d2987a18558d24517f359f1d9f5fed874da9854e10e25c2eeb3ba2bd21cf"
+  },
+  "semantics": {
+    "envelope": "exact fields in fixtures; status directly replied, separate from GP03 rendered replies; max65536 bytes",
+    "identity": "exact canonical show UUID/module audio/epoch decimal nonzero; version1/contractGP05-modules",
+    "counter": "all frame/epoch/operation and recording counts canonical decimal u64 strings, no numeric/coerced/leading-zero form",
+    "first_source_frame": "null while preparing; actual first source boundary decimal string when recording",
+    "mapping": "ordered 8 raw sources input-01/raw through input-08/raw, shared GP04 tap; 48kHz/48frames",
+    "available": "binding initialized; does not imply ready or physical; false includes null config/fx/pa/recording and empty libraries",
+    "physical": "unverified always",
+    "protection": "offline-unprotected unavailable; owner-sample-limiter-only loaded applies only main logical PA0/1",
+    "readiness": [
+      "unavailable",
+      "ready",
+      "degraded",
+      "faulted"
+    ],
+    "activity": [
+      "idle",
+      "processed"
+    ],
+    "source_fault": "u32, 0 none,6 timeline,7 source; blocks rejected whole without cursor advance, active recorder marked incomplete",
+    "library": "rec/fx/pa exact SHA256; state verified or loaded; recorder becomes loaded only after actual prepared observer exists",
+    "fx_identity": "fixed32 i8 elements including terminal NUL/padding; actual descriptor bytes; do not infer standalone rack",
+    "fx_capabilities": "repr(C)112 accepted owner fields incl f64 fixedparams; writable/rack unavailable",
+    "fx_status": "repr(C)40 actual owner state; last_process_result i32,reset_reason u32,count u64 numeric as owner struct; counters above2^53 must retain native integer precision",
+    "pa_descriptor": "repr(C)80 actual descriptor/masks; active3/silent60,limiter sample -1000mdBFS,unavailable15; no physical protection",
+    "pa_status": "repr(C)24 actual status including latch/recreate",
+    "record_state": [
+      "preparing",
+      "recording",
+      "finalizing",
+      "finalized"
+    ],
+    "record_outcome": [
+      "pending",
+      "complete",
+      "incomplete",
+      "error"
+    ],
+    "durable": "null unknown even after finish",
+    "record_faults": "writer_fault bool,host_fault u32; source_epoch immutable take identity",
+    "query_rate": "rec progress cached <=10Hz plus terminal read after finish; FX/PA queried quiesced offprocessing",
+    "commands": "existing lease/envelope with GP05 contract; same shared dedup/high-water as GP03; exact refusals retained incl stale_revision; sameID changed body/contract rejected; preparingStop canceled and incomplete; completion separate; lease loss doesnotstoprecorder"
+  },
+  "limits": [
+    "Desk DS05 read-only",
+    "Synthetic software/actual-library integration; physical unverified",
+    "Recorder durability remains unknown; no writable FX/PA controls"
+  ],
+  "provider_repository": "https://github.com/PaolaShultz/gigpies",
+  "runtime_binary_sha256": "c78bfe2a7a116b8f5431156d7331dbe551c9e2273deb8923d75026e31608fa21",
+  "documentation_snapshot": "MODULE_GRAPH.md preserves the initial wire handoff; the owning repository current MODULE_GRAPH.md and provider commit are authoritative.",
+  "provider_commit": "b3c9f640eef12175e61d140bf09b77e57bac8432"
+}

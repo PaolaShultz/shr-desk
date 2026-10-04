@@ -1,0 +1,170 @@
+{
+  "contract": "GP05-modules",
+  "version": 1,
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "module": "audio",
+  "epoch": "9",
+  "frame": "1440",
+  "available": true,
+  "physical": "unverified",
+  "protection": "owner-sample-limiter-only",
+  "readiness": "ready",
+  "activity": "processed",
+  "source_fault": 0,
+  "configuration": {
+    "sample_rate": 48000,
+    "block_frames": 48,
+    "raw_inputs": [
+      "input-01/raw",
+      "input-02/raw",
+      "input-03/raw",
+      "input-04/raw",
+      "input-05/raw",
+      "input-06/raw",
+      "input-07/raw",
+      "input-08/raw"
+    ],
+    "fx_mix": "dry-plus-fixed-wet",
+    "pa_inputs": 2,
+    "pa_outputs": 6
+  },
+  "libraries": {
+    "fx": {
+      "sha256": "2427d5931a07f379c7a558a7ba108880d07dd3db0be850c7c82445fdc0d57f78",
+      "state": "loaded"
+    },
+    "pa": {
+      "sha256": "0d9669269e43866688a5d3400cf65047da3b961d9ea9de95ea8ae4623201496c",
+      "state": "loaded"
+    },
+    "rec": {
+      "sha256": "4343ad90098ff068c58a195451567311f630a9ca7d94e421cbaf986eac2d6ed2",
+      "state": "loaded"
+    }
+  },
+  "fx": {
+    "capabilities": {
+      "version": 1,
+      "size": 112,
+      "identity": [
+        102,
+        120,
+        45,
+        97,
+        47,
+        102,
+        105,
+        120,
+        101,
+        100,
+        45,
+        100,
+        101,
+        108,
+        97,
+        121,
+        45,
+        118,
+        49,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "min_sample_rate": 8000,
+      "max_sample_rate": 192000,
+      "min_block_frames": 1,
+      "max_block_frames": 8192,
+      "channels": 2,
+      "sample_bits": 64,
+      "reset_supported": 1,
+      "writable_parameters": 0,
+      "rack_available": 0,
+      "adapter_buffer_frames": 0,
+      "delay_ms": 20.0,
+      "feedback": 0.25,
+      "damping": 0.35,
+      "wet_gain": 0.5
+    },
+    "status": {
+      "version": 1,
+      "size": 40,
+      "sample_rate": 48000,
+      "max_block_frames": 48,
+      "intentional_delay_frames": 960,
+      "adapter_buffer_frames": 0,
+      "last_process_result": 0,
+      "reset_reason": 0,
+      "reset_count": 0
+    }
+  },
+  "pa": {
+    "descriptor": {
+      "version": 1,
+      "size": 80,
+      "input_channels": 2,
+      "logical_outputs": 6,
+      "active_output_mask": 3,
+      "silent_output_mask": 60,
+      "physical_io_owned": 0,
+      "sample_format": 1,
+      "fixed_preset": 1,
+      "limiter_kind": 1,
+      "limiter_threshold_millidbfs": -1000,
+      "limiter_linked": 1,
+      "limiter_release_ms": 100,
+      "startup_ramp_ms": 5,
+      "fixed_delay_frames": 0,
+      "min_rate": 8000,
+      "max_rate": 192000,
+      "min_block": 1,
+      "max_block": 8192,
+      "unavailable_capabilities": 15
+    },
+    "status": {
+      "version": 1,
+      "size": 24,
+      "sample_rate": 48000,
+      "max_block": 48,
+      "fault_latched": 0,
+      "recreate_required": 0
+    }
+  },
+  "recording": {
+    "take_id": "take-01",
+    "operation_id": "17",
+    "source_epoch": "9",
+    "first_source_frame": "0",
+    "mapping": [
+      "input-01/raw",
+      "input-02/raw",
+      "input-03/raw",
+      "input-04/raw",
+      "input-05/raw",
+      "input-06/raw",
+      "input-07/raw",
+      "input-08/raw"
+    ],
+    "state": "finalized",
+    "outcome": "complete",
+    "accepted_frames": "1440",
+    "written_frames": "1440",
+    "durable_frames": null,
+    "dropped_frames": "0",
+    "overflow_blocks": "0",
+    "gap_frames": "0",
+    "invalid_blocks": "0",
+    "clipped_samples": "0",
+    "writer_fault": false,
+    "host_fault": 0
+  }
+}

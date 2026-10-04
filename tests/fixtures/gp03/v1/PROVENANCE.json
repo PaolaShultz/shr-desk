@@ -1,0 +1,34 @@
+{
+  "task": "0008",
+  "provider": "GigPies GP03 DATA/INTERFACE",
+  "baseline": "99eb0f08050a9a86039af9f1ba2a3541649ca7b6",
+  "contract": "GP-2026-10-04.1 / C-AUDIO:1 + GP03-rendered:1",
+  "contract_sha256": "54a887f4a300d049d3ba67077a2e0446f7a92c57c41cef9d3b7da13735a092ac",
+  "utc": "2026-10-04T14:27:46.799111+00:00",
+  "source_checkpoint_sha256": "6e940ea52c90cc4a974cc7a4669a3b0ffe6866cad0fa02eb2095ed5f4d9b7340",
+  "source_files": {
+    "src/control_model.rs": "90a5059a6a62bf255b5a124ee42be5b791cc754245ff86941e7808a2829e7c1f",
+    "src/mixer.rs": "a4b2841fc92675946e7a34205f46317efef79305a9f8298ee4227222ec9e41ab",
+    "src/mixer_control.rs": "f5daf6f4a33e22e3f510033289a15fcd74adc6e8cf6c9955f200726b494bb2e3",
+    "src/lib.rs": "7e7aeeb374d8aee3ce6476bbe744d891125f17312f13fc6f9265397d96f8b0ef",
+    "tests/gp03.rs": "8755116d686e070ce4b9bfacd2521ca6bdc0c09ff3106c9e26da5c0e2b5b486d",
+    "tests/gp03_alloc.rs": "baa54be48756a511ac331c6019a4810a0689a4403d079579193791c38ed4b2c9",
+    "tests/gp03_corpus.rs": "1b175a2dd2285f33f4b0a7faec82e925b281b50081313c5810fb6765e0d9191e",
+    "docs/AUDIO_RENDERED_WIRE.md": "c9c0d4d8ddc4d53601736d99ba00686421bf0ac6baab4fad02fd23edc44146ac",
+    "docs/AUDIO_CONTROL_WIRE.md": "5f7de27e22005854c45bd76998a415e574ae291120d8194e95781dd3d894c05f",
+    "tests/fixtures/gp03/v1/manifest.json": "a91027e356ffc0517227592b1c2ab1d38de27d6f4425600270a515b10092087c",
+    "tests/fixtures/gp03/v1/README.md": "c339a1641311f24ab0fa39219f9cb64948f1b8ea69c64bb374fc343f49729331",
+    "tests/fixtures/gp03/v1/e03-rendered.json": "f41286ddabb915f6a18231e0de6e163b2926d44b926414c5e31dceb5755c97e1"
+  },
+  "files": {
+    "README.md": "c339a1641311f24ab0fa39219f9cb64948f1b8ea69c64bb374fc343f49729331",
+    "manifest.json": "a91027e356ffc0517227592b1c2ab1d38de27d6f4425600270a515b10092087c",
+    "e03-rendered.json": "f41286ddabb915f6a18231e0de6e163b2926d44b926414c5e31dceb5755c97e1",
+    "AUDIO_RENDERED_WIRE.md": "c9c0d4d8ddc4d53601736d99ba00686421bf0ac6baab4fad02fd23edc44146ac",
+    "AUDIO_CONTROL_WIRE.md": "5f7de27e22005854c45bd76998a415e574ae291120d8194e95781dd3d894c05f"
+  },
+  "validation": "Independent review all12frozenfiles+4producersourcehashes+fixture match. Actualgenerator/replay pass; finalnormal229passed0failed6ignored;22newfocused/internal/allocator checks passed. Final3style-onlyClippy repairs pending; fullenginefinalacceptance/localIPCbinding notyetcomplete.",
+  "limits": "Realoffline f64renderer, nohardware/PAprotection/livehost; publicfixedprocessnoheap guarded. Strictnext48frame/240ramp,actualnanogain separatetargetmetadata. Localbinding/executable willfollowacceptedcheckpoint; no sourcealgorithmcopy.",
+  "corpus_format": "e03-rendered.json is synthetic evidence container with known_samples finite floats (not wire messages). Extract request/grant_request and corresponding pending/committed/grant_response/retry nodes forstrict wiredecoding; initial/final are rendered snapshots. Schema wirequantitiesremainintegers.",
+  "next": "DS04 realclient implementation nowauthorized againstexactacceptedinterface; actualserviceintegrationrequiredafterrootdeliversexecutable. Read AUDIO_RENDERED_WIRE fornonadmittedbackpressure vs authoritativeoutcomes."
+}

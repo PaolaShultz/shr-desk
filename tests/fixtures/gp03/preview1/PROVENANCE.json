@@ -1,0 +1,15 @@
+{
+  "accepted": true,
+  "utc": "2026-10-04T15:02:11.153917+00:00",
+  "provider": "GP03 actualpreview/renewcorpusamendment",
+  "source_checkpoint_sha256": "55b7b904552357fa41fa0fdebc536ed33710a7727e7e4c9af9370788fd5091ef",
+  "files": {
+    "AUDIO_CONTROL_WIRE.md": "61c0546c81bffe01bceb504c96af8cb2fbc419af179f6cbeed06a3725aafae56",
+    "AUDIO_RENDERED_WIRE.md": "cc8d0949bdb9c40d8f94f8a953f6e265fd993abdadf94c0f2ebde04c28eac72b",
+    "README.md": "3d51f68289c0550a207f4c230df91a1e5ef1cb80c88ff2e82e343014ce826f81",
+    "preview-flow.json": "0e6dca421c5e5a1f5812653d35ddbcf6a5abb5bcb2c0fe30b6969d624a877abb",
+    "manifest.json": "67f4ac609cfec1cc47fe8fb85a9b3812f7a69692aecaf94b6fc226e600ca01ac"
+  },
+  "validation": "ActualOfflineEngine generator+replay,independentstrictsemanticreview,producerhashesverified",
+  "limits": "No serviceexe yet. Realrenderedofflinecases only; no hardware/PA. ExactexistingGP03wire, nofieldchanges."
+}

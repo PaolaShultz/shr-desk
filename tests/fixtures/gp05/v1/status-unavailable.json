@@ -1,0 +1,19 @@
+{
+  "contract": "GP05-modules",
+  "version": 1,
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "module": "audio",
+  "epoch": "9",
+  "frame": "0",
+  "available": false,
+  "physical": "unverified",
+  "protection": "offline-unprotected",
+  "readiness": "unavailable",
+  "activity": "idle",
+  "source_fault": 0,
+  "configuration": null,
+  "libraries": {},
+  "fx": null,
+  "pa": null,
+  "recording": null
+}

@@ -1,0 +1,38 @@
+{
+  "state": "source-data-release-accepted",
+  "contract": "gigpies-role-lease:1",
+  "review": "root+independent Sol6.1-low R3",
+  "source": {
+    "src/roles/native.rs": "ac8f19cc58b5386bf1f617cbd7e080996582615e188a75e334a588e25b20d01e",
+    "src/bin/gigpies-role-lease.rs": "4ebb7442848dabdc47ae93db66f6c70dc801b5a94f022fc6d9335c13469c66d8",
+    "tests/gp09_native.rs": "04a83b0daaf522d8cf4a0497484b915c21bf3fc7bab2426a93055ace0f885d60"
+  },
+  "files": {
+    "docs/ROLE_BINDING.md": "a7c739278298cc0062c755cceb2c220de2a6c3954aa12be86d715357cad5588d",
+    "tests/fixtures/gp09/v1/process-corpus.json": "542e1fa6419e3ca5b30d6bf8312ab765fc4a6f9abde98ae622eb1c0e8e99bb11",
+    "tests/fixtures/gp09/v1/acquire-b.json": "ee874867a03d8f33c0d8c5a2f3897560575f1cdc2270380aae4b862c775641bb",
+    "tests/fixtures/gp09/v1/grant-a.json": "6e8d7ef14eed800a04a8a4474c5e0485ae61060bbc4a544af9ec753c5b9a61a7",
+    "tests/fixtures/gp09/v1/acquire-a.json": "9eded0c0a8151d5fad3c470338b0c5b72fc02d3f77c54ce172b7a53d4ffef2b6",
+    "tests/fixtures/gp09/v1/README.md": "131f2683d522669db93413735e866754d483530e0bb9aede3331bd50cd7519d1",
+    "tests/fixtures/gp09/v1/reclaim-a.json": "d16dcd37c2a416baeb3ce0daa8ead212f7fa9ec0c2aaf180baa94dabc82d7075",
+    "bin/gigpies-role-lease": "9206f9945ab4696175d27da87cb06588c2011802c7d3d0d0a06afc3596b94dc3"
+  },
+  "validation": {
+    "rust": 282,
+    "python": 38,
+    "focused": 18,
+    "clippy": "pass",
+    "release_process_replay": "pass",
+    "physical": "not run"
+  },
+  "publication": {
+    "provider_repository": "https://github.com/PaolaShultz/gigpies",
+    "provider_commit": "b3c9f640eef12175e61d140bf09b77e57bac8432",
+    "source": {
+      "src/roles/native.rs": "ac8f19cc58b5386bf1f617cbd7e080996582615e188a75e334a588e25b20d01e",
+      "src/bin/gigpies-role-lease.rs": "4ebb7442848dabdc47ae93db66f6c70dc801b5a94f022fc6d9335c13469c66d8",
+      "tests/gp09_native.rs": "afa00dfa1497b6dc339954d1e0c538fd38d5af07681e88556cec537efc96f289"
+    },
+    "note": "The original accepted handoff hashes and validation above are preserved; publication includes later integration regression tests. Role implementation source is unchanged."
+  }
+}

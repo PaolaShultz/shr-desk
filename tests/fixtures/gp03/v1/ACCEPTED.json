@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "reviewer": "root + independent audio reviewer",
+  "utc": "2026-10-04T14:27:46.799111+00:00",
+  "scope": "DATA/INTERFACE GP03-rendered:1 accepted forDS04 now. Fullenginefinalstyle+serviceacceptance remainseparate.",
+  "files": {
+    "README.md": "c339a1641311f24ab0fa39219f9cb64948f1b8ea69c64bb374fc343f49729331",
+    "manifest.json": "a91027e356ffc0517227592b1c2ab1d38de27d6f4425600270a515b10092087c",
+    "e03-rendered.json": "f41286ddabb915f6a18231e0de6e163b2926d44b926414c5e31dceb5755c97e1",
+    "AUDIO_RENDERED_WIRE.md": "c9c0d4d8ddc4d53601736d99ba00686421bf0ac6baab4fad02fd23edc44146ac",
+    "AUDIO_CONTROL_WIRE.md": "5f7de27e22005854c45bd76998a415e574ae291120d8194e95781dd3d894c05f"
+  },
+  "instructions": "ImplementpreparedDS04pass; rootdeliversrealservicebinaryafterlocalbindingreview. Sameleasecounting/retry/newcontext semantics mandatory. No mock-onlyintegrationcompletion."
+}
