@@ -301,12 +301,34 @@ impl AuthorityConnection for Transport {
         Transport::receive_available_until(self, deadline)
     }
 }
+pub(crate) enum BrainOperationError {
+    Admission(String),
+    Fault(String),
+}
+impl BrainOperationError {
+    pub(crate) fn message(self) -> String {
+        match self {
+            Self::Admission(s) | Self::Fault(s) => s,
+        }
+    }
+}
+impl From<String> for BrainOperationError {
+    fn from(value: String) -> Self {
+        Self::Fault(value)
+    }
+}
+impl From<&str> for BrainOperationError {
+    fn from(value: &str) -> Self {
+        Self::Fault(value.into())
+    }
+}
 #[derive(Default)]
 struct BrainProbes {
     next: u64,
     pending: std::collections::VecDeque<(u64, Instant, u64)>,
     matched: Option<(u64, Instant, crate::brain::Snapshot)>,
     invalid: bool,
+    first_fault: Option<String>,
 }
 pub struct Operator {
     brain_probes: BrainProbes,
@@ -430,7 +452,10 @@ impl Operator {
         {
             // Best effort bounded priority close, even when ordinary mutation is pending.
             // Heartbeats stop at the UI signal immediately; provider deadman is final bound.
-            let _ = self.close_brain();
+            if let Err(error) = self.close_brain() {
+                self.invalidate_brain_probes(&error);
+                return Err(error);
+            }
         }
         if self
             .guard
@@ -517,7 +542,7 @@ impl Operator {
             return Ok(true);
         }
         if tag.contract.as_deref() == Some("GP15-brain") {
-            let result = (|| {
+            let result: Result<(), String> = (|| {
                 let reply = crate::brain::decode_reply(bytes)?;
                 let snapshot = (reply.state == "snapshot")
                     .then(|| reply.snapshot.clone())
@@ -539,7 +564,7 @@ impl Operator {
                 Ok(())
             })();
             if let Err(e) = result {
-                self.invalidate_brain_probes();
+                self.invalidate_brain_probes(&e);
                 let _ = self.close_brain();
                 return Err(e);
             }
@@ -619,7 +644,10 @@ impl Operator {
         self.session.invalidate_device();
         Err("device observation deadline".into())
     }
-    fn invalidate_brain_probes(&mut self) {
+    fn invalidate_brain_probes(&mut self, reason: &str) {
+        self.brain_probes
+            .first_fault
+            .get_or_insert_with(|| reason.into());
         self.brain_probes.invalid = true;
         self.brain_probes.pending.clear();
         self.brain_probes.matched = None;
@@ -630,9 +658,9 @@ impl Operator {
     }
     fn send_brain_probe(&mut self, deadline: Instant) -> Result<u64, String> {
         if self.brain_probes.invalid || self.brain_probes.pending.len() >= 64 {
-            self.invalidate_brain_probes();
+            self.invalidate_brain_probes("Brain probe provenance/queue bound");
             let _ = self.close_brain();
-            return Err("Brain probe provenance/queue bound".into());
+            return Err(self.brain_probes.first_fault.clone().unwrap());
         }
         let id = self
             .brain_probes
@@ -646,7 +674,7 @@ impl Operator {
             .pending
             .push_back((id, sent, self.session.generation()));
         if let Err(e) = self.transport.send_frame_until(&bytes, deadline) {
-            self.invalidate_brain_probes();
+            self.invalidate_brain_probes(&e);
             let _ = self.close_brain();
             return Err(e);
         }
@@ -655,20 +683,62 @@ impl Operator {
     pub(crate) fn refresh_brain(&mut self) -> Result<(), String> {
         self.refresh_brain_until(Instant::now() + Duration::from_millis(250))
     }
+    fn finish_brain_operation(
+        &mut self,
+        result: Result<(), BrainOperationError>,
+    ) -> Result<(), String> {
+        match result {
+            Ok(()) => Ok(()),
+            Err(BrainOperationError::Admission(reason)) => {
+                // Keep all in-flight FIFO identities. A new controller generation
+                // cannot use their observations as its matched authorization.
+                self.cancel();
+                self.session.invalidate_brain_observation();
+                if let Some(signal) = &self.brain_signal {
+                    signal.release();
+                }
+                if let Err(error) = self.close_brain() {
+                    self.invalidate_brain_probes(&error);
+                    return Err(error);
+                }
+                Err(reason)
+            }
+            Err(BrainOperationError::Fault(reason)) => {
+                self.invalidate_brain_probes(&reason);
+                let _ = self.close_brain();
+                Err(self.brain_probes.first_fault.clone().unwrap())
+            }
+        }
+    }
+    fn brain_guard(&mut self) -> Result<(), BrainOperationError> {
+        if self
+            .brain_signal
+            .as_ref()
+            .is_some_and(|s| s.close.swap(false, std::sync::atomic::Ordering::AcqRel))
+        {
+            self.close_brain().map_err(BrainOperationError::Fault)?;
+        }
+        if self
+            .guard
+            .as_ref()
+            .is_some_and(|(g, n)| g.load(std::sync::atomic::Ordering::Acquire) != *n)
+        {
+            return Err(BrainOperationError::Admission(
+                "Brain input context revoked".into(),
+            ));
+        }
+        Ok(())
+    }
     fn refresh_brain_until(&mut self, deadline: Instant) -> Result<(), String> {
         let result = self.refresh_brain_inner(deadline);
-        if result.is_err() {
-            self.invalidate_brain_probes();
-            let _ = self.close_brain();
-        }
-        result
+        self.finish_brain_operation(result)
     }
-    fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), String> {
-        self.check_guard()?;
+    fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), BrainOperationError> {
+        self.brain_guard()?;
         let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
         for _ in 0..64 {
-            self.check_guard()?;
+            self.brain_guard()?;
             if Instant::now() >= deadline {
                 break;
             }
@@ -680,6 +750,9 @@ impl Operator {
                     let r = audio::decode_reply(&bytes)?;
                     self.telemetry(&r)?;
                 }
+                // Validate bytes/correlation before observing concurrent cancellation:
+                // a focus change must never hide malformed or partial wire data.
+                self.brain_guard()?;
                 // Another writer may advance the common revision between our
                 // Brain reply and its raw pair. Raw cannot regress: obtain a new
                 // read-only probe within this operation's original frame/time budget.
@@ -779,28 +852,56 @@ impl Operator {
     }
     /// Send one ephemeral edge; worker polls completion, never retries a hold/heartbeat.
     pub(crate) fn brain_edge(&mut self, kind: &str, generation: u64) -> Result<(), String> {
-        let result = (|| {
+        let result: Result<(), BrainOperationError> = (|| {
             let mut deadline = Instant::now() + Duration::from_millis(20);
             let body = if kind == "brain_heartbeat" {
                 // Receipt time is not source freshness. Match our own FIFO query,
                 // then bound the entire observation-to-send interval from BEFORE send.
-                self.refresh_brain_until(Instant::now() + Duration::from_millis(30))?;
-                self.check_guard()?;
-                let (body, send_deadline) =
-                    self.heartbeat_probe_body(generation, Instant::now())?;
+                self.refresh_brain_inner(Instant::now() + Duration::from_millis(30))?;
+                self.brain_guard()?;
+                let (body, send_deadline) = self
+                    .heartbeat_probe_body(generation, Instant::now())
+                    .map_err(BrainOperationError::Admission)?;
                 deadline = send_deadline;
                 body
             } else {
+                if kind == "brain_hold" {
+                    self.refresh_brain_inner(Instant::now() + Duration::from_millis(250))?;
+                    self.brain_guard()?;
+                    let snapshot = &self
+                        .brain_probes
+                        .matched
+                        .as_ref()
+                        .ok_or_else(|| {
+                            BrainOperationError::Admission("hold needs current probe".into())
+                        })?
+                        .2;
+                    if self.brain_signal.as_ref().is_some_and(|s| !s.live())
+                        || snapshot.held_generation.is_some()
+                        || snapshot
+                            .hold_generation_counter
+                            .parse::<u64>()
+                            .ok()
+                            .and_then(|n| n.checked_add(1))
+                            != Some(generation)
+                    {
+                        return Err(BrainOperationError::Admission(
+                            "hold edge/context no longer current".into(),
+                        ));
+                    }
+                    deadline = Instant::now() + Duration::from_millis(20);
+                }
                 json!({"generation":generation.to_string()})
             };
-            let r = self.session.begin(kind, body, self.now())?;
-            self.transport.send_frame_until(&r.encode()?, deadline)
+            let r = self
+                .session
+                .begin(kind, body, self.now())
+                .map_err(BrainOperationError::Admission)?;
+            self.transport
+                .send_frame_until(&r.encode()?, deadline)
+                .map_err(BrainOperationError::Fault)
         })();
-        if result.is_err() && kind == "brain_heartbeat" {
-            self.invalidate_brain_probes();
-            let _ = self.close_brain();
-        }
-        result
+        self.finish_brain_operation(result)
     }
     pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
         let result = self.refresh_structural_inner();
@@ -951,6 +1052,13 @@ impl Operator {
         ))
     }
     pub(crate) fn refresh(&mut self) -> Result<(), String> {
+        self.refresh_classified()
+            .map_err(BrainOperationError::message)
+    }
+    pub(crate) fn refresh_classified(&mut self) -> Result<(), BrainOperationError> {
+        if let Some(reason) = &self.brain_probes.first_fault {
+            return Err(BrainOperationError::Fault(reason.clone()));
+        }
         // One total budget covers queued replies, a final's required readback,
         // solicited frames and decoding. Never replay a mutation here.
         let deadline = Instant::now() + Duration::from_millis(250);
@@ -960,7 +1068,7 @@ impl Operator {
         let mut continuation = false;
         let mut first_batch = true;
         loop {
-            self.check_guard()?;
+            self.brain_guard()?;
             if Instant::now() >= deadline {
                 return Err("snapshot deadline/queue bound".into());
             }
@@ -1019,6 +1127,7 @@ impl Operator {
                     return Err("unrelated snapshot session".into());
                 }
             }
+            self.brain_guard()?;
             let brain_observed = self.session.brain_age(self.now()).is_some();
             if Instant::now() < deadline
                 && self.session.fresh(self.now())
@@ -1046,7 +1155,7 @@ impl Operator {
                 }
                 requested = Some(revisions);
             }
-            self.check_guard()?;
+            self.brain_guard()?;
             if Instant::now() >= deadline {
                 return Err("snapshot deadline/queue bound".into());
             }
@@ -2440,6 +2549,196 @@ mod brain_fifo_tests {
                 .contains("unknown Brain reply correlation")
         );
         assert!(op.session.pending.is_some());
+    }
+    struct InterruptedRead {
+        replies: VecDeque<Result<Vec<u8>, String>>,
+        signal: Option<Arc<crate::brain::HoldSignal>>,
+        guard: Option<Arc<std::sync::atomic::AtomicU64>>,
+        sent: Arc<Mutex<Vec<Value>>>,
+    }
+    impl AuthorityConnection for InterruptedRead {
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            self.sent
+                .lock()
+                .unwrap()
+                .push(serde_json::from_slice(bytes).unwrap());
+            Ok(())
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            self.receive_available()
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            if let Some(signal) = self.signal.take() {
+                signal.release();
+            }
+            if let Some(guard) = self.guard.take() {
+                guard.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            }
+            self.replies.pop_front().transpose()
+        }
+    }
+    #[test]
+    fn release_during_valid_probe_does_not_poison_later_readback_or_send_heartbeat() {
+        let (mut op, _, raw) = setup();
+        let signal = Arc::new(crate::brain::HoldSignal::default());
+        signal.press();
+        op.brain_signal(signal.clone());
+        let brain = op.session.brain.as_mut().unwrap();
+        brain.held_generation = Some("1".into());
+        brain.hold_generation_counter = "1".into();
+        brain.hold_deadline_ms = Some("150".into());
+        let reply = probe_reply(&op, 48);
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(InterruptedRead {
+            replies: VecDeque::from([Ok(serde_json::to_vec(&reply).unwrap())]),
+            signal: Some(signal.clone()),
+            guard: None,
+            sent: sent.clone(),
+        });
+        assert!(op.brain_edge("brain_heartbeat", 1).is_err());
+        assert!(!op.brain_probes.invalid);
+        assert!(op.brain_probes.matched.is_none());
+        assert!(
+            sent.lock()
+                .unwrap()
+                .iter()
+                .all(|r| r["kind"] != "heartbeat")
+        );
+        // The real provider settles priority close before a later hold. Supply
+        // its actual correlated final and matching raw revision, not just a
+        // heldNone snapshot (which intentionally cannot settle the close lane).
+        let close_request = op.session.brain_close_request(op.now()).unwrap();
+        let (close_pending, close_final) = replies(&op, &close_request, false);
+        let mut closed = probe_reply(&op, 96);
+        closed["revision"] = json!("1");
+        closed["snapshot"] = close_final["snapshot"].clone();
+        let mut next_press = closed.clone();
+        next_press["snapshot"]["frame"] = json!("144");
+        op.transport = Box::new(InterruptedRead {
+            replies: VecDeque::from([
+                Ok(serde_json::to_vec(&close_pending).unwrap()),
+                Ok(serde_json::to_vec(&close_final).unwrap()),
+                Ok(serde_json::to_vec(&raw_at(&raw, "1", "96")).unwrap()),
+                Ok(serde_json::to_vec(&closed).unwrap()),
+                Ok(serde_json::to_vec(&next_press).unwrap()),
+            ]),
+            signal: None,
+            guard: None,
+            sent: sent.clone(),
+        });
+        op.refresh_brain().unwrap();
+        assert!(op.session.brain_fresh(op.now()));
+        assert!(op.session.brain.as_ref().unwrap().held_generation.is_none());
+        op.session.input_released();
+        signal.press(); // New explicit user gesture, never automatic rearm.
+        op.brain_edge("brain_hold", 2).unwrap();
+        let sent = sent.lock().unwrap();
+        assert_eq!(sent.iter().filter(|r| r["kind"] == "hold").count(), 1);
+        assert_eq!(
+            sent.iter()
+                .filter(|r| r["kind"] == "brain_snapshot")
+                .count(),
+            3
+        );
+        assert_eq!(sent.last().unwrap()["body"]["generation"], "2");
+    }
+    #[test]
+    fn revoked_context_preserves_fifo_then_requires_new_generation_probe() {
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+        op.guard(guard.clone(), 1);
+        op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        let old = probe_reply(&op, 48);
+        guard.store(2, std::sync::atomic::Ordering::Release);
+        assert!(op.refresh_brain().is_err());
+        assert!(!op.brain_probes.invalid);
+        assert_eq!(op.brain_probes.pending.len(), 1);
+        op.guard(guard, 2);
+        peer.push(old);
+        peer.push(probe_reply(&op, 96));
+        op.refresh_brain().unwrap();
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, 2);
+        assert!(op.brain_probes.pending.is_empty());
+    }
+    #[test]
+    fn generic_read_classifies_only_pure_guard_cancellation_as_recoverable() {
+        for malformed in [false, true] {
+            let (mut op, _, raw) = setup();
+            let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+            op.guard(guard.clone(), 1);
+            let bytes = if malformed {
+                b"{broken".to_vec()
+            } else {
+                serde_json::to_vec(&raw_at(&raw, "0", "48")).unwrap()
+            };
+            op.transport = Box::new(InterruptedRead {
+                replies: VecDeque::from([Ok(bytes)]),
+                signal: None,
+                guard: Some(guard.clone()),
+                sent: Arc::new(Mutex::new(Vec::new())),
+            });
+            let result = crate::frontend::refresh_worker_context(&mut op, &guard, 1);
+            assert_eq!(result.as_ref().is_ok_and(|admitted| !admitted), !malformed);
+            if malformed {
+                assert!(result.is_err());
+            }
+            assert!(
+                op.session.lease_deadline().is_some(),
+                "classification leaves owner retirement to worker"
+            );
+            if !malformed {
+                op.cancel(); // actual worker's next-generation transition
+                op.guard(guard, 2);
+                let peer = FakeAuthorityConnection::default();
+                probe_connection(&mut op, &peer, false);
+                peer.push(probe_reply(&op, 96));
+                op.refresh_brain().unwrap();
+                assert!(op.session.brain_fresh(op.now()));
+            }
+        }
+    }
+    #[test]
+    fn cancellation_cannot_mask_malformed_or_partial_probe_and_first_fault_persists() {
+        for response in [
+            Ok(b"{broken".to_vec()),
+            Err("partial frame deadline".to_string()),
+        ] {
+            let (mut op, _, _) = setup();
+            let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+            op.guard(guard.clone(), 1);
+            op.transport = Box::new(InterruptedRead {
+                replies: VecDeque::from([response]),
+                signal: None,
+                guard: Some(guard),
+                sent: Arc::new(Mutex::new(Vec::new())),
+            });
+            let first = op.refresh_brain().unwrap_err();
+            assert!(op.brain_probes.invalid);
+            assert_eq!(op.brain_probes.first_fault.as_deref(), Some(first.as_str()));
+            assert_eq!(
+                op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+                    .unwrap_err(),
+                first
+            );
+        }
+    }
+    #[test]
+    fn priority_close_send_failure_remains_terminal_with_revoked_context() {
+        let (mut op, peer, _) = setup();
+        op.session.brain.as_mut().unwrap().held_generation = Some("1".into());
+        let signal = Arc::new(crate::brain::HoldSignal::default());
+        signal.press();
+        signal.release();
+        op.brain_signal(signal);
+        let guard = Arc::new(std::sync::atomic::AtomicU64::new(2));
+        op.guard(guard, 1);
+        probe_connection(&mut op, &peer, true);
+        let error = op.check_guard().unwrap_err();
+        assert_eq!(error, "partial probe send");
+        assert!(op.brain_probes.invalid);
+        assert_eq!(op.brain_probes.first_fault.as_deref(), Some(error.as_str()));
     }
     struct CurrentRevisionRenew {
         raw: Value,

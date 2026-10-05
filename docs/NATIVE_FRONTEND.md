@@ -100,7 +100,14 @@ lease and original operation deadline; it never rebases an existing request. Raw
 telemetry has no query ID, so same-revision raw pairing is not claimed as proof of
 a particular raw query response. Generic sessions without Brain retain their
 existing renewal observation behavior. Any terminal renewal refusal is reported
-as a failure with the lease unchanged, including a revision race after the probe.
+as a failure with the lease unchanged, including a revision race after the probe. Ordinary key-up or context cancellation
+is classified separately from wire faults: it closes the hold, discards matched
+authorization and retains generation-tagged outstanding probe identities. A later
+explicit gesture requires a new current-generation probe; no hold is replayed.
+The worker preserves a healthy connection on a typed guard cancellation and
+performs its normal new-generation transition before further admission. Malformed,
+unmatched, partial or failed I/O remains terminal even during cancellation; the
+first provenance fault is retained instead of overwritten by later poll errors.
 Brain snapshot queries carry bounded local FIFO probe IDs and timestamps taken
 before sending. Every strictly validated snapshot reply consumes one probe, even
 when its frame/revision equals the cached state; pending/final replies consume none.

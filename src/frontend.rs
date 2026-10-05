@@ -667,7 +667,16 @@ fn worker(
             if o.session.structural_final.is_some() {
                 structural_final = o.session.structural_final.clone();
             }
-            if let Err(e) = o.refresh() {
+            if generation.load(Ordering::Acquire) != g {
+                // The next loop cancels the old context and installs its new guard.
+                // A healthy read-only connection/lease survives ordinary focus loss.
+                continue;
+            }
+            let refreshed = refresh_worker_context(o, &generation, g);
+            if matches!(refreshed, Ok(false)) {
+                continue;
+            }
+            if let Err(e) = refreshed {
                 status = format!("STALE/UNCERTAIN: {e}; F5 reconnect, no replay");
                 review = None;
                 o.cancel();
@@ -718,6 +727,24 @@ fn worker(
         let _ = o.close_brain();
     }
     // Persistent mixer holds remain engine-owned; only ephemeral talkback closes.
+}
+
+/// False means a pure guard cancellation: the worker retains the connection and
+/// performs its ordinary generation transition before any next admission.
+pub(crate) fn refresh_worker_context(
+    operator: &mut crate::local_audio::Operator,
+    generation: &AtomicU64,
+    expected: u64,
+) -> Result<bool, String> {
+    match operator.refresh_classified() {
+        Ok(()) => Ok(true),
+        Err(crate::local_audio::BrainOperationError::Admission(_))
+            if generation.load(Ordering::Acquire) != expected =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(error.message()),
+    }
 }
 
 fn confirmed_lease_remaining(operator: &Operator) -> Option<u64> {
