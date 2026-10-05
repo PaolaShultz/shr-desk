@@ -17,3 +17,5 @@ pub mod raster;
 pub mod roles;
 
 pub mod modules;
+
+pub mod processing;

@@ -1,0 +1,16 @@
+{
+  "contract_sha256": "939ea90ec38924c750b0d7f70624ed540c412f8859057479d6e206db3bf5f9b1",
+  "provider_base": "b2442dd2fe76a1d652b9ccde8ed3ffdbdb0d6d34",
+  "fixture_version": "gp07/v1",
+  "review": "coordinator plus independent Astra-low schema/value acceptance; producer replay passed; source candidate final validation pending",
+  "files": {
+    "backpressure.json": "0532ba70df566f1f8c87faa769e19c7fddbcab4ecebfbd4807971e311ca0c8d2",
+    "ready-reply.json": "978fa21b4f695973a7cd6367dc55fff2dad25c80e14a8bfc125365f1890b1ccd",
+    "set-final.json": "ffde663b1e7bbbdd3c0c35a2c9ef0071269783e9ba938ef6fa0b4b82908b3c4e",
+    "set-pending.json": "b28a7f1b5f77ad8c09b13f495e6cf3a1c8b97fc16da19f166a2ab0eee09fd3b1",
+    "set-request.json": "fc9f5f3e81c7de28e1d636471724ecbcc81281884cf6e079d3742d04f104ad26",
+    "snapshot-reply.json": "8b293485551077599f9365e6ec267f5a2c4c4bd45d4c698da938b667414a1c64",
+    "snapshot-request.json": "7f72014d45e0044adf3452fd8f1a483bedd35ab153357404ba96f602c4398c93",
+    "stale-revision.json": "1fc782fe1775eba9176d9baddeaea98049070e38a86c3b23d1e4d94a3f6aa97d"
+  }
+}

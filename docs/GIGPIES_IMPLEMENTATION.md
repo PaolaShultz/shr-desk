@@ -297,3 +297,14 @@ commands, counts and separate executable hashes are retained in the handoff.
 Root owns source handback, final joint demonstration, commits and publication.
 No hardware/controller/window/LED verification, physical protection or writable
 REC/PA/FX control completion is claimed. Existing source and old evidence remain.
+
+### Task0012 GP07 consumer extension
+
+The processing increment extends the existing real provider frontend and shared
+GP03 authority session; it does not add DSP or another simulator. Accepted producer
+bytes and provenance live in `tests/fixtures/gp07/v1`; the explicit probe and full
+Channel workflow are documented in [Native frontend](NATIVE_FRONTEND.md).
+Desk owns operator actions/readback/presentation, while the GigPies host owns
+actual output samples, raw REC/analysis preservation and downstream FX/PA order.
+The bounded compiled external driver supplies the real keyboard and injected
+controller actions to that host. Current validation/limits are in [Status](STATUS.md).

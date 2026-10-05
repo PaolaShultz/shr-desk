@@ -170,3 +170,73 @@ confirmed revision change. With the exact CPU ICD environment above, feature
 `native` also checks the real Health scene against Vulkan readback.
 This passed against the accepted owner-library graph; physical protection,
 controller/display behavior and signal-meter acceptance remain unverified.
+
+## GP07 channel processing (task0012)
+
+The real frontend supports the accepted `GP07-processing:1` extension with an
+explicit `--processing` option on `--native`, `--headless` or `--offscreen`.
+Programmatic callers use `Frontend::enable_processing()`. This opt-in protects
+legacy providers that close a connection on an unknown contract: ordinary GP03
+attachment sends no GP07 query. Unsupported or failed probes remain unavailable;
+start without the option for a legacy provider. A valid processing snapshot must
+prove capability before any processing editor is available.
+
+GP07 uses the **same Operator, Unix connection, Session, writer lease, request-ID
+counter and pending transaction** as GP03. It never creates a processing writer
+or a second mutable connection. Optional GP05 health retains its existing separate
+read-only worker. Complete channel replacement requires a fresh FOH grant, fresh
+matching raw/processing revisions, no fault and all processing transitions ready.
+A successful final confirms boundary application; it does not claim the 240-frame
+crossfade is finished. Backpressure has no admission, consumes no ID and requires
+a new explicit Apply after fresh ready state. Cached or unrelated processing replies
+cannot refresh observed state or complete another contract's request.
+Read-only processing polls retain raw telemetry coalescing while waiting for the
+processing reply, so old GP03 observations cannot starve control/readback deadlines.
+A missed bounded observation becomes stale and later read-only polls may recover;
+there is no mutation replay. An explicit unsupported response disables the probe.
+
+On **F2 Channel**, **E** opens a detached complete draft from the confirmed target.
+**U/I** select the previous/next parameter; **J/K** adjust one accepted step, and
+**N/P** adjust 100 steps. Either adjustment toggles a selected bypass. For direct
+entry, type a decimal number in the displayed units and press **Enter** to accept
+that local field: Hz, dB, Q, ratio or milliseconds; bypass uses `0` enabled / `1`
+bypassed. **Backspace** edits the entry. This Enter does not apply processing.
+**F4 Apply** opens the complete displayed review, **Enter** confirms after that
+review has been presented, and **Esc Cancel** discards the draft or review.
+Keyboard and injected `Action::Processing*` controller gestures pass through the
+same bounded frontend action path and the same authority session. No physical
+controller is opened.
+
+The page separately labels confirmed settled config, committed target and unsent
+local draft. During a transition, output is a blend; neither endpoint is labelled
+as the instantaneous output. GR is positive detector attenuation excluding makeup,
+not an input/output meter. It is labelled bypassed, transitioning, stale or faulted
+when unavailable. All three EQ bands, compressor parameters, explicit makeup and
+both independent bypasses are editable. Existing fader/pan/mute/hold/mode controls
+remain available outside a processing draft. Selection/page/bank/revision changes,
+role loss, focus/device loss, overflow and reconnect revoke drafts and reviews.
+Reconnect uses fresh read-only authority and never replays settings.
+
+Producer fixtures are pinned in `tests/fixtures/gp07/v1/ACCEPTED.json`. Normal
+`gp07_codec` tests exercise exact bytes, strict domains, shared authority,
+nonadmission and late/mismatched replies. UI regressions protect numeric entry,
+keyboard/controller parity, layout and context loss. These fixture checks alone
+are not actual-provider or audio acceptance.
+
+Two explicit ignored tests in `tests/gp07_frontend.rs` use the actual frontend:
+
+- `gp07_actual_release_provider`: `SHR_DESK_GP07` names an independently verified
+  release provider. It launches and joins only its own temporary private service.
+- `gp07_external_driver`: `GP07_EXTERNAL_ENDPOINT` names an already running private
+  real LocalAudio endpoint, show `11111111-1111-4111-8111-111111111111`, epoch `100`.
+  The host invokes the compiled test executable with
+  `--ignored --exact gp07_external_driver --nocapture`; no Cargo is needed on the
+  host. It edits channel 1 through keyboard and channel 2 through injected semantic
+  actions, checks confirmed readback/visible scene, cancels context, reconnects
+  without replay, and drops Frontend within 20 seconds. The host owns sample,
+  REC/analysis and module-order assertions. `GP07_DRIVER_EVIDENCE` optionally names
+  the small JSON result. `GP07_SCENE_EVIDENCE` optionally names a single PPM scene.
+  No REC authority is requested by Desk.
+
+Use the same parent-held nonblocking build lock and explicit CPU ICD environment
+for native integration. Actual validation status is recorded in [Status](STATUS.md).

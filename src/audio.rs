@@ -25,7 +25,7 @@ pub struct Context {
     pub expected_revision: Option<String>,
 }
 impl Context {
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         if !provider::uuid(&self.show_id) || self.module != "audio" {
             return fail("show/module");
         }
@@ -476,7 +476,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     }
     Ok(r)
 }
-fn validate_context_value(v: &Value) -> Result<(), String> {
+pub(crate) fn validate_context_value(v: &Value) -> Result<(), String> {
     provider::keys(
         v,
         &[
@@ -510,7 +510,28 @@ impl Request {
     pub fn encode(&self) -> Result<Vec<u8>, String> {
         self.context.validate()?;
         let c = &self.context;
-        let v = json!({"contract":"C-AUDIO","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
+        if self.kind.starts_with("processing_") && c.epoch == "0" {
+            return fail("processing epoch must be nonzero");
+        }
+        if self.kind == "processing_snapshot" {
+            provider::keys(&self.body, &[])?;
+            if c.writer.is_some() {
+                return fail("processing snapshot must be read-only");
+            }
+        } else if self.kind == "processing_set" {
+            crate::processing::validate_body(&self.body)?;
+            if c.writer.is_none() || c.lease.is_none() {
+                return fail("processing mutation authority");
+            }
+        } else if self.kind.starts_with("processing_") {
+            return fail("unknown processing request");
+        }
+        let contract = if self.kind.starts_with("processing_") {
+            "GP07-processing"
+        } else {
+            "C-AUDIO"
+        };
+        let v = json!({"contract":contract,"version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -532,6 +553,7 @@ pub struct Pending {
     pub state: PendingState,
     pub ticket: Option<String>,
     timing: Option<(String, u64)>,
+    observed_frame: u64,
     retry: usize,
 }
 #[derive(Clone, Debug)]
@@ -550,6 +572,8 @@ pub struct Session {
     next_id: u64,
     pub snapshot: Option<RenderedSnapshot>,
     receipt: Option<u64>,
+    pub processing: Option<crate::processing::Snapshot>,
+    processing_receipt: Option<u64>,
     lease: Option<Lease>,
     pub pending: Option<Pending>,
     pub last_result: String,
@@ -572,6 +596,8 @@ impl Session {
             next_id: 1,
             snapshot: None,
             receipt: None,
+            processing: None,
+            processing_receipt: None,
             lease: None,
             pending: None,
             last_result: "read-only; snapshot required".into(),
@@ -602,6 +628,12 @@ impl Session {
         if s.authority.show_id != self.show || provider::counter(&s.authority.epoch)? != self.epoch
         {
             return fail("wrong snapshot session");
+        }
+        if self.processing.as_ref().is_some_and(|p| {
+            provider::counter(&s.authority.revision).unwrap()
+                < provider::counter(&p.revision).unwrap()
+        }) {
+            return Ok(false);
         }
         if let Some(old) = &self.snapshot
             && (provider::counter(&s.authority.revision)?
@@ -646,6 +678,7 @@ impl Session {
         self.pending = None;
         self.lease = None;
         self.receipt = None;
+        self.processing_receipt = None;
         self.needs_snapshot = true;
         self.context_changed();
         self.last_result = "disconnected; pending intent discarded, mix unknown".into();
@@ -657,6 +690,7 @@ impl Session {
         self.disconnect();
         if self.epoch != epoch {
             self.snapshot = None;
+            self.processing = None;
         }
         self.epoch = epoch;
         self.writer = writer.into();
@@ -681,6 +715,142 @@ impl Session {
                 .lease
                 .as_ref()
                 .is_some_and(|l| now >= l.renew_at && now < l.deadline)
+    }
+    pub fn processing_request(&self) -> Request {
+        let mut request = self.snapshot_request();
+        request.kind = "processing_snapshot".into();
+        request
+    }
+    pub fn ingest_processing(
+        &mut self,
+        s: crate::processing::Snapshot,
+        now: u64,
+    ) -> Result<bool, String> {
+        s.validate()?;
+        if s.show_id != self.show || provider::counter(&s.epoch)? != self.epoch {
+            return fail("wrong processing session");
+        }
+        if let Some(old) = &self.processing
+            && (provider::counter(&s.revision)? < provider::counter(&old.revision)?
+                || provider::counter(&s.sequence)? <= provider::counter(&old.sequence)?
+                || provider::counter(&s.frame)? < provider::counter(&old.frame)?)
+        {
+            return Ok(false);
+        }
+        if let Some(raw) = &self.snapshot
+            && provider::counter(&s.revision)? < provider::counter(&raw.authority.revision)?
+        {
+            return Ok(false);
+        }
+        self.processing = Some(s);
+        self.processing_receipt = Some(now);
+        Ok(true)
+    }
+    pub fn processing_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .processing_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self.processing.as_ref().is_some_and(|p| {
+                !p.faulted
+                    && p.channels.iter().all(|c| c.ready)
+                    && self
+                        .snapshot
+                        .as_ref()
+                        .is_some_and(|s| s.authority.revision == p.revision)
+            })
+    }
+    pub fn processing_age(&self, now: u64) -> Option<u64> {
+        self.processing_receipt.map(|t| now.saturating_sub(t))
+    }
+    pub fn accept_processing(
+        &mut self,
+        reply: crate::processing::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        let r = crate::processing::decode_reply(
+            &serde_json::to_vec(&reply).map_err(|e| e.to_string())?,
+        )?;
+        let mut candidate = self.clone();
+        candidate.accept_processing_validated(r, now)?;
+        *self = candidate;
+        Ok(())
+    }
+    fn accept_processing_validated(
+        &mut self,
+        r: crate::processing::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        let p = self
+            .pending
+            .as_ref()
+            .ok_or("no pending processing request")?;
+        if p.request.kind != "processing_set" || p.request.context != r.context {
+            return fail("uncorrelated processing reply");
+        }
+        if r.effective_frame
+            .as_deref()
+            .is_some_and(|f| provider::counter(f).unwrap() <= p.observed_frame)
+        {
+            return fail("processing boundary not after observation");
+        }
+        if let Some(snapshot) = &r.snapshot {
+            let input = p.request.body["input"]
+                .as_str()
+                .ok_or("processing pending input")?;
+            let expected = crate::processing::decode_config(&p.request.body["config"])?;
+            if snapshot
+                .channels
+                .iter()
+                .find(|c| c.input == input)
+                .is_none_or(|c| c.target != expected)
+            {
+                return fail("processing applied target differs from reviewed request");
+            }
+        }
+        if let Some(ticket) = &p.ticket
+            && r.reason.is_none()
+            && (r.ticket.as_ref() != Some(ticket)
+                || p.timing.as_ref()
+                    != r.effective_frame
+                        .as_ref()
+                        .map(|f| (f.clone(), 240))
+                        .as_ref())
+        {
+            return fail("processing pending/final timing mismatch");
+        }
+        if r.state == "backpressure" {
+            if p.ticket.is_some() {
+                return fail("pressure after admission");
+            }
+            // Nonadmission consumes no ID. Do not replay an edit automatically.
+            self.next_id = provider::counter(p.request.context.request_id.as_deref().unwrap())?;
+            self.pending = None;
+            self.last_result =
+                "processing backpressure; wait for fresh ready state and Apply again".into();
+            return Ok(());
+        }
+        if r.state == "pending" {
+            let p = self.pending.as_mut().unwrap();
+            p.ticket = r.ticket;
+            p.timing = r.effective_frame.map(|f| (f, 240));
+            p.state = PendingState::Accepted;
+            return Ok(());
+        }
+        if let Some(snapshot) = r.snapshot {
+            self.ingest_processing(snapshot, now)?;
+        }
+        self.last_result = match r.reason {
+            Some(reason) => format!("processing REFUSED {reason}; confirmed settings unchanged"),
+            None => format!(
+                "processing_set applied revision {}; crossfade may still be active",
+                r.revision
+            ),
+        };
+        self.pending = None;
+        self.needs_snapshot = true;
+        self.preview = None;
+        Ok(())
     }
     pub fn begin(&mut self, kind: &str, body: Value, now: u64) -> Result<Request, String> {
         if self.pending.is_some() {
@@ -724,12 +894,19 @@ impl Session {
             state: PendingState::Sent,
             ticket: None,
             timing: None,
+            observed_frame: provider::counter(&self.snapshot.as_ref().unwrap().frame)?,
             retry: 0,
         });
         Ok(request)
     }
     fn validate_command(&self, kind: &str, body: &Value, now: u64) -> Result<(), String> {
         match kind {
+            "processing_set" => {
+                if self.scope != "foh" || !self.processing_fresh(now) {
+                    return fail("fresh ready GP07 processing and FOH lease required");
+                }
+                crate::processing::validate_body(body)
+            }
             "grant" => provider::keys(body, &["scope"]),
             "renew" | "release" => provider::keys(body, &[]),
             "set" | "propose" | "preview_release" => {
@@ -843,6 +1020,9 @@ impl Session {
     }
     fn accept_validated(&mut self, r: Reply, now: u64) -> Result<(), String> {
         let p = self.pending.as_ref().ok_or("no pending request")?;
+        if p.request.kind.starts_with("processing_") {
+            return fail("cross-contract reply");
+        }
         if r.context != p.request.context {
             return fail("reply identity differs; pending retained");
         }

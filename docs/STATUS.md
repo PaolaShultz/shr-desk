@@ -1,7 +1,8 @@
 # Status and next steps
 
-Checkpoint: 2026-10-04. Source publication belongs to the task0009 coordinator;
-worker source remains uncommitted. No hardware verification or binary release.
+Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
+Task0012 processing development is local pending coordinator review/publication.
+No hardware verification or binary release.
 
 ## Implemented and offline-validated
 
@@ -231,3 +232,52 @@ source commit/push or binary distribution occurred. Physical devices/windows,
 HDMI/MIDI/LED behavior, audio/acoustic safety, remote production control and
 shared-load/timing acceptance remain unverified. Historical/media/exhaustive/long
 and hardware classes were intentionally skipped.
+
+## Task0012 GP07 processing — accepted software chain, build handoff
+
+Implemented on the real frontend: strict GP07 processing readback and complete
+Channel EQ/compressor editing, explicit Apply/displayed review/confirm/Cancel,
+independent bypasses, settled/target/draft/readiness/GR presentation, and shared
+keyboard/injected-controller actions. GP07 shares GP03's connection, writer, lease,
+request IDs and pending correlation. Explicit probing preserves legacy GP03 defaults.
+Selection, revision, role and reconnect fences discard local intent without replay.
+
+All eight accepted producer fixtures were hash-verified before consumption;
+provenance is in `tests/fixtures/gp07/v1/ACCEPTED.json`. Final Pi4 default normal
+validation passes **111 tests** (five explicit integrations ignored), formatting
+and warning-denied Clippy for both feature sets. The prior candidate passed 111
+native normal tests before two paired-refresh regressions were added. The final
+113-test native normal rerun and both release builds transfer to the coordinator's
+warm Pi5 build slot under the bounded worker handoff; they are not claimed complete
+by this checkpoint. The two added regressions pass, covering an aged observation
+refresh and refusal to rebase a queued review or confirm a changed revision.
+
+The actual release-provider workflow passed in 3.34 seconds, including positive GR,
+two channel edits through keyboard/injected semantic actions, complete displayed
+reviews and reconnect without replay. The paired-refresh native workflow also
+passed in 3.21 seconds with exact CPU lavapipe readback of the actual Channel scene.
+The actual 1920×1080 layout was independently inspected and accepted. The final
+native workflow passed in 3.32 seconds against the hash-verified published GigPies
+provider at `874cff2dede9ae19bc0b19dc4431d412e490e6b4`, including CPU lavapipe
+readback. Final driver/source identities are retained in the private handoff.
+
+The coordinator and independent Astra-low reviewer accepted the joint real
+operator/provider/sample chain on 2026-10-05. Driver SHA256
+`3b597e9eaa7906558ce8b2a8b9fbe650eebf11a16dd67c78b6d47f47d073f24d`
+ran against the actual host: 1,693 FOH blocks matched eight isolated slot0 references
+exactly; channel boundaries were 5088/19632; monitors remained bit-exact; actual FX
+wet+dry followed by PA matched; raw analysis retained 3/55/111 windows; eight PCM24
+stems of 80,976 frames covered the complete driver interval without gaps, drops or
+faults. Revision 2/settings persisted after reconnect and lease expiry. The final
+rebuilt driver and published provider passed the coordinator's exact-artifact rerun
+in 8.64 seconds, including positive GR and stable post-exit revision 2. These are synthetic
+software signal/authority observations, not physical or listening acceptance.
+
+Runtime fixes preserve raw GP03 telemetry coalescing while awaiting GP07 replies;
+obsolete observations had otherwise consumed the 250 ms readback budget. A missed
+read-only observation can recover through later polls without replaying a mutation.
+Review and confirmation obtain fresh paired observations, retaining the original
+revision/generation through every refresh and renewal. Strict decoder and bounded
+driver review findings were repaired; exact producer fixtures remain unchanged.
+The coordinator owns final validation and source publication. No worker source push,
+public binary release, window, physical endpoint or host service change occurred.

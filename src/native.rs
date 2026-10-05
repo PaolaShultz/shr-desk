@@ -377,9 +377,11 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::PageUp => "PageUp",
             NamedKey::PageDown => "PageDown",
             NamedKey::Enter => "Enter",
+            NamedKey::Backspace => "Backspace",
             NamedKey::Escape => "Esc",
             NamedKey::F1 => "F1",
             NamedKey::F2 => "F2",
+            NamedKey::F4 => "F4",
             NamedKey::F5 => "F5",
             NamedKey::F6 => "F6",
             NamedKey::F10 => "F10",
@@ -390,11 +392,21 @@ fn key_name(key: &Key) -> Option<String> {
     })
 }
 pub fn run(config: Config, role: Option<crate::roles::Config>) -> Result<(), String> {
+    run_with_processing(config, role, false)
+}
+pub fn run_with_processing(
+    config: Config,
+    role: Option<crate::roles::Config>,
+    processing: bool,
+) -> Result<(), String> {
     let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
     let mut front = Frontend::new(config);
     front.require_role();
     if let Some(role) = role {
         front.attach_role(role);
+    }
+    if processing {
+        front.enable_processing()?;
     }
     let mut app = App {
         front,

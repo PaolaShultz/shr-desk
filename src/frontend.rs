@@ -29,12 +29,26 @@ pub struct Config {
 }
 #[derive(Clone, Debug)]
 pub enum Operation {
+    EnableProcessing,
+    ReviewProcessing {
+        input: String,
+        config: crate::processing::Config,
+    },
     Grant,
     ReleaseWriter,
-    Set { target: Value, value: Value },
-    ReviewSet { target: Value, value: Value },
+    Set {
+        target: Value,
+        value: Value,
+    },
+    ReviewSet {
+        target: Value,
+        value: Value,
+    },
     Preview(Value),
-    Mode { mode: String, bounds: Value },
+    Mode {
+        mode: String,
+        bounds: Value,
+    },
     Confirm(u64),
     Cancel,
     InputReleased,
@@ -50,6 +64,9 @@ struct Request {
 pub struct Update {
     pub generation: u64,
     pub snapshot: Option<RenderedSnapshot>,
+    pub processing: Option<crate::processing::Snapshot>,
+    pub processing_age_ms: Option<u64>,
+    pub processing_status: String,
     pub fresh: bool,
     pub status: String,
     pub review: Option<(u64, String)>,
@@ -133,6 +150,10 @@ fn worker(
     let mut serial = 0u64;
     let mut review: Option<(u64, String)> = None;
     let mut status = "provider unavailable; read-only attach".to_string();
+    let mut processing_requested = false;
+    let mut processing_enabled = false;
+    let mut processing_status = "unavailable; GP07 probe not enabled".to_string();
+    let mut processing_poll = Instant::now();
     let mut connect = true;
     let mut reconnects = 0u64;
     while !stop.load(Ordering::Acquire) {
@@ -191,16 +212,24 @@ fn worker(
             if !authorization.load(Ordering::Acquire)
                 && !matches!(
                     r.operation,
-                    Operation::InputReleased | Operation::Cancel | Operation::Reconnect
+                    Operation::InputReleased
+                        | Operation::Cancel
+                        | Operation::Reconnect
+                        | Operation::EnableProcessing
                 )
             {
                 status = "ROLE UNAVAILABLE: new provider writes refused".into();
                 continue;
             }
-            if matches!(r.operation, Operation::Reconnect) {
+            if matches!(r.operation, Operation::EnableProcessing) {
+                processing_requested = true;
+                processing_enabled = true;
+                processing_status = "awaiting capability snapshot".into();
+            } else if matches!(r.operation, Operation::Reconnect) {
                 op = None;
                 review = None;
                 reconnects += 1;
+                processing_enabled = processing_requested;
                 connect = true;
                 status = "reconnect discards intents; fresh writer/read-only".into();
             } else if let Some(o) = &mut op {
@@ -210,10 +239,15 @@ fn worker(
                     *latest.update.lock().unwrap() = Some(Update {
                         generation: g,
                         snapshot: o.session.snapshot.clone(),
+                        processing: o.session.processing.clone(),
+                        processing_age_ms: o.session.processing_age(o.now()),
+                        processing_status: processing_status.clone(),
                         fresh: o.session.fresh(o.now()),
                         status: format!(
                             "PENDING {}; awaiting provider confirmation",
                             match &r.operation {
+                                Operation::EnableProcessing => "capability query",
+                                Operation::ReviewProcessing { .. } => "processing review",
                                 Operation::Grant => "writer grant",
                                 Operation::ReleaseWriter => "writer release",
                                 Operation::Set { .. } => "parameter edit",
@@ -245,6 +279,13 @@ fn worker(
                         return Err("input context changed; intent discarded".into());
                     }
                     match r.operation {
+                        Operation::EnableProcessing => unreachable!(),
+                        Operation::ReviewProcessing { input, config } => {
+                            o.stage("processing_set", json!({"input": input, "config": config}))?;
+                            serial = serial.checked_add(1).ok_or("review counter exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
                         Operation::Grant => o.mutate_inner("grant", json!({"scope":config.scope})),
                         Operation::ReleaseWriter => o.mutate_inner("release", json!({})),
                         Operation::Set { target, value } => o.mutate_inner(
@@ -336,6 +377,9 @@ fn worker(
                 *latest.update.lock().unwrap() = Some(Update {
                     generation: g,
                     snapshot: o.session.snapshot.clone(),
+                    processing: o.session.processing.clone(),
+                    processing_age_ms: o.session.processing_age(o.now()),
+                    processing_status: processing_status.clone(),
                     fresh: o.session.fresh(o.now()),
                     status: status.clone(),
                     review: review.clone(),
@@ -347,6 +391,21 @@ fn worker(
                 && let Err(e) = o.mutate("renew", json!({}))
             {
                 status = format!("LEASE UNCERTAIN: {e}");
+            }
+            if processing_enabled && processing_poll.elapsed() >= Duration::from_millis(80) {
+                match o.refresh_processing() {
+                    Ok(()) => processing_status = "capability confirmed".into(),
+                    Err(e) => {
+                        // A bounded read-only poll may overlap a context fence or
+                        // lose its observation to a deadline. Keep polling without
+                        // replaying mutations; explicit unsupported replies disable it.
+                        processing_status = format!("STALE/UNAVAILABLE: {e}");
+                        if e.starts_with("processing unavailable:") {
+                            processing_enabled = false;
+                        }
+                    }
+                }
+                processing_poll = Instant::now();
             }
             if let Err(e) = o.refresh() {
                 status = format!("STALE/UNCERTAIN: {e}; F5 reconnect, no replay");
@@ -366,6 +425,9 @@ fn worker(
         let update = Update {
             generation: g,
             snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
+            processing: op.as_ref().and_then(|o| o.session.processing.clone()),
+            processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
+            processing_status: processing_status.clone(),
             fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
             status: status.clone(),
             review: review.clone(),
@@ -378,7 +440,15 @@ fn worker(
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    Key { key: String, pressed: bool },
+    /// Injected controller semantic action, stamped with the current input generation.
+    Controller {
+        action: Action,
+        generation: u64,
+    },
+    Key {
+        key: String,
+        pressed: bool,
+    },
     Focus(bool),
     Resize(u32, u32),
     DeviceLost,
@@ -410,6 +480,13 @@ fn optional_display(parameter: &str, value: &Option<Value>) -> String {
 fn linear_display(n: crate::audio::Nanogain) -> String {
     format!("{}.{:09} x", n.0 / 1_000_000_000, n.0 % 1_000_000_000)
 }
+#[derive(Clone, Debug)]
+pub struct ProcessingDraft {
+    pub input: String,
+    pub config: crate::processing::Config,
+    revision: String,
+    generation: u64,
+}
 pub struct Frontend {
     pub provider: Provider,
     pub state: Option<Update>,
@@ -417,6 +494,9 @@ pub struct Frontend {
     module_client: Option<crate::modules::Worker>,
     pub modules: Option<crate::modules::Update>,
     pub selected: usize,
+    pub processing_draft: Option<ProcessingDraft>,
+    pub processing_field: usize,
+    pub processing_entry: String,
     pub page: Page,
     pub width: u32,
     pub height: u32,
@@ -448,6 +528,9 @@ impl Frontend {
             module_client: None,
             modules: None,
             selected: 0,
+            processing_draft: None,
+            processing_field: 0,
+            processing_entry: String::new(),
             page: Page::Mix,
             width: 1920,
             height: 1080,
@@ -468,6 +551,16 @@ impl Frontend {
             role_status: None,
             observed_generation: 1,
         }
+    }
+    /// Explicit capability probe; legacy providers are never probed by default.
+    pub fn enable_processing(&mut self) -> Result<(), String> {
+        self.provider.send(None, Operation::EnableProcessing)
+    }
+    pub fn inject_controller(&mut self, action: Action) -> Result<(), String> {
+        self.enqueue(Event::Controller {
+            action,
+            generation: self.provider.generation(),
+        })
     }
     pub fn role_child_pid(&self) -> Option<u32> {
         self.role_client
@@ -506,6 +599,8 @@ impl Frontend {
         self.blocked.extend(self.pressed.iter().cloned());
         self.pressed.clear();
         self.mode_picker = false;
+        self.processing_draft = None;
+        self.processing_entry.clear();
         self.state = None;
         self.leds = None;
         self.review_id = None;
@@ -584,12 +679,41 @@ impl Frontend {
         {
             self.modules = Some(update);
         }
+        if self.processing_draft.as_ref().is_some_and(|d| {
+            !self.processing_fresh()
+                || d.generation != self.provider.generation()
+                || self
+                    .state
+                    .as_ref()
+                    .and_then(|s| s.processing.as_ref())
+                    .is_none_or(|s| s.revision != d.revision)
+                || self.page != Page::Channel
+                || d.input != format!("input-{:02}", self.selected + 1)
+        }) {
+            self.processing_draft = None;
+            self.processing_entry.clear();
+            self.message = "Processing draft cancelled: context/revision/freshness changed".into();
+        }
         while let Some(event) = self.queue.pop_front() {
+            if let Event::Controller { action, generation } = event {
+                if generation == self.provider.generation()
+                    && self.focused
+                    && self.device_ready
+                    && self.width > 0
+                    && self.height > 0
+                {
+                    if let Err(e) = self.action(action) {
+                        self.message = e;
+                    }
+                    let _ = self.provider.send(None, Operation::InputReleased);
+                }
+                continue;
+            }
             if let Event::Key { key, pressed } = event {
                 if !pressed {
                     self.pressed.remove(&key);
                     self.blocked.remove(&key);
-                    if self.focused {
+                    if self.focused && (self.processing_draft.is_none() || key == "E") {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
                     continue;
@@ -630,6 +754,27 @@ impl Frontend {
             .as_ref()
             .is_some_and(|s| s.fresh && s.received.elapsed() <= Duration::from_millis(250))
     }
+    pub fn processing_fresh(&self) -> bool {
+        self.fresh()
+            && self.state.as_ref().is_some_and(|u| {
+                u.processing_age_ms.is_some_and(|age| {
+                    age.saturating_add(u.received.elapsed().as_millis() as u64) <= 250
+                }) && u.processing.as_ref().is_some_and(|p| {
+                    u.snapshot
+                        .as_ref()
+                        .is_some_and(|s| s.authority.revision == p.revision)
+                })
+            })
+    }
+    pub fn processing_ready(&self) -> bool {
+        self.processing_fresh()
+            && self
+                .state
+                .as_ref()
+                .and_then(|s| s.processing.as_ref())
+                .is_some_and(|s| !s.faulted && s.channels.iter().all(|c| c.ready))
+            && (!self.role_required || self.provider.authorization.load(Ordering::Acquire))
+    }
     fn send(&mut self, operation: Operation) -> Result<(), String> {
         if self.role_required && !self.provider.authorization.load(Ordering::Acquire) {
             return Err("live GP09 role lease required; keyboard-only read-only surface".into());
@@ -653,6 +798,9 @@ impl Frontend {
             self.fence();
             return self.provider.send(None, Operation::Reconnect);
         }
+        if matches!(key, "G" | "Q") && self.processing_draft.is_some() {
+            return Err("Apply or Cancel processing draft before writer changes".into());
+        }
         if key == "G" {
             return self.send(Operation::Grant);
         }
@@ -668,8 +816,113 @@ impl Frontend {
             }
             return Ok(());
         }
+        if self.processing_draft.is_some() {
+            if key == "Backspace" {
+                self.processing_entry.pop();
+                return Ok(());
+            }
+            if key.len() == 1
+                && key
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b == b'.' || b == b'-')
+            {
+                if self.processing_entry.len() >= 16 {
+                    return Err("numeric entry capacity".into());
+                }
+                self.processing_entry.push_str(key);
+                return Ok(());
+            }
+            if key == "Enter" && !self.processing_entry.is_empty() {
+                return self.action(Action::ProcessingText(self.processing_entry.clone()));
+            }
+        }
         let action = actions::key_action(key).ok_or("unmapped key")?;
+        self.action(action)
+    }
+    fn action(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::ProcessingEdit => {
+                if self.page != Page::Channel || self.scope != "foh" || !self.processing_ready() {
+                    return Err(
+                        "Processing editor requires Channel, FOH and fresh ready GP07".into(),
+                    );
+                }
+                if self.mode_picker
+                    || self.processing_draft.is_some()
+                    || self.state.as_ref().is_some_and(|s| s.review.is_some())
+                {
+                    return Err("Apply/confirm or Cancel existing draft/review".into());
+                }
+                let s = self.state.as_ref().unwrap().processing.as_ref().unwrap();
+                let c = s
+                    .channels
+                    .get(self.selected)
+                    .ok_or("processing input unavailable")?;
+                self.processing_draft = Some(ProcessingDraft {
+                    input: c.input.clone(),
+                    config: c.target.clone(),
+                    revision: s.revision.clone(),
+                    generation: self.provider.generation(),
+                });
+                self.processing_field = 0;
+                self.processing_entry.clear();
+                self.message = "Local draft only. F4 Apply opens review; Esc Cancel".into();
+                Ok(())
+            }
+            Action::ProcessingText(text) => {
+                if !self.processing_ready() {
+                    return Err("processing stale/not ready".into());
+                }
+                self.processing_draft
+                    .as_mut()
+                    .ok_or("E opens processing editor")?
+                    .config
+                    .set_text(crate::processing::FIELDS[self.processing_field], &text)?;
+                self.processing_entry.clear();
+                Ok(())
+            }
+            Action::ProcessingField(delta) => {
+                if !self.processing_entry.is_empty() {
+                    return Err("Enter accepts numeric entry; Backspace clears it".into());
+                }
+                if self.processing_draft.is_none() {
+                    return Err("E opens processing editor".into());
+                }
+                self.processing_field =
+                    (self.processing_field as i64 + i64::from(delta)).rem_euclid(15) as usize;
+                Ok(())
+            }
+            Action::ProcessingAdjust(delta) => {
+                if !self.processing_ready() {
+                    return Err("processing stale/not ready".into());
+                }
+                self.processing_draft
+                    .as_mut()
+                    .ok_or("E opens processing editor")?
+                    .config
+                    .adjust(crate::processing::FIELDS[self.processing_field], delta)
+            }
+            Action::ProcessingApply => {
+                if !self.processing_entry.is_empty() {
+                    return Err("Enter accepts numeric entry before Apply".into());
+                }
+                if !self.processing_ready() {
+                    return Err("processing stale/not ready".into());
+                }
+                let d = self
+                    .processing_draft
+                    .as_ref()
+                    .ok_or("no local processing draft")?
+                    .clone();
+                self.send(Operation::ReviewProcessing {
+                    input: d.input,
+                    config: d.config,
+                })?;
+                self.processing_draft = None;
+                self.processing_entry.clear();
+                self.message = "Apply requested review; no processing edit sent yet".into();
+                Ok(())
+            }
             Action::Page(page) => {
                 self.send_cancel();
                 self.page = page;
@@ -695,6 +948,9 @@ impl Frontend {
                 Ok(())
             }
             Action::ModePicker => {
+                if self.processing_draft.is_some() {
+                    return Err("Apply or Cancel processing draft first".into());
+                }
                 self.mode_picker = true;
                 self.message =
                     "Choose1 AUTO (accepted bounds),2 ASSIST,3 MANUAL then review/Enter".into();
@@ -758,6 +1014,9 @@ impl Frontend {
             Action::Mute => self.adjust("mute", 0, true),
             Action::Hold => self.adjust("fader", 0, false),
             Action::Release => {
+                if self.processing_draft.is_some() {
+                    return Err("Apply or Cancel processing draft first".into());
+                }
                 let target = self.target("fader")?;
                 self.send(Operation::Preview(target))
             }
@@ -772,9 +1031,9 @@ impl Frontend {
         }
     }
     fn send_cancel(&mut self) {
-        self.mode_picker = false;
-        self.provider.fence();
-        self.state = None;
+        // Synchronize the local generation immediately: the physical key-up after
+        // navigation must release the fence, not be discarded by the next pump.
+        self.fence();
         let _ = self.provider.send(None, Operation::Cancel);
     }
     fn target(&self, parameter: &str) -> Result<Value, String> {
@@ -798,7 +1057,10 @@ impl Frontend {
         })
     }
     fn adjust(&mut self, parameter: &str, delta: i64, toggle: bool) -> Result<(), String> {
-        if self.mode_picker || self.state.as_ref().is_some_and(|s| s.review.is_some()) {
+        if self.processing_draft.is_some()
+            || self.mode_picker
+            || self.state.as_ref().is_some_and(|s| s.review.is_some())
+        {
             return Err("confirm/cancel existing review first".into());
         }
         let target = self.target(parameter)?;
@@ -847,8 +1109,15 @@ impl Frontend {
             .as_ref()
             .and_then(|s| s.review.as_ref())
             .map_or_else(Vec::new, |(_, text)| {
-                let chars: Vec<_> = text.chars().collect();
-                chars.chunks(156).map(|c| c.iter().collect()).collect()
+                text.split('\n')
+                    .flat_map(|line| {
+                        let chars: Vec<_> = line.chars().collect();
+                        chars
+                            .chunks(156)
+                            .map(|c| c.iter().collect())
+                            .collect::<Vec<String>>()
+                    })
+                    .collect()
             })
     }
     /// Called after an actual renderer submission, never just by input polling.
@@ -918,7 +1187,12 @@ impl Frontend {
         line(
             12,
             format!(
-                "SHR DESK / REAL GP03 RAW MIXER / {} / {}",
+                "SHR DESK / {} / {} / {}",
+                if self.state.as_ref().is_some_and(|u| u.processing.is_some()) {
+                    "REAL GP03 + GP07 FOH PROCESSING"
+                } else {
+                    "REAL GP03 RAW MIXER"
+                },
                 match self.page {
                     Page::Mix => "Mix",
                     Page::Channel => "Channel",
@@ -931,7 +1205,11 @@ impl Frontend {
         line(
             48,
             if self.fresh() {
-                "PROVIDER FRESH / RAW MIXER OFFLINE UNPROTECTED / METERS UNAVAILABLE".into()
+                if self.state.as_ref().is_some_and(|u| u.processing.is_some()) {
+                    "PROVIDER FRESH / OFFLINE UNPROTECTED / SIGNAL METERS UNAVAILABLE".into()
+                } else {
+                    "PROVIDER FRESH / RAW MIXER OFFLINE UNPROTECTED / METERS UNAVAILABLE".into()
+                }
             } else {
                 "STALE / UNAVAILABLE / MIX UNKNOWN / EDITS DISABLED".into()
             },
@@ -1014,6 +1292,147 @@ impl Frontend {
                 );
                 if self.page == Page::Analysis {
                     line(192,"ANALYSIS UNAVAILABLE: no accepted measurement subscription; no fixture graphs".into(),"#9caebc");
+                }
+                if self.page == Page::Channel {
+                    if let Some(processing) = &u.processing {
+                        if let Some(channel) = processing.channels.get(self.selected) {
+                            line(
+                                204,
+                                format!(
+                                    "GP07 FOH: raw -> EQ -> compressor -> mute/fader/pan | Monitors: raw -> mute -> sends | {}",
+                                    if self.processing_fresh() {
+                                        "FRESH"
+                                    } else {
+                                        "STALE / EDITS DISABLED"
+                                    }
+                                ),
+                                "#66dfd3",
+                            );
+                            line(
+                                240,
+                                format!(
+                                    "{} / {} / {} / GR {}",
+                                    channel.input,
+                                    if processing.faulted {
+                                        "FAULTED / EDITS DISABLED".to_string()
+                                    } else if channel.ready {
+                                        "READY".to_string()
+                                    } else {
+                                        format!(
+                                            "TRANSITION {} frames remaining",
+                                            channel.transition_remaining_frames
+                                        )
+                                    },
+                                    if self.processing_draft.is_some() {
+                                        "LOCAL DRAFT (not sent)"
+                                    } else {
+                                        "PROVIDER CONFIRMED"
+                                    },
+                                    if !self.processing_fresh() {
+                                        "unavailable (stale)".into()
+                                    } else if processing.faulted {
+                                        "unavailable (fault)".into()
+                                    } else if !channel.ready {
+                                        "unavailable (transition)".into()
+                                    } else if channel.target.compressor_bypass {
+                                        "bypassed".into()
+                                    } else {
+                                        channel.gain_reduction_mdb.map_or(
+                                            "unavailable".into(),
+                                            |n| {
+                                                format!(
+                                                    "{:.1} dB attenuation (excludes makeup)",
+                                                    n as f64 / 1000.0
+                                                )
+                                            },
+                                        )
+                                    }
+                                ),
+                                "#f1bd6b",
+                            );
+                            line(276, "    CONFIRMED SETTLED                         CONFIRMED TARGET                          LOCAL DRAFT".into(), "#9caebc");
+                            for (i, field) in crate::processing::FIELDS.iter().enumerate() {
+                                let draft = self
+                                    .processing_draft
+                                    .as_ref()
+                                    .map_or("--".into(), |d| d.config.display(*field));
+                                line(
+                                    312 + i as u32 * 24,
+                                    format!(
+                                        "{} {:<42} {:<42} {}",
+                                        if self.processing_draft.is_some()
+                                            && i == self.processing_field
+                                        {
+                                            ">"
+                                        } else {
+                                            " "
+                                        },
+                                        channel.current.display(*field),
+                                        channel.target.display(*field),
+                                        draft
+                                    ),
+                                    if self.processing_draft.is_some() && i == self.processing_field
+                                    {
+                                        "#66dfd3"
+                                    } else {
+                                        "#e4e8e9"
+                                    },
+                                );
+                            }
+                            line(708, "During transition output blends settled and target branches; GR is detector feedback, not a level meter".into(), "#9caebc");
+                            line(
+                                744,
+                                format!(
+                                    "CONFIRMED {} {}",
+                                    self.scope,
+                                    s.authority
+                                        .parameters
+                                        .iter()
+                                        .filter(|p| p.target.input == channel.input
+                                            && p.target.monitor.as_deref()
+                                                == match self.scope.as_str() {
+                                                    "monitor1" => Some("monitor-1"),
+                                                    "monitor2" => Some("monitor-2"),
+                                                    _ => None,
+                                                })
+                                        .map(|p| format!(
+                                            "{} {} / hold {}",
+                                            p.target.parameter,
+                                            parameter_display(&p.target.parameter, &p.target_value),
+                                            optional_display(&p.target.parameter, &p.hold)
+                                        ))
+                                        .collect::<Vec<_>>()
+                                        .join(" | ")
+                                ),
+                                "#9caebc",
+                            );
+                            line(
+                                780,
+                                format!("Processing: {}", u.processing_status),
+                                "#f1bd6b",
+                            );
+                            line(
+                                816,
+                                format!(
+                                    "Numeric entry: {} (display units; bypass 0=enabled / 1=bypassed) | Enter accepts value",
+                                    self.processing_entry
+                                ),
+                                "#66dfd3",
+                            );
+                            line(852, self.message.clone(), "#f47c85");
+                            line(888, "E Edit (FOH only) | U/I previous/next field | J/K -/+ one step (bypass toggles) | N/P -/+ 100 steps".into(), "#66dfd3");
+                            line(924, "F4 Apply -> displayed review -> Enter Confirm | Esc Cancel | arrows select channel | F1/F2/F6 pages".into(), "#66dfd3");
+                            line(960, "G grant configured scope | Q release writer | +/- fader | [ ] pan | M mute | H hold | R release | A mode".into(), "#9caebc");
+                            line(996, "F5 reconnect: fresh writer/read-only, no replay | physical protection and signal meters unverified".into(), "#9caebc");
+                            return scene;
+                        }
+                    } else {
+                        line(
+                            240,
+                            format!("CHANNEL PROCESSING UNAVAILABLE: {}", u.processing_status),
+                            "#f1bd6b",
+                        );
+                    }
                 }
                 let bank_start = self.selected / 12 * 12;
                 for (row, (i, input)) in s
@@ -1228,6 +1647,9 @@ mod tests {
                 crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
                     .unwrap(),
             ),
+            processing: None,
+            processing_age_ms: None,
+            processing_status: "disabled".into(),
             fresh: true,
             status: "review".into(),
             review: Some((42, review.clone())),
@@ -1276,6 +1698,9 @@ mod tests {
         f.state = Some(Update {
             generation: 1,
             snapshot: Some(snapshot),
+            processing: None,
+            processing_age_ms: None,
+            processing_status: "disabled".into(),
             fresh: true,
             status: "layout fixture".into(),
             review: None,
@@ -1308,5 +1733,123 @@ mod tests {
                 .iter()
                 .any(|p| matches!(p,Primitive::Text{value,..} if value.starts_with("> input-14")))
         );
+    }
+}
+
+#[cfg(test)]
+mod processing_tests {
+    use super::*;
+    fn surface() -> Frontend {
+        let mut f = Frontend::new(Config {
+            endpoint: "/nonexistent/gp07-layout.sock".into(),
+            show: "11111111-1111-4111-8111-111111111111".into(),
+            epoch: 9,
+            writer: "gp07-layout".into(),
+            scope: "foh".into(),
+        });
+        let corpus: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/gp03/v1/e03-rendered.json"))
+                .unwrap();
+        let mut raw =
+            crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
+                .unwrap();
+        raw.authority.revision = "0".into();
+        let processing = crate::processing::decode_reply(include_bytes!(
+            "../tests/fixtures/gp07/v1/snapshot-reply.json"
+        ))
+        .unwrap()
+        .snapshot;
+        f.state = Some(Update {
+            generation: 1,
+            snapshot: Some(raw),
+            processing,
+            processing_age_ms: Some(0),
+            processing_status: "fixture layout only".into(),
+            fresh: true,
+            status: "fixture layout only".into(),
+            review: None,
+            received: Instant::now(),
+        });
+        f.page = Page::Channel;
+        f
+    }
+    #[test]
+    fn processing_keyboard_and_controller_semantics_edit_same_detached_draft() {
+        let mut keyboard = surface();
+        let mut controller = surface();
+        keyboard.key("E").unwrap();
+        controller.action(Action::ProcessingEdit).unwrap();
+        keyboard.key("I").unwrap();
+        keyboard.key("I").unwrap();
+        controller.action(Action::ProcessingField(2)).unwrap();
+        keyboard.key("6").unwrap();
+        keyboard.key(".").unwrap();
+        keyboard.key("1").unwrap();
+        keyboard.key("Enter").unwrap();
+        controller
+            .action(Action::ProcessingText("6.1".into()))
+            .unwrap();
+        assert_eq!(
+            keyboard.processing_draft.as_ref().unwrap().config,
+            controller.processing_draft.as_ref().unwrap().config
+        );
+        assert_eq!(
+            keyboard.state.as_ref().unwrap().processing,
+            controller.state.as_ref().unwrap().processing
+        );
+        assert!(keyboard.scene().in_bounds());
+        let lines: Vec<_> = keyboard
+            .scene()
+            .primitives
+            .into_iter()
+            .filter_map(|p| {
+                if let Primitive::Text { value, .. } = p {
+                    Some(value)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert!(lines.iter().any(|s| s.contains("LOCAL DRAFT")));
+        assert!(lines.iter().any(|s| s.contains("Low gain +6.1 dB")));
+        keyboard.key("Right").unwrap();
+        assert!(keyboard.processing_draft.is_none());
+        assert!(keyboard.state.is_none());
+    }
+    #[test]
+    fn navigation_release_is_not_lost_to_generation_synchronization() {
+        let mut f = surface();
+        f.pressed.insert("Right".into());
+        f.key("Right").unwrap();
+        assert!(f.blocked.contains("Right"));
+        assert_eq!(f.observed_generation, f.provider.generation());
+        f.enqueue(Event::Key {
+            key: "Right".into(),
+            pressed: false,
+        })
+        .unwrap();
+        f.pump();
+        assert!(!f.blocked.contains("Right"));
+    }
+    #[test]
+    fn processing_stale_role_loss_and_review_fences_disable_edits() {
+        let mut f = surface();
+        f.state.as_mut().unwrap().processing_age_ms = Some(251);
+        assert!(f.key("E").is_err());
+        f.state.as_mut().unwrap().processing_age_ms = Some(0);
+        f.key("E").unwrap();
+        f.key("K").unwrap();
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert!(f.processing_draft.is_none());
+        let mut f = surface();
+        f.require_role();
+        assert!(f.key("E").is_err());
+        let mut f = surface();
+        f.state.as_mut().unwrap().review = Some((1, "Processing review".into()));
+        f.synchronize_review();
+        assert!(f.key("E").is_err());
+        assert!(f.key("Enter").unwrap_err().contains("every displayed"));
+        f.fence();
+        assert!(f.key("Enter").is_err());
     }
 }

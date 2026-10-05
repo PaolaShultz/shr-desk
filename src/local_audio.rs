@@ -301,6 +301,7 @@ impl Operator {
     pub(crate) fn review_valid(&self) -> bool {
         self.draft.as_ref().is_some_and(|d| {
             self.session.generation() == d.generation
+                && (d.kind != "processing_set" || self.session.processing_fresh(self.now()))
                 && (d.kind != "release_preview"
                     || self
                         .session
@@ -315,6 +316,12 @@ impl Operator {
     }
     pub(crate) fn reviewed(&self) -> Option<String> {
         self.draft.as_ref().map(|d| {
+            if d.kind == "processing_set" {
+                let config = crate::processing::decode_config(&d.body["config"]).expect("validated draft");
+                return format!("APPLY channel {} / FOH EQ then compressor / monitors raw-post-mute unchanged / revision {} / show {} / epoch {}\n{}\n240-frame output crossfade; Enter confirms complete replacement; Esc cancels",
+                    d.body["input"], d.revision, self.session.snapshot_request().context.show_id, self.session.snapshot_request().context.epoch,
+                    crate::processing::FIELDS.iter().map(|f| config.display(*f)).collect::<Vec<_>>().join("\n"));
+            }
             format!(
                 "{} {} / revision {} / scope {} / show {} / epoch {}",
                 d.kind,
@@ -342,6 +349,69 @@ impl Operator {
         }
         let snapshot = r.snapshot.clone().ok_or("rendered telemetry missing")?;
         self.session.ingest_snapshot(snapshot, self.now())
+    }
+    /// Dispatch by contract before touching the shared correlation domain.
+    fn processing_frame(&mut self, bytes: &[u8]) -> Result<bool, String> {
+        // Discriminator only: skipped content is never trusted. The selected
+        // strict decoder still checks every field, duplicate and depth bound.
+        #[derive(serde::Deserialize)]
+        struct Contract {
+            contract: Option<String>,
+        }
+        let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() != Some("GP07-processing") {
+            return Ok(false);
+        }
+        let r = crate::processing::decode_reply(bytes)?;
+        if r.context == self.session.processing_request().context {
+            if let Some(s) = r.snapshot {
+                self.session.ingest_processing(s, self.now())?;
+            } else {
+                return Err(format!("processing unavailable: {:?}", r.reason));
+            }
+        } else if self
+            .session
+            .pending
+            .as_ref()
+            .is_some_and(|p| p.request.kind == "processing_set" && p.request.context == r.context)
+        {
+            self.session.accept_processing(r, self.now())?;
+        } else if r.context.show_id != self.session.snapshot_request().context.show_id
+            || r.context.epoch != self.session.snapshot_request().context.epoch
+        {
+            return Err("unrelated processing session".into());
+        }
+        // Cached old replies never ingest snapshots or renew freshness.
+        Ok(true)
+    }
+    pub(crate) fn refresh_processing(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        self.transport.send(&self.session.processing_request())?;
+        let previous = self.session.processing.as_ref().map(|s| s.sequence.clone());
+        let deadline = Instant::now() + Duration::from_millis(250);
+        let mut count = 0;
+        let mut latest_raw = None;
+        while Instant::now() < deadline && count < 64 {
+            self.check_guard()?;
+            if let Some(bytes) = self.transport.receive_until(deadline)? {
+                count += 1;
+                if !self.processing_frame(&bytes)? {
+                    latest_raw = Some(bytes);
+                }
+                if self.session.processing.as_ref().map(|s| &s.sequence) != previous.as_ref() {
+                    if let Some(bytes) = latest_raw {
+                        self.telemetry(&audio::decode_reply(&bytes)?)?;
+                    }
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(bytes) = latest_raw {
+            self.telemetry(&audio::decode_reply(&bytes)?)?;
+        }
+        Err(format!(
+            "processing snapshot deadline/queue bound ({count} frames)"
+        ))
     }
     pub(crate) fn refresh(&mut self) -> Result<(), String> {
         // Coalesce a bounded raw telemetry batch before validating its newest
@@ -374,14 +444,18 @@ impl Operator {
         if !drained {
             return Err("snapshot backlog saturated; freshness not admitted".into());
         }
+        let mut accepted = false;
         for bytes in frames.into_iter().rev() {
             if Instant::now() >= deadline {
                 break;
             }
+            if self.processing_frame(&bytes)? || accepted {
+                continue;
+            }
             let r = audio::decode_reply(&bytes)?;
             if r.context == self.session.snapshot_request().context {
-                if self.telemetry(&r)? {
-                    return Ok(());
+                if !accepted {
+                    accepted = self.telemetry(&r)?;
                 }
             } else if r.context.show_id != self.session.snapshot_request().context.show_id
                 || r.context.epoch != self.session.snapshot_request().context.epoch
@@ -412,32 +486,37 @@ impl Operator {
             self.check_guard()?;
             let mut idle = false;
             match self.transport.receive() {
-                Ok(Some(b)) => match audio::decode_reply(&b) {
-                    Ok(reply) => {
-                        if self.telemetry(&reply)? {
-                        } else if self
-                            .session
-                            .pending
-                            .as_ref()
-                            .is_some_and(|p| p.request.context == reply.context)
-                        {
-                            if let Err(e) = self.session.accept(reply, self.now()) {
-                                eprintln!("refused reply; pending retained: {e}");
-                            }
-                            if self.session.pending.is_none() {
-                                if !self.session.fresh(self.now()) {
-                                    self.refresh()?;
+                Ok(Some(b)) => {
+                    if self.processing_frame(&b)? {
+                        if self.session.pending.is_none() {
+                            self.refresh()?;
+                            return Ok(());
+                        }
+                    } else {
+                        match audio::decode_reply(&b) {
+                            Ok(reply) => {
+                                if self.telemetry(&reply)? {
+                                } else if self
+                                    .session
+                                    .pending
+                                    .as_ref()
+                                    .is_some_and(|p| p.request.context == reply.context)
+                                {
+                                    if let Err(e) = self.session.accept(reply, self.now()) {
+                                        eprintln!("refused reply; pending retained: {e}");
+                                    }
+                                    if self.session.pending.is_none() {
+                                        if !self.session.fresh(self.now()) {
+                                            self.refresh()?;
+                                        }
+                                        return Ok(());
+                                    }
                                 }
-                                return Ok(());
                             }
-                        } else {
-                            eprintln!(
-                                "uncorrelated or cached prior reply ignored; pending retained"
-                            );
+                            Err(e) => eprintln!("invalid reply refused; pending retained: {e}"),
                         }
                     }
-                    Err(e) => eprintln!("invalid reply refused; pending retained: {e}"),
-                },
+                }
                 Ok(None) => idle = true,
                 Err(e) => {
                     self.session.disconnect();
@@ -480,8 +559,41 @@ impl Operator {
         if self.draft.is_some() {
             return Err("confirm or cancel existing draft".into());
         }
+        // Pin the queued review's context before any refresh can observe a newer
+        // revision. The frontend already checked its original queued revision.
+        let processing_context = if kind == "processing_set" {
+            Some((
+                self.session
+                    .snapshot
+                    .as_ref()
+                    .ok_or("snapshot")?
+                    .authority
+                    .revision
+                    .clone(),
+                self.session.generation(),
+            ))
+        } else {
+            None
+        };
         if !self.session.fresh(self.now()) {
             self.refresh()?;
+        }
+        if let Some((revision, generation)) = processing_context {
+            crate::processing::validate_body(&body)?;
+            self.refresh_processing()?;
+            self.refresh()?;
+            if self.session.generation() != generation
+                || self
+                    .session
+                    .snapshot
+                    .as_ref()
+                    .is_none_or(|s| s.authority.revision != revision)
+            {
+                return Err("processing review context changed during paired refresh".into());
+            }
+            if !self.session.processing_fresh(self.now()) {
+                return Err("fresh ready processing required".into());
+            }
         }
         let s = self.session.snapshot.as_ref().ok_or("snapshot")?;
         println!(
@@ -521,7 +633,20 @@ impl Operator {
                 return Err("reviewed confirmation context changed during renewal".into());
             }
         }
-        // No refresh between reviewed revision and begin; the immutable request pins it.
+        if d.kind == "processing_set" {
+            self.refresh_processing()?;
+            self.refresh()?;
+            if self.session.generation() != d.generation
+                || self
+                    .session
+                    .snapshot
+                    .as_ref()
+                    .is_none_or(|s| s.authority.revision != d.revision)
+            {
+                return Err("processing confirmation context changed during paired refresh".into());
+            }
+        }
+        // No refresh between the final revision check and begin; the request pins it.
         self.mutate_inner(&d.kind, d.body)
     }
     pub fn status(&self) -> Value {
@@ -774,5 +899,145 @@ mod refresh_tests {
         drop(op);
         server.join().unwrap();
         fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod gp07_stage_tests {
+    use super::*;
+    use std::os::unix::net::UnixStream;
+    fn paired(change_before_stage: bool) {
+        let corpus: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/gp03/v1/e03-rendered.json"))
+                .unwrap();
+        let (socket, mut server) = UnixStream::pair().unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let original = corpus.clone();
+        let child = std::thread::spawn(move || {
+            let mut seen = Vec::new();
+            let mut raws = 0;
+            loop {
+                let mut size = [0; 4];
+                if server.read_exact(&mut size).is_err() {
+                    break;
+                }
+                let size = u32::from_be_bytes(size) as usize;
+                assert!(size <= 65536);
+                let mut bytes = vec![0; size];
+                server.read_exact(&mut bytes).unwrap();
+                let request: Value = serde_json::from_slice(&bytes).unwrap();
+                assert!(request["writer"].is_null(), "refresh must never mutate");
+                let kind = request["kind"].as_str().unwrap().to_string();
+                seen.push(kind.clone());
+                let revision = if change_before_stage || raws >= 1 && kind == "snapshot" {
+                    "13"
+                } else {
+                    "12"
+                };
+                let mut reply = if kind == "snapshot" {
+                    raws += 1;
+                    let mut r = original["grant_response"].clone();
+                    for k in ["writer", "lease", "request_id", "expected_revision"] {
+                        r["context"][k] = Value::Null;
+                        r["outcome"][k] = Value::Null;
+                    }
+                    for k in ["granted_lease", "lease_remaining_ms", "scope"] {
+                        r["outcome"]["body"][k] = Value::Null;
+                    }
+                    r["outcome"]["body"]["revision"] = revision.into();
+                    r["snapshot"] = original["initial"].clone();
+                    r["snapshot"]["authority"]["revision"] = revision.into();
+                    r
+                } else {
+                    assert_eq!(kind, "processing_snapshot");
+                    let mut r: Value = serde_json::from_str(include_str!(
+                        "../tests/fixtures/gp07/v1/snapshot-reply.json"
+                    ))
+                    .unwrap();
+                    r["revision"] = revision.into();
+                    r["snapshot"]["revision"] = revision.into();
+                    r["snapshot"]["sequence"] = "5000".into();
+                    r
+                };
+                reply["snapshot"]["frame"] = "100000".into();
+                let bytes = serde_json::to_vec(&reply).unwrap();
+                if server
+                    .write_all(&(bytes.len() as u32).to_be_bytes())
+                    .is_err()
+                    || server.write_all(&bytes).is_err()
+                {
+                    break;
+                }
+            }
+            seen
+        });
+        let mut session = Session::new(
+            "11111111-1111-4111-8111-111111111111",
+            9,
+            "stage-regression",
+            "foh",
+        )
+        .unwrap();
+        session
+            .ingest_snapshot(
+                audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap()).unwrap(),
+                0,
+            )
+            .unwrap();
+        let mut processing = crate::processing::decode_reply(include_bytes!(
+            "../tests/fixtures/gp07/v1/snapshot-reply.json"
+        ))
+        .unwrap()
+        .snapshot
+        .unwrap();
+        processing.revision = "12".into();
+        let body = json!({"input":"input-01", "config":processing.channels[0].target});
+        session.ingest_processing(processing, 0).unwrap();
+        let mut op = Operator {
+            transport: Transport { socket },
+            session,
+            start: Instant::now() - Duration::from_millis(300),
+            draft: None,
+            scope: "foh".into(),
+            guard: None,
+        };
+        assert!(!op.session.processing_fresh(op.now()));
+        if change_before_stage {
+            assert!(
+                op.stage("processing_set", body)
+                    .unwrap_err()
+                    .contains("context changed")
+            );
+            assert!(op.draft.is_none());
+        } else {
+            op.stage("processing_set", body).unwrap();
+            assert_eq!(op.draft.as_ref().unwrap().revision, "12");
+            assert!(op.session.processing_fresh(op.now()));
+            op.start -= Duration::from_millis(300);
+            assert!(
+                op.confirm()
+                    .unwrap_err()
+                    .contains("context/revision changed")
+            );
+            assert!(op.draft.is_none());
+            assert!(op.session.pending.is_none());
+        }
+        drop(op);
+        let seen = child.join().unwrap();
+        assert!(seen.contains(&"processing_snapshot".into()));
+        assert!(
+            seen.iter()
+                .all(|k| k == "snapshot" || k == "processing_snapshot")
+        );
+    }
+    #[test]
+    fn aged_processing_review_refreshes_without_rebasing_then_changed_confirmation_refuses() {
+        paired(false);
+    }
+    #[test]
+    fn expired_raw_snapshot_cannot_rebase_queued_processing_review() {
+        paired(true);
     }
 }
