@@ -665,7 +665,7 @@ impl Operator {
     }
     fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), String> {
         self.check_guard()?;
-        let probe = self.send_brain_probe(deadline)?;
+        let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
         for _ in 0..64 {
             self.check_guard()?;
@@ -680,13 +680,29 @@ impl Operator {
                     let r = audio::decode_reply(&bytes)?;
                     self.telemetry(&r)?;
                 }
+                // Another writer may advance the common revision between our
+                // Brain reply and its raw pair. Raw cannot regress: obtain a new
+                // read-only probe within this operation's original frame/time budget.
+                if self
+                    .brain_probes
+                    .matched
+                    .as_ref()
+                    .is_some_and(|(id, _, matched)| {
+                        *id == probe
+                            && self.session.snapshot.as_ref().is_some_and(|raw| {
+                                raw.authority.revision.parse::<u64>().unwrap()
+                                    > matched.revision.parse::<u64>().unwrap()
+                            })
+                    })
+                {
+                    probe = self.send_brain_probe(deadline)?;
+                }
                 if let Some(brain) = &self.session.brain
                     && (!self.session.fresh(self.now())
-                        || self
-                            .session
-                            .snapshot
-                            .as_ref()
-                            .is_none_or(|raw| raw.authority.revision != brain.revision))
+                        || self.session.snapshot.as_ref().is_none_or(|raw| {
+                            raw.authority.revision.parse::<u64>().unwrap()
+                                < brain.revision.parse::<u64>().unwrap()
+                        }))
                     && requested_revision.as_ref() != Some(&brain.revision)
                 {
                     requested_revision = Some(brain.revision.clone());
@@ -1796,13 +1812,15 @@ mod structural_pair_tests {
     }
     #[test]
     fn raw_expiring_in_flight_does_not_deadlock_structural_readback() {
+        // Protect pairing/expiry, not debug48-input schema throughput. Full-size
+        // documents have separate transport/schema and release acceptance coverage.
         let corpus: Value = serde_json::from_slice(include_bytes!(
-            "../tests/fixtures/gp14/final/structure-replies-48.json"
+            "../tests/fixtures/gp14/final/structure-replies-16.json"
         ))
         .unwrap();
         let structural = corpus["exchanges"][0]["reply"].clone();
         let profile: Value =
-            serde_json::from_slice(include_bytes!("../tests/fixtures/gp14/v1/profile-48.json"))
+            serde_json::from_slice(include_bytes!("../tests/fixtures/gp14/v1/profile-16.json"))
                 .unwrap();
         let mut raw = profile["snapshot"].clone();
         raw["context"]["epoch"] = "1".into();
@@ -2373,9 +2391,13 @@ mod brain_fifo_tests {
         sent: Arc<Mutex<Vec<Value>>>,
         fail: bool,
         first_delay: Option<Duration>,
+        deadlines: Option<Arc<Mutex<Vec<Instant>>>>,
     }
     impl AuthorityConnection for ProbeConnection {
-        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            if let Some(deadlines) = &self.deadlines {
+                deadlines.lock().unwrap().push(deadline);
+            }
             self.sent
                 .lock()
                 .unwrap()
@@ -2386,7 +2408,10 @@ mod brain_fifo_tests {
                 Ok(())
             }
         }
-        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            if let Some(deadlines) = &self.deadlines {
+                deadlines.lock().unwrap().push(deadline);
+            }
             if let Some(delay) = self.first_delay.take() {
                 std::thread::sleep(delay);
             }
@@ -2407,6 +2432,7 @@ mod brain_fifo_tests {
             sent: sent.clone(),
             fail,
             first_delay: None,
+            deadlines: None,
         });
         sent
     }
@@ -2515,6 +2541,7 @@ mod brain_fifo_tests {
             sent: sent.clone(),
             fail: false,
             first_delay: Some(Duration::from_millis(10)),
+            deadlines: None,
         });
         // Raw starts fresh, then expires while the Brain reply is in flight.
         op.start = Instant::now() - Duration::from_millis(245);
@@ -2540,6 +2567,118 @@ mod brain_fifo_tests {
         assert_eq!(sent.len(), 2);
         assert_eq!(sent[0]["kind"], "brain_snapshot");
         assert_eq!(sent[1]["kind"], "snapshot");
+    }
+    #[test]
+    fn superseded_brain_pair_reprobes_without_replaying_mutation() {
+        let (mut op, peer, raw) = setup();
+        let sent = probe_connection(&mut op, &peer, false);
+        op.start = Instant::now() - Duration::from_millis(251);
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap()
+            + 48;
+        let old = probe_reply(&op, frame);
+        let revision = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .revision
+            .parse::<u64>()
+            .unwrap()
+            + 1;
+        let mut advanced = old.clone();
+        advanced["revision"] = json!(revision.to_string());
+        advanced["snapshot"]["revision"] = json!(revision.to_string());
+        advanced["snapshot"]["frame"] = json!((frame + 48).to_string());
+        peer.push(old);
+        peer.push(raw_at(
+            &raw,
+            &revision.to_string(),
+            &(frame + 48).to_string(),
+        ));
+        peer.push(advanced);
+        op.refresh_brain().unwrap();
+        assert!(op.session.brain_fresh(op.now()));
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, 2);
+        assert_eq!(
+            op.brain_probes.matched.as_ref().unwrap().2.revision,
+            revision.to_string()
+        );
+        let sent = sent.lock().unwrap();
+        let kinds: Vec<_> = sent.iter().map(|r| r["kind"].as_str().unwrap()).collect();
+        assert_eq!(kinds, ["brain_snapshot", "snapshot", "brain_snapshot"]);
+        assert!(sent.iter().all(|r| r["writer"].is_null()));
+    }
+    #[test]
+    fn continual_revision_churn_keeps_original_probe_deadline_and_frame_bound() {
+        let (mut op, peer, raw) = setup();
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let deadlines = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(ProbeConnection {
+            peer: peer.clone(),
+            sent: sent.clone(),
+            fail: false,
+            first_delay: None,
+            deadlines: Some(deadlines.clone()),
+        });
+        op.start = Instant::now() - Duration::from_millis(251);
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap()
+            + 48;
+        let base = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .revision
+            .parse::<u64>()
+            .unwrap();
+        let initial = probe_reply(&op, frame);
+        peer.push(initial.clone());
+        peer.push(raw_at(
+            &raw,
+            &(base + 1).to_string(),
+            &(frame + 48).to_string(),
+        ));
+        for i in 1..34 {
+            // The next raw revision overtakes each pending Brain response.
+            peer.push(raw_at(
+                &raw,
+                &(base + i + 1).to_string(),
+                &(frame + (i + 1) * 48).to_string(),
+            ));
+            let mut brain = initial.clone();
+            brain["revision"] = json!((base + i).to_string());
+            brain["snapshot"]["revision"] = json!((base + i).to_string());
+            brain["snapshot"]["frame"] = json!((frame + i * 48).to_string());
+            peer.push(brain);
+        }
+        // Isolate the frame bound from debug decode throughput. Production
+        // entrypoints still supply250ms/30ms; their timeout tests remain separate.
+        let original_deadline = Instant::now() + Duration::from_secs(10);
+        assert!(
+            op.refresh_brain_until(original_deadline)
+                .unwrap_err()
+                .contains("deadline")
+        );
+        assert!(op.brain_probes.invalid);
+        assert_eq!(peer.0.lock().unwrap().len(), 4, "exactly64 frames consumed");
+        let deadlines = deadlines.lock().unwrap();
+        assert!(!deadlines.is_empty());
+        assert!(deadlines.iter().all(|d| *d == original_deadline));
+        assert!(sent.lock().unwrap().iter().all(|r| r["writer"].is_null()));
     }
     #[test]
     fn probe_partial_send_unmatched_reply_and_overflow_poison_provenance() {

@@ -94,7 +94,10 @@ A refresh waits for its own probe, not a previously queued observation. Immediat
 before each heartbeat, the worker obtains a new paired probe within30ms, preserving
 20ms for the send and the existing50ms source-frame freshness limit. Fresh raw
 state is reused only at the same revision; absent, expired or mismatched raw state
-triggers a read-only query within the same probe deadline. The heartbeat
+triggers a read-only query within the same probe deadline. If another writer
+advances raw revision beyond the matched Brain reply, a new read-only Brain probe
+replaces that superseded pair within the original deadline and total64-frame
+budget. Neither mutation intent nor the time/frame budget is restarted. The heartbeat
 uses that probe's exact frame and revision, checks the same live hold, and never
 substitutes a later final's cached frame or receipt timestamp. Probe failures,
 unmatched replies, partial sends or overflow invalidate provenance and stop

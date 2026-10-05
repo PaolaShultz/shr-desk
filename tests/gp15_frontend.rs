@@ -772,8 +772,22 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     .brain
                     .as_ref()
                     .is_some_and(|b| b.held_generation == held_generation)),
-                "PTT did not remain held: {:?}",
-                tb.state
+                "PTT did not remain held: TB={:?}; monitor={:?}; FOH={:?}",
+                tb.state,
+                monitor.state.as_ref().map(|u| (
+                    &u.status,
+                    &u.brain_status,
+                    u.writer_lease_remaining_ms,
+                    u.fresh,
+                    u.brain_fresh
+                )),
+                foh.state.as_ref().map(|u| (
+                    &u.status,
+                    &u.brain_status,
+                    u.writer_lease_remaining_ms,
+                    u.fresh,
+                    u.brain_fresh
+                ))
             );
             thread::sleep(Duration::from_millis(5));
         }
