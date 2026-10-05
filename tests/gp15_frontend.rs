@@ -365,6 +365,9 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             serde_json::to_string(mix.state.as_ref().unwrap().snapshot.as_ref().unwrap()).unwrap()
         );
     }
+    // The setup mix controller is finished; its stable intent remains. Keep
+    // the PA controller for the explicit global safety mute at test completion.
+    drop(mix);
     eprintln!("GP15_ROUTES_READY");
     let mut monitor = attach("local_operator_monitor", remote.clone(), epoch, end);
     wait(
