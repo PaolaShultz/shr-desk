@@ -43,6 +43,34 @@ fn fresh_snapshot(f: &mut Frontend, end: Instant) {
         f.fresh() && f.state.as_ref().is_some_and(|u| u.snapshot.is_some())
     });
 }
+fn brain_revision(f: &Frontend) -> u64 {
+    f.state
+        .as_ref()
+        .unwrap()
+        .brain
+        .as_ref()
+        .unwrap()
+        .revision
+        .parse()
+        .unwrap()
+}
+fn observe_revision(f: &mut Frontend, end: Instant, revision: u64) {
+    // A different controller may still display a coherent but older revision.
+    // Observe the preceding confirmed change before constructing the next intent.
+    wait(f, end, "cross-controller raw/Brain revision barrier", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                u.brain_fresh
+                    && u.snapshot
+                        .as_ref()
+                        .zip(u.brain.as_ref())
+                        .is_some_and(|(raw, brain)| {
+                            raw.authority.revision == brain.revision
+                                && brain.revision.parse::<u64>().unwrap() >= revision
+                        })
+            })
+    });
+}
 fn actual_device(f: &Frontend) -> bool {
     f.fresh()
         && f.state.as_ref().is_some_and(|u| {
@@ -599,14 +627,17 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         .unwrap()
         .revision
         .clone();
-    wait(&mut tb, end, "TB observes protected FOH revision", |f| {
-        f.state.as_ref().is_some_and(|u| {
-            u.brain_fresh
-                && u.brain
-                    .as_ref()
-                    .is_some_and(|b| b.revision == foh_revision && b.talkback_foh)
-        })
-    });
+    observe_revision(&mut tb, end, foh_revision.parse().unwrap());
+    assert!(
+        tb.state
+            .as_ref()
+            .unwrap()
+            .brain
+            .as_ref()
+            .unwrap()
+            .talkback_foh
+    );
+    observe_revision(&mut monitor, end, foh_revision.parse().unwrap());
     // Unity-gain pre-TB monitor return is the independent band-only witness.
     review(
         &mut monitor,
@@ -642,17 +673,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         .unwrap()
         .revision
         .clone();
-    wait(
-        &mut tb,
-        end,
-        "TB observes performer monitor witness revision",
-        |f| {
-            f.state
-                .as_ref()
-                .and_then(|u| u.brain.as_ref())
-                .is_some_and(|b| b.revision == monitor_revision)
-        },
-    );
+    observe_revision(&mut tb, end, monitor_revision.parse().unwrap());
     eprintln!(
         "GP15_PRE_TB_MONITOR {}",
         serde_json::to_string(monitor.state.as_ref().unwrap().brain.as_ref().unwrap()).unwrap()
@@ -797,7 +818,9 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         .unwrap();
         tb.pump();
     }
+    observe_revision(&mut foh, end, brain_revision(&tb));
     review(&mut foh, end, Action::TalkbackFoh(false));
+    observe_revision(&mut tb, end, brain_revision(&foh));
     review(
         &mut tb,
         end,
@@ -808,6 +831,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         },
     );
     // Monitor-only controls and source changes remain separate from shared mix controls.
+    observe_revision(&mut monitor, end, brain_revision(&tb));
     review(&mut monitor, end, Action::BrainDim);
     review(&mut monitor, end, Action::BrainMute);
     review(
