@@ -55,7 +55,7 @@ fn one_lost_readonly_processing_observation_does_not_disable_future_polls() {
                         continue;
                     }
                     let mut v: Value =
-                        serde_json::from_str(include_str!("fixtures/gp07/v1/snapshot-reply.json"))
+                        serde_json::from_str(include_str!("fixtures/gp07/v2/snapshot-reply.json"))
                             .unwrap();
                     v["revision"] = "12".into();
                     v["snapshot"]["revision"] = "12".into();

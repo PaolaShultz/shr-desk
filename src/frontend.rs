@@ -53,6 +53,7 @@ pub enum Operation {
     Cancel,
     InputReleased,
     Reconnect,
+    LegacyReconnect,
 }
 #[derive(Clone, Debug)]
 struct Request {
@@ -67,6 +68,7 @@ pub struct Update {
     pub processing: Option<crate::processing::Snapshot>,
     pub processing_age_ms: Option<u64>,
     pub processing_status: String,
+    pub processing_final: Option<crate::processing::Reply>,
     pub fresh: bool,
     pub status: String,
     pub review: Option<(u64, String)>,
@@ -215,6 +217,7 @@ fn worker(
                     Operation::InputReleased
                         | Operation::Cancel
                         | Operation::Reconnect
+                        | Operation::LegacyReconnect
                         | Operation::EnableProcessing
                 )
             {
@@ -225,7 +228,14 @@ fn worker(
                 processing_requested = true;
                 processing_enabled = true;
                 processing_status = "awaiting capability snapshot".into();
-            } else if matches!(r.operation, Operation::Reconnect) {
+            } else if matches!(
+                r.operation,
+                Operation::Reconnect | Operation::LegacyReconnect
+            ) {
+                if matches!(r.operation, Operation::LegacyReconnect) {
+                    processing_requested = false;
+                    processing_status = "disabled by explicit legacy GP03 reconnect".into();
+                }
                 op = None;
                 review = None;
                 reconnects += 1;
@@ -242,6 +252,7 @@ fn worker(
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
                         processing_status: processing_status.clone(),
+                        processing_final: o.session.processing_final.clone(),
                         fresh: o.session.fresh(o.now()),
                         status: format!(
                             "PENDING {}; awaiting provider confirmation",
@@ -257,7 +268,7 @@ fn worker(
                                 Operation::Confirm(_) => "reviewed operation",
                                 Operation::Cancel => "review cancellation",
                                 Operation::InputReleased => "input release",
-                                Operation::Reconnect => "reconnect",
+                                Operation::Reconnect | Operation::LegacyReconnect => "reconnect",
                             }
                         ),
                         review: review.clone(),
@@ -353,7 +364,7 @@ fn worker(
                             o.session.input_released();
                             Ok(())
                         }
-                        Operation::Reconnect => unreachable!(),
+                        Operation::Reconnect | Operation::LegacyReconnect => unreachable!(),
                     }
                 })();
                 match result {
@@ -380,6 +391,7 @@ fn worker(
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
                     processing_status: processing_status.clone(),
+                    processing_final: o.session.processing_final.clone(),
                     fresh: o.session.fresh(o.now()),
                     status: status.clone(),
                     review: review.clone(),
@@ -428,6 +440,7 @@ fn worker(
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
             processing_status: processing_status.clone(),
+            processing_final: op.as_ref().and_then(|o| o.session.processing_final.clone()),
             fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
             status: status.clone(),
             review: review.clone(),
@@ -551,6 +564,11 @@ impl Frontend {
             role_status: None,
             observed_generation: 1,
         }
+    }
+    /// Explicit GP03-only fresh attachment; drops drafts, authority and queued intents.
+    pub fn reconnect_legacy(&mut self) -> Result<(), String> {
+        self.fence();
+        self.provider.send(None, Operation::LegacyReconnect)
     }
     /// Explicit capability probe; legacy providers are never probed by default.
     pub fn enable_processing(&mut self) -> Result<(), String> {
@@ -702,10 +720,15 @@ impl Frontend {
                     && self.width > 0
                     && self.height > 0
                 {
+                    let opens_editor = matches!(action, Action::ProcessingEdit);
                     if let Err(e) = self.action(action) {
                         self.message = e;
                     }
-                    let _ = self.provider.send(None, Operation::InputReleased);
+                    // Match keyboard release behavior: unsent local field gestures
+                    // must not fill the provider queue or delay paired observations.
+                    if self.processing_draft.is_none() || opens_editor {
+                        let _ = self.provider.send(None, Operation::InputReleased);
+                    }
                 }
                 continue;
             }
@@ -794,6 +817,9 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if key == "F8" {
+            return self.reconnect_legacy();
+        }
         if key == "F5" {
             self.fence();
             return self.provider.send(None, Operation::Reconnect);
@@ -888,8 +914,9 @@ impl Frontend {
                 if self.processing_draft.is_none() {
                     return Err("E opens processing editor".into());
                 }
-                self.processing_field =
-                    (self.processing_field as i64 + i64::from(delta)).rem_euclid(15) as usize;
+                self.processing_field = (self.processing_field as i64 + i64::from(delta))
+                    .rem_euclid(crate::processing::FIELDS.len() as i64)
+                    as usize;
                 Ok(())
             }
             Action::ProcessingAdjust(delta) => {
@@ -1103,6 +1130,9 @@ impl Frontend {
             self.review_page = 0;
             self.review_seen.clear();
         }
+    }
+    pub fn review_pages(&self) -> usize {
+        self.review_lines().len().div_ceil(32).max(1)
     }
     fn review_lines(&self) -> Vec<String> {
         self.state
@@ -1350,33 +1380,65 @@ impl Frontend {
                                 ),
                                 "#f1bd6b",
                             );
-                            line(276, "    CONFIRMED SETTLED                         CONFIRMED TARGET                          LOCAL DRAFT".into(), "#9caebc");
-                            for (i, field) in crate::processing::FIELDS.iter().enumerate() {
-                                let draft = self
-                                    .processing_draft
-                                    .as_ref()
-                                    .map_or("--".into(), |d| d.config.display(*field));
-                                line(
-                                    312 + i as u32 * 24,
-                                    format!(
-                                        "{} {:<42} {:<42} {}",
-                                        if self.processing_draft.is_some()
-                                            && i == self.processing_field
-                                        {
-                                            ">"
-                                        } else {
-                                            " "
-                                        },
-                                        channel.current.display(*field),
-                                        channel.target.display(*field),
-                                        draft
-                                    ),
-                                    if self.processing_draft.is_some() && i == self.processing_field
-                                    {
-                                        "#66dfd3"
+                            line(276, "    CONFIRMED SETTLED                               CONFIRMED TARGET                                 LOCAL DRAFT".into(), "#9caebc");
+                            // Four stable band rows, then unchanged dynamics. Each endpoint
+                            // is visible in a separate column; no band identity sorting.
+                            let rows: [&[usize]; 12] = [
+                                &[0],
+                                &[1, 2, 3, 4],
+                                &[5, 6, 7, 8],
+                                &[9, 10, 11, 12],
+                                &[13, 14, 15, 16],
+                                &[17],
+                                &[18],
+                                &[19],
+                                &[20],
+                                &[21],
+                                &[22],
+                                &[23],
+                            ];
+                            for (row, indices) in rows.iter().enumerate() {
+                                let display = |c: &crate::processing::Config| {
+                                    if indices.len() == 1 {
+                                        c.display(crate::processing::FIELDS[indices[0]])
                                     } else {
-                                        "#e4e8e9"
-                                    },
+                                        let band = row;
+                                        let (hz, gain, q, bypass) = c.bands()[band - 1];
+                                        format!(
+                                            "Band {band} bell {hz}Hz {:+.1}dB Q{:.1} {}",
+                                            gain as f64 / 1000.0,
+                                            q as f64 / 1000.0,
+                                            if bypass { "BYPASS" } else { "ON" }
+                                        )
+                                    }
+                                };
+                                let selected = self.processing_draft.is_some()
+                                    && indices.contains(&self.processing_field);
+                                line(
+                                    312 + row as u32 * 24,
+                                    format!(
+                                        "{} {:<48} {:<48} {}",
+                                        if selected { ">" } else { " " },
+                                        display(&channel.current),
+                                        display(&channel.target),
+                                        self.processing_draft
+                                            .as_ref()
+                                            .map_or("--".into(), |d| display(&d.config))
+                                    ),
+                                    if selected { "#66dfd3" } else { "#e4e8e9" },
+                                );
+                            }
+                            if let Some(draft) = &self.processing_draft {
+                                line(
+                                    624,
+                                    format!(
+                                        "EDIT FIELD {}/24: {} (local only)",
+                                        self.processing_field + 1,
+                                        draft.config.display(
+                                            crate::processing::FIELDS[self.processing_field]
+                                        )
+                                    ),
+                                    "#66dfd3",
                                 );
                             }
                             line(708, "During transition output blends settled and target branches; GR is detector feedback, not a level meter".into(), "#9caebc");
@@ -1423,7 +1485,7 @@ impl Frontend {
                             line(888, "E Edit (FOH only) | U/I previous/next field | J/K -/+ one step (bypass toggles) | N/P -/+ 100 steps".into(), "#66dfd3");
                             line(924, "F4 Apply -> displayed review -> Enter Confirm | Esc Cancel | arrows select channel | F1/F2/F6 pages".into(), "#66dfd3");
                             line(960, "G grant configured scope | Q release writer | +/- fader | [ ] pan | M mute | H hold | R release | A mode".into(), "#9caebc");
-                            line(996, "F5 reconnect: fresh writer/read-only, no replay | physical protection and signal meters unverified".into(), "#9caebc");
+                            line(996, "F5 reconnect | F8 explicit legacy GP03 reconnect | fresh writer/read-only, no replay".into(), "#9caebc");
                             return scene;
                         }
                     } else {
@@ -1617,7 +1679,7 @@ impl Frontend {
         );
         line(
             1008,
-            "F5 explicit reconnect (fresh writer, no replay) | REC/PA/FX writable controls and analysis unavailable"
+            "F5 reconnect | F8 legacy GP03 reconnect | fresh writer, no replay | REC/PA/FX writes unavailable"
                 .into(),
             "#9caebc",
         );
@@ -1650,6 +1712,7 @@ mod tests {
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
+            processing_final: None,
             fresh: true,
             status: "review".into(),
             review: Some((42, review.clone())),
@@ -1701,6 +1764,7 @@ mod tests {
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
+            processing_final: None,
             fresh: true,
             status: "layout fixture".into(),
             review: None,
@@ -1755,7 +1819,7 @@ mod processing_tests {
                 .unwrap();
         raw.authority.revision = "0".into();
         let processing = crate::processing::decode_reply(include_bytes!(
-            "../tests/fixtures/gp07/v1/snapshot-reply.json"
+            "../tests/fixtures/gp07/v2/snapshot-reply.json"
         ))
         .unwrap()
         .snapshot;
@@ -1765,6 +1829,7 @@ mod processing_tests {
             processing,
             processing_age_ms: Some(0),
             processing_status: "fixture layout only".into(),
+            processing_final: None,
             fresh: true,
             status: "fixture layout only".into(),
             review: None,
@@ -1811,7 +1876,7 @@ mod processing_tests {
             })
             .collect();
         assert!(lines.iter().any(|s| s.contains("LOCAL DRAFT")));
-        assert!(lines.iter().any(|s| s.contains("Low gain +6.1 dB")));
+        assert!(lines.iter().any(|s| s.contains("Band 1 gain +6.1 dB")));
         keyboard.key("Right").unwrap();
         assert!(keyboard.processing_draft.is_none());
         assert!(keyboard.state.is_none());
@@ -1851,5 +1916,129 @@ mod processing_tests {
         assert!(f.key("Enter").unwrap_err().contains("every displayed"));
         f.fence();
         assert!(f.key("Enter").is_err());
+    }
+    #[test]
+    fn four_band_extreme_values_all_endpoints_fit_without_truncation_or_overlap() {
+        let mut f = surface();
+        let p = f.state.as_mut().unwrap().processing.as_mut().unwrap();
+        let mut value = serde_json::to_value(&p.channels[0].target).unwrap();
+        for band in 1..=4 {
+            value[format!("band{band}_hz")] = json!(20000);
+            value[format!("band{band}_gain_mdb")] = json!(-12000);
+            value[format!("band{band}_q_milli")] = json!(10000);
+            value[format!("band{band}_bypass")] = json!(true);
+        }
+        p.channels[0].current = crate::processing::decode_config(&value).unwrap();
+        p.channels[0].target = p.channels[0].current.clone();
+        f.key("E").unwrap();
+        for i in 0..24 {
+            assert_eq!(f.processing_field, i);
+            let scene = f.scene();
+            let mut rows = Vec::new();
+            for primitive in scene.primitives {
+                if let Primitive::Text { x, y, value, .. } = primitive {
+                    assert!(x + value.chars().count() as u32 * 12 <= 1920, "{value}");
+                    if (312..600).contains(&y) {
+                        rows.push((y, value));
+                    }
+                }
+            }
+            assert_eq!(rows.len(), 12);
+            for (band, (_, row)) in rows.iter().enumerate().take(5).skip(1) {
+                let expected = format!("Band {band} bell 20000Hz -12.0dB Q10.0 BYPASS");
+                assert_eq!(
+                    row.matches(&expected).count(),
+                    3,
+                    "all three endpoints must be fully visible: {row}"
+                );
+            }
+            assert!(rows.windows(2).all(|r| r[1].0 >= r[0].0 + 24));
+            f.key("I").unwrap();
+        }
+        assert_eq!(f.processing_field, 0);
+    }
+    #[test]
+    fn zero_size_review_never_counts_as_presented_and_all24_values_are_reviewable() {
+        let mut f = surface();
+        let config = f
+            .state
+            .as_ref()
+            .unwrap()
+            .processing
+            .as_ref()
+            .unwrap()
+            .channels[0]
+            .target
+            .clone();
+        let fields = crate::processing::FIELDS
+            .iter()
+            .map(|field| config.display(*field))
+            .collect::<Vec<_>>();
+        f.state.as_mut().unwrap().review = Some((10, fields.join("\n")));
+        f.synchronize_review();
+        f.width = 0;
+        let _ = crate::raster::rgba(&f.scene());
+        f.mark_presented();
+        assert!(f.review_seen.is_empty());
+        assert!(f.action(Action::Confirm).is_err());
+        f.width = 540;
+        f.height = 960;
+        let scene = f.scene();
+        for field in fields {
+            assert!(
+                scene
+                    .primitives
+                    .iter()
+                    .any(|p| matches!(p,Primitive::Text{value,..} if value==&field)),
+                "{field}"
+            );
+        }
+        let _ = crate::raster::rgba(&scene);
+        f.state.as_mut().unwrap().received = Instant::now();
+        f.mark_presented();
+        assert_eq!(f.review_seen.len(), 1);
+    }
+    #[test]
+    fn injected_local_field_burst_does_not_fill_provider_release_queue() {
+        let mut f = surface();
+        let (tx, rx) = mpsc::sync_channel(8);
+        f.provider = Provider {
+            tx,
+            latest: Arc::new(Latest::default()),
+            generation: Arc::new(AtomicU64::new(1)),
+            stop: Arc::new(AtomicBool::new(false)),
+            child: None,
+            authorization: Arc::new(AtomicBool::new(true)),
+        };
+        f.state.as_mut().unwrap().received = Instant::now();
+        f.inject_controller(Action::ProcessingEdit).unwrap();
+        f.pump();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::InputReleased
+        ));
+        for _ in 0..24 {
+            f.inject_controller(Action::ProcessingField(1)).unwrap();
+            f.pump();
+        }
+        f.inject_controller(Action::ProcessingText("0".into()))
+            .unwrap();
+        f.pump();
+        assert!(
+            rx.try_recv().is_err(),
+            "local fields must not send provider traffic"
+        );
+        assert!(!f.processing_draft.as_ref().unwrap().config.eq_bypass);
+        f.inject_controller(Action::ProcessingApply).unwrap();
+        f.pump();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::ReviewProcessing { .. }
+        ));
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::InputReleased
+        ));
+        assert!(rx.try_recv().is_err());
     }
 }

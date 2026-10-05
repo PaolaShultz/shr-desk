@@ -171,14 +171,17 @@ confirmed revision change. With the exact CPU ICD environment above, feature
 This passed against the accepted owner-library graph; physical protection,
 controller/display behavior and signal-meter acceptance remain unverified.
 
-## GP07 channel processing (task0012)
+## GP07 four-band channel processing (task0013)
 
-The real frontend supports the accepted `GP07-processing:1` extension with an
+The real frontend supports the accepted `GP07-processing:2` extension with an
 explicit `--processing` option on `--native`, `--headless` or `--offscreen`.
 Programmatic callers use `Frontend::enable_processing()`. This opt-in protects
 legacy providers that close a connection on an unknown contract: ordinary GP03
 attachment sends no GP07 query. Unsupported or failed probes remain unavailable;
-start without the option for a legacy provider. A valid processing snapshot must
+use **F8** for an explicit legacy GP03-only reconnect (or start without the option).
+F8 discards all local intents and attaches with a fresh read-only writer. A transport
+disconnect is shown as the observed failure; it is not proof of an unsupported version.
+There is no silent downgrade or edit retry. GP03 retains version 1. A valid processing snapshot must
 prove capability before any processing editor is available.
 
 GP07 uses the **same Operator, Unix connection, Session, writer lease, request-ID
@@ -211,19 +214,23 @@ The page separately labels confirmed settled config, committed target and unsent
 local draft. During a transition, output is a blend; neither endpoint is labelled
 as the instantaneous output. GR is positive detector attenuation excluding makeup,
 not an input/output meter. It is labelled bypassed, transitioning, stale or faulted
-when unavailable. All three EQ bands, compressor parameters, explicit makeup and
-both independent bypasses are editable. Existing fader/pan/mute/hold/mode controls
+when unavailable. All four stable bell bands expose independent frequency, gain, Q and bypass.
+Band order is identity order even when frequencies cross. Global EQ bypass and
+unchanged compressor parameters, explicit makeup and compressor bypass remain
+editable: 24 mandatory atomic fields. The Channel scene groups each band in one
+row with separate confirmed settled, confirmed target and unsent draft columns;
+the selected field is named below. Apply lists every field in the protected review. Existing fader/pan/mute/hold/mode controls
 remain available outside a processing draft. Selection/page/bank/revision changes,
 role loss, focus/device loss, overflow and reconnect revoke drafts and reviews.
 Reconnect uses fresh read-only authority and never replays settings.
 
-Producer fixtures are pinned in `tests/fixtures/gp07/v1/ACCEPTED.json`. Normal
+Producer fixtures are pinned in `tests/fixtures/gp07/v2/ACCEPTED.json`. Normal
 `gp07_codec` tests exercise exact bytes, strict domains, shared authority,
 nonadmission and late/mismatched replies. UI regressions protect numeric entry,
 keyboard/controller parity, layout and context loss. These fixture checks alone
 are not actual-provider or audio acceptance.
 
-Two explicit ignored tests in `tests/gp07_frontend.rs` use the actual frontend:
+Three explicit ignored tests in `tests/gp07_frontend.rs` use the actual frontend:
 
 - `gp07_actual_release_provider`: `SHR_DESK_GP07` names an independently verified
   release provider. It launches and joins only its own temporary private service.
@@ -231,12 +238,43 @@ Two explicit ignored tests in `tests/gp07_frontend.rs` use the actual frontend:
   real LocalAudio endpoint, show `11111111-1111-4111-8111-111111111111`, epoch `100`.
   The host invokes the compiled test executable with
   `--ignored --exact gp07_external_driver --nocapture`; no Cargo is needed on the
-  host. It edits channel 1 through keyboard and channel 2 through injected semantic
-  actions, checks confirmed readback/visible scene, cancels context, reconnects
-  without replay, and drops Frontend within 20 seconds. The host owns sample,
-  REC/analysis and module-order assertions. `GP07_DRIVER_EVIDENCE` optionally names
+  host. It performs at least 17 real reviewed edits, including two independent
+  frequency/gain/Q settings per band, crossed cascade, all four per-band bypasses,
+  global bypass, neutral, positive compressor GR and a distinct second channel.
+  It waits for ready state and at least 576 additional source frames per edit,
+  cancels context, reconnects without replay and drops Frontend within 60 seconds.
+  Evidence includes each full config and the effective frame from the correlated
+  successful final reply, plus individual semantic field-action evidence.
+  The host owns sample, REC/analysis and module-order assertions. `GP07_DRIVER_EVIDENCE` optionally names
   the small JSON result. `GP07_SCENE_EVIDENCE` optionally names a single PPM scene.
   No REC authority is requested by Desk.
+- `gp07_legacy_disconnect_requires_explicit_gp03_reconnect`: `SHR_DESK_GP07_LEGACY`
+  names the independently verified unchanged v1 provider for the explicit F8
+  recovery check described below.
 
 Use the same parent-held nonblocking build lock and explicit CPU ICD environment
 for native integration. Actual validation status is recorded in [Status](STATUS.md).
+
+The original `gp07/v1` corpus is unchanged compatibility evidence. This consumer
+refuses v1 snapshots and replies; it never relabels shelf settings as bell settings.
+`gp07_legacy_disconnect_requires_explicit_gp03_reconnect` uses
+`SHR_DESK_GP07_LEGACY` for a hash-verified unchanged v1 provider: ordinary GP03
+attaches, the explicit v2 probe fails with the observed transport error, and F8
+restores GP03 controls through a fresh read-only attachment with no replay.
+The new provider's explicit unsupported-version refusal to old clients is a
+producer-owned compatibility check.
+
+`native::offscreen_at` uses the production viewport and shader to compare actual
+CPU Vulkan readback with the aspect-fitted bitmap scene, including letterboxing.
+Actual-provider layout acceptance checks Channel and protected review at full HD,
+reduced, portrait and enlarged sizes; zero size suspends presentation and cannot
+satisfy the review gate. Select only the explicit lavapipe ICD and unset display
+variables. Physical readability, devices and displays remain unverified.
+
+Local injected-controller field gestures, like keyboard field gestures, enqueue no
+provider release messages; Apply still enters the same shared protected review.
+This keeps a burst of unsent field edits from filling the authority queue or
+delaying paired observations. The 250 ms gate and original revision pin remain.
+The native presenter uses direct framebuffer-pixel mapping for deterministic
+scaled texel selection and requests the adapter's supported resolution limits,
+so enlarged targets are not incorrectly capped at the 2048-pixel fallback limit.

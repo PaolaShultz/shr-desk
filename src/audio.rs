@@ -531,7 +531,7 @@ impl Request {
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
+        let v = json!({"contract":contract,"version":if contract == "GP07-processing" {2} else {1},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -574,6 +574,8 @@ pub struct Session {
     receipt: Option<u64>,
     pub processing: Option<crate::processing::Snapshot>,
     processing_receipt: Option<u64>,
+    /// Last correlated successful final, retained independently of polling snapshots.
+    pub processing_final: Option<crate::processing::Reply>,
     lease: Option<Lease>,
     pub pending: Option<Pending>,
     pub last_result: String,
@@ -598,6 +600,7 @@ impl Session {
             receipt: None,
             processing: None,
             processing_receipt: None,
+            processing_final: None,
             lease: None,
             pending: None,
             last_result: "read-only; snapshot required".into(),
@@ -679,6 +682,7 @@ impl Session {
         self.lease = None;
         self.receipt = None;
         self.processing_receipt = None;
+        self.processing_final = None;
         self.needs_snapshot = true;
         self.context_changed();
         self.last_result = "disconnected; pending intent discarded, mix unknown".into();
@@ -836,6 +840,9 @@ impl Session {
             p.timing = r.effective_frame.map(|f| (f, 240));
             p.state = PendingState::Accepted;
             return Ok(());
+        }
+        if r.reason.is_none() {
+            self.processing_final = Some(r.clone());
         }
         if let Some(snapshot) = r.snapshot {
             self.ingest_processing(snapshot, now)?;

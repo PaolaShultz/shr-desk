@@ -308,3 +308,14 @@ Desk owns operator actions/readback/presentation, while the GigPies host owns
 actual output samples, raw REC/analysis preservation and downstream FX/PA order.
 The bounded compiled external driver supplies the real keyboard and injected
 controller actions to that host. Current validation/limits are in [Status](STATUS.md).
+
+### Task0013 four-band consumer increment
+
+The task0012 path now consumes explicit GP07-processing:2: four stable bell bands
+with independent frequency/gain/Q/bypass and unchanged compressor controls.
+Version 1 fixtures remain intact; only new version 2 bytes are accepted. The same
+frontend authority/review path supplies the 17-edit integration driver, including
+actual final effective-frame evidence and individual field actions. F8 provides
+an explicit GP03-only recovery for old providers without silent downgrade/replay.
+See [Native frontend](NATIVE_FRONTEND.md) for controls and [Status](STATUS.md) for
+validation; the coordinator independently owns signal acceptance and publication.

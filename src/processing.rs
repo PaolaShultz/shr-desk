@@ -1,19 +1,27 @@
-//! Strict GP07-processing:1 consumer data. No filters, detector or DSP algorithms.
+//! Strict GP07-processing:2 consumer data. No filters, detector or DSP algorithms.
 use crate::{audio::Context, provider};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub eq_bypass: bool,
-    pub low_hz: i32,
-    pub low_gain_mdb: i32,
-    pub mid_hz: i32,
-    pub mid_gain_mdb: i32,
-    pub mid_q_milli: i32,
-    pub high_hz: i32,
-    pub high_gain_mdb: i32,
+    pub band1_hz: i32,
+    pub band1_gain_mdb: i32,
+    pub band1_q_milli: i32,
+    pub band1_bypass: bool,
+    pub band2_hz: i32,
+    pub band2_gain_mdb: i32,
+    pub band2_q_milli: i32,
+    pub band2_bypass: bool,
+    pub band3_hz: i32,
+    pub band3_gain_mdb: i32,
+    pub band3_q_milli: i32,
+    pub band3_bypass: bool,
+    pub band4_hz: i32,
+    pub band4_gain_mdb: i32,
+    pub band4_q_milli: i32,
+    pub band4_bypass: bool,
     pub compressor_bypass: bool,
     pub threshold_mdb: i32,
     pub ratio_milli: i32,
@@ -25,13 +33,18 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
         for (value, min, max, step) in [
-            (self.low_hz, 20, 20000, 1),
-            (self.mid_hz, 20, 20000, 1),
-            (self.high_hz, 20, 20000, 1),
-            (self.low_gain_mdb, -12000, 12000, 100),
-            (self.mid_gain_mdb, -12000, 12000, 100),
-            (self.high_gain_mdb, -12000, 12000, 100),
-            (self.mid_q_milli, 100, 10000, 100),
+            (self.band1_hz, 20, 20000, 1),
+            (self.band1_gain_mdb, -12000, 12000, 100),
+            (self.band1_q_milli, 100, 10000, 100),
+            (self.band2_hz, 20, 20000, 1),
+            (self.band2_gain_mdb, -12000, 12000, 100),
+            (self.band2_q_milli, 100, 10000, 100),
+            (self.band3_hz, 20, 20000, 1),
+            (self.band3_gain_mdb, -12000, 12000, 100),
+            (self.band3_q_milli, 100, 10000, 100),
+            (self.band4_hz, 20, 20000, 1),
+            (self.band4_gain_mdb, -12000, 12000, 100),
+            (self.band4_q_milli, 100, 10000, 100),
             (self.threshold_mdb, -60000, 0, 100),
             (self.ratio_milli, 1000, 20000, 100),
             (self.knee_mdb, 0, 18000, 100),
@@ -53,18 +66,43 @@ impl Config {
                 *self = candidate;
                 return Ok(());
             }
+            Field::Band1Hz => (&mut candidate.band1_hz, 1),
+            Field::Band1Gain => (&mut candidate.band1_gain_mdb, 100),
+            Field::Band1Q => (&mut candidate.band1_q_milli, 100),
+            Field::Band1Bypass => {
+                candidate.band1_bypass = !candidate.band1_bypass;
+                *self = candidate;
+                return Ok(());
+            }
+            Field::Band2Hz => (&mut candidate.band2_hz, 1),
+            Field::Band2Gain => (&mut candidate.band2_gain_mdb, 100),
+            Field::Band2Q => (&mut candidate.band2_q_milli, 100),
+            Field::Band2Bypass => {
+                candidate.band2_bypass = !candidate.band2_bypass;
+                *self = candidate;
+                return Ok(());
+            }
+            Field::Band3Hz => (&mut candidate.band3_hz, 1),
+            Field::Band3Gain => (&mut candidate.band3_gain_mdb, 100),
+            Field::Band3Q => (&mut candidate.band3_q_milli, 100),
+            Field::Band3Bypass => {
+                candidate.band3_bypass = !candidate.band3_bypass;
+                *self = candidate;
+                return Ok(());
+            }
+            Field::Band4Hz => (&mut candidate.band4_hz, 1),
+            Field::Band4Gain => (&mut candidate.band4_gain_mdb, 100),
+            Field::Band4Q => (&mut candidate.band4_q_milli, 100),
+            Field::Band4Bypass => {
+                candidate.band4_bypass = !candidate.band4_bypass;
+                *self = candidate;
+                return Ok(());
+            }
             Field::CompressorBypass => {
                 candidate.compressor_bypass = !candidate.compressor_bypass;
                 *self = candidate;
                 return Ok(());
             }
-            Field::LowHz => (&mut candidate.low_hz, 1),
-            Field::LowGain => (&mut candidate.low_gain_mdb, 100),
-            Field::MidHz => (&mut candidate.mid_hz, 1),
-            Field::MidGain => (&mut candidate.mid_gain_mdb, 100),
-            Field::MidQ => (&mut candidate.mid_q_milli, 100),
-            Field::HighHz => (&mut candidate.high_hz, 1),
-            Field::HighGain => (&mut candidate.high_gain_mdb, 100),
             Field::Threshold => (&mut candidate.threshold_mdb, 100),
             Field::Ratio => (&mut candidate.ratio_milli, 100),
             Field::Knee => (&mut candidate.knee_mdb, 100),
@@ -97,10 +135,15 @@ impl Config {
         let scale = if matches!(
             field,
             Field::EqBypass
+                | Field::Band1Hz
+                | Field::Band1Bypass
+                | Field::Band2Hz
+                | Field::Band2Bypass
+                | Field::Band3Hz
+                | Field::Band3Bypass
+                | Field::Band4Hz
+                | Field::Band4Bypass
                 | Field::CompressorBypass
-                | Field::LowHz
-                | Field::MidHz
-                | Field::HighHz
                 | Field::Release
         ) {
             1
@@ -125,18 +168,34 @@ impl Config {
             i32::try_from(if negative { -value } else { value }).map_err(|_| "numeric overflow")?;
         let mut c = self.clone();
         match field {
-            Field::EqBypass | Field::CompressorBypass if !(0..=1).contains(&value) => {
+            Field::EqBypass
+            | Field::Band1Bypass
+            | Field::Band2Bypass
+            | Field::Band3Bypass
+            | Field::Band4Bypass
+            | Field::CompressorBypass
+                if !(0..=1).contains(&value) =>
+            {
                 return Err("bypass is 0 (enabled) or 1 (bypassed)".into());
             }
             Field::EqBypass => c.eq_bypass = value == 1,
+            Field::Band1Hz => c.band1_hz = value,
+            Field::Band1Gain => c.band1_gain_mdb = value,
+            Field::Band1Q => c.band1_q_milli = value,
+            Field::Band1Bypass => c.band1_bypass = value == 1,
+            Field::Band2Hz => c.band2_hz = value,
+            Field::Band2Gain => c.band2_gain_mdb = value,
+            Field::Band2Q => c.band2_q_milli = value,
+            Field::Band2Bypass => c.band2_bypass = value == 1,
+            Field::Band3Hz => c.band3_hz = value,
+            Field::Band3Gain => c.band3_gain_mdb = value,
+            Field::Band3Q => c.band3_q_milli = value,
+            Field::Band3Bypass => c.band3_bypass = value == 1,
+            Field::Band4Hz => c.band4_hz = value,
+            Field::Band4Gain => c.band4_gain_mdb = value,
+            Field::Band4Q => c.band4_q_milli = value,
+            Field::Band4Bypass => c.band4_bypass = value == 1,
             Field::CompressorBypass => c.compressor_bypass = value == 1,
-            Field::LowHz => c.low_hz = value,
-            Field::LowGain => c.low_gain_mdb = value,
-            Field::MidHz => c.mid_hz = value,
-            Field::MidGain => c.mid_gain_mdb = value,
-            Field::MidQ => c.mid_q_milli = value,
-            Field::HighHz => c.high_hz = value,
-            Field::HighGain => c.high_gain_mdb = value,
             Field::Threshold => c.threshold_mdb = value,
             Field::Ratio => c.ratio_milli = value,
             Field::Knee => c.knee_mdb = value,
@@ -148,16 +207,62 @@ impl Config {
         *self = c;
         Ok(())
     }
+    /// Stable band identity order, never frequency-sorted.
+    pub fn bands(&self) -> [(i32, i32, i32, bool); 4] {
+        [
+            (
+                self.band1_hz,
+                self.band1_gain_mdb,
+                self.band1_q_milli,
+                self.band1_bypass,
+            ),
+            (
+                self.band2_hz,
+                self.band2_gain_mdb,
+                self.band2_q_milli,
+                self.band2_bypass,
+            ),
+            (
+                self.band3_hz,
+                self.band3_gain_mdb,
+                self.band3_q_milli,
+                self.band3_bypass,
+            ),
+            (
+                self.band4_hz,
+                self.band4_gain_mdb,
+                self.band4_q_milli,
+                self.band4_bypass,
+            ),
+        ]
+    }
     pub fn display(&self, field: Field) -> String {
         match field {
             Field::EqBypass => format!("EQ bypass {}", self.eq_bypass),
-            Field::LowHz => format!("Low shelf {} Hz", self.low_hz),
-            Field::LowGain => format!("Low gain {:+.1} dB", self.low_gain_mdb as f64 / 1000.0),
-            Field::MidHz => format!("Mid bell {} Hz", self.mid_hz),
-            Field::MidGain => format!("Mid gain {:+.1} dB", self.mid_gain_mdb as f64 / 1000.0),
-            Field::MidQ => format!("Mid Q {:.1}", self.mid_q_milli as f64 / 1000.0),
-            Field::HighHz => format!("High shelf {} Hz", self.high_hz),
-            Field::HighGain => format!("High gain {:+.1} dB", self.high_gain_mdb as f64 / 1000.0),
+            Field::Band1Hz => format!("Band 1 bell {} Hz", self.band1_hz),
+            Field::Band1Gain => {
+                format!("Band 1 gain {:+.1} dB", self.band1_gain_mdb as f64 / 1000.0)
+            }
+            Field::Band1Q => format!("Band 1 Q {:.1}", self.band1_q_milli as f64 / 1000.0),
+            Field::Band1Bypass => format!("Band 1 bypass {}", self.band1_bypass),
+            Field::Band2Hz => format!("Band 2 bell {} Hz", self.band2_hz),
+            Field::Band2Gain => {
+                format!("Band 2 gain {:+.1} dB", self.band2_gain_mdb as f64 / 1000.0)
+            }
+            Field::Band2Q => format!("Band 2 Q {:.1}", self.band2_q_milli as f64 / 1000.0),
+            Field::Band2Bypass => format!("Band 2 bypass {}", self.band2_bypass),
+            Field::Band3Hz => format!("Band 3 bell {} Hz", self.band3_hz),
+            Field::Band3Gain => {
+                format!("Band 3 gain {:+.1} dB", self.band3_gain_mdb as f64 / 1000.0)
+            }
+            Field::Band3Q => format!("Band 3 Q {:.1}", self.band3_q_milli as f64 / 1000.0),
+            Field::Band3Bypass => format!("Band 3 bypass {}", self.band3_bypass),
+            Field::Band4Hz => format!("Band 4 bell {} Hz", self.band4_hz),
+            Field::Band4Gain => {
+                format!("Band 4 gain {:+.1} dB", self.band4_gain_mdb as f64 / 1000.0)
+            }
+            Field::Band4Q => format!("Band 4 Q {:.1}", self.band4_q_milli as f64 / 1000.0),
+            Field::Band4Bypass => format!("Band 4 bypass {}", self.band4_bypass),
             Field::CompressorBypass => format!("Compressor bypass {}", self.compressor_bypass),
             Field::Threshold => format!("Threshold {:.1} dBFS", self.threshold_mdb as f64 / 1000.0),
             Field::Ratio => format!("Ratio {:.1}:1", self.ratio_milli as f64 / 1000.0),
@@ -171,13 +276,22 @@ impl Config {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Field {
     EqBypass,
-    LowHz,
-    LowGain,
-    MidHz,
-    MidGain,
-    MidQ,
-    HighHz,
-    HighGain,
+    Band1Hz,
+    Band1Gain,
+    Band1Q,
+    Band1Bypass,
+    Band2Hz,
+    Band2Gain,
+    Band2Q,
+    Band2Bypass,
+    Band3Hz,
+    Band3Gain,
+    Band3Q,
+    Band3Bypass,
+    Band4Hz,
+    Band4Gain,
+    Band4Q,
+    Band4Bypass,
     CompressorBypass,
     Threshold,
     Ratio,
@@ -186,15 +300,24 @@ pub enum Field {
     Release,
     Makeup,
 }
-pub const FIELDS: [Field; 15] = [
+pub const FIELDS: [Field; 24] = [
     Field::EqBypass,
-    Field::LowHz,
-    Field::LowGain,
-    Field::MidHz,
-    Field::MidGain,
-    Field::MidQ,
-    Field::HighHz,
-    Field::HighGain,
+    Field::Band1Hz,
+    Field::Band1Gain,
+    Field::Band1Q,
+    Field::Band1Bypass,
+    Field::Band2Hz,
+    Field::Band2Gain,
+    Field::Band2Q,
+    Field::Band2Bypass,
+    Field::Band3Hz,
+    Field::Band3Gain,
+    Field::Band3Q,
+    Field::Band3Bypass,
+    Field::Band4Hz,
+    Field::Band4Gain,
+    Field::Band4Q,
+    Field::Band4Bypass,
     Field::CompressorBypass,
     Field::Threshold,
     Field::Ratio,
@@ -203,7 +326,6 @@ pub const FIELDS: [Field; 15] = [
     Field::Release,
     Field::Makeup,
 ];
-
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Channel {
@@ -232,7 +354,7 @@ impl Snapshot {
     pub fn validate(&self) -> Result<(), String> {
         if !provider::uuid(&self.show_id)
             || self.sample_rate != 48000
-            || self.foh_tap != "foh-post-eq-dynamics-v1"
+            || self.foh_tap != "foh-post-eq-dynamics-v2"
             || self.monitor_tap != "raw-post-mute-v1"
             || self.channels.len() != 8
         {
@@ -330,7 +452,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     if r.context.epoch == "0" {
         return Err("processing epoch must be nonzero".into());
     }
-    if r.contract != "GP07-processing" || r.version != 1 {
+    if r.contract != "GP07-processing" || r.version != 2 {
         return Err("processing contract/version".into());
     }
     provider::counter(&r.revision)?;

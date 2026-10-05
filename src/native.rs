@@ -39,19 +39,23 @@ pub fn viewport(width: u32, height: u32) -> (f32, f32, f32, f32) {
 
 const SHADER: &str = r#"
 @group(0) @binding(0) var image: texture_2d<f32>;
-struct Vertex { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32> }
+@group(0) @binding(1) var<uniform> fit: vec4<f32>;
+struct Vertex { @builtin(position) position: vec4<f32> }
 @vertex fn vs(@builtin(vertex_index) i:u32)->Vertex {
     var xy=array<vec2<f32>,3>(vec2<f32>(-1.0,-1.0),vec2<f32>(3.0,-1.0),vec2<f32>(-1.0,3.0));
-    var v:Vertex; v.position=vec4<f32>(xy[i],0.0,1.0); v.uv=vec2<f32>((xy[i].x+1.0)*0.5,(1.0-xy[i].y)*0.5); return v;
+    var v:Vertex; v.position=vec4<f32>(xy[i],0.0,1.0); return v;
 }
 @fragment fn fs(v:Vertex)->@location(0) vec4<f32> {
-    let size=textureDimensions(image); let p=min(vec2<u32>(v.uv*vec2<f32>(size)),size-vec2<u32>(1)); return textureLoad(image,p,0);
+    let size=textureDimensions(image);
+    let source=(v.position.xy-fit.xy)*vec2<f32>(size)/fit.zw;
+    let p=min(vec2<u32>(source),size-vec2<u32>(1)); return textureLoad(image,p,0);
 }
 "#;
 struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     texture: wgpu::Texture,
+    viewport_buffer: wgpu::Buffer,
     bind: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
     lost: Arc<AtomicBool>,
@@ -63,7 +67,10 @@ impl Gpu {
                 &wgpu::DeviceDescriptor {
                     label: Some("Desk renderer"),
                     required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_defaults(),
+                    // Keep conservative feature limits while supporting the adapter's
+                    // actual presentation resolution, including enlarged viewports.
+                    required_limits: wgpu::Limits::downlevel_defaults()
+                        .using_resolution(adapter.limits()),
                 },
                 None,
             )
@@ -88,28 +95,52 @@ impl Gpu {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
+        let viewport_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Aspect-fit pixel mapping"),
+            size: 16,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
         });
         let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(
-                    &texture.create_view(&Default::default()),
-                ),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &texture.create_view(&Default::default()),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: viewport_buffer.as_entire_binding(),
+                },
+            ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -148,12 +179,19 @@ impl Gpu {
             device,
             queue,
             texture,
+            viewport_buffer,
             bind,
             pipeline,
             lost,
         })
     }
     fn render(&self, scene: &Scene, target: &wgpu::TextureView, width: u32, height: u32) {
+        let (x, y, w, h) = viewport(width, height);
+        let mut fit = [0u8; 16];
+        for (i, value) in [x, y, w, h].into_iter().enumerate() {
+            fit[i * 4..(i + 1) * 4].copy_from_slice(&value.to_le_bytes());
+        }
+        self.queue.write_buffer(&self.viewport_buffer, 0, &fit);
         self.queue.write_texture(
             self.texture.as_image_copy(),
             &raster::rgba(scene),
@@ -184,7 +222,6 @@ impl Gpu {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-            let (x, y, w, h) = viewport(width, height);
             pass.set_viewport(x, y, w, h, 0.0, 1.0);
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind, &[]);
@@ -383,6 +420,7 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::F2 => "F2",
             NamedKey::F4 => "F4",
             NamedKey::F5 => "F5",
+            NamedKey::F8 => "F8",
             NamedKey::F6 => "F6",
             NamedKey::F10 => "F10",
             _ => return None,
@@ -426,6 +464,10 @@ pub fn run_with_processing(
 /// Explicit CPU Vulkan ICD only. Does not create an event loop, display or surface.
 /// Caller sets VK_DRIVER_FILES to Mesa lavapipe's exact ICD path for this process.
 pub fn offscreen(scene: &Scene) -> Result<String, String> {
+    offscreen_at(scene, WIDTH, HEIGHT)
+}
+/// Exercise the same aspect-fit presentation at an explicit headless viewport.
+pub fn offscreen_at(scene: &Scene, width: u32, height: u32) -> Result<String, String> {
     let driver = std::env::var("VK_DRIVER_FILES").map_err(
         |_| "offscreen requires explicit VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json",
     )?;
@@ -437,6 +479,9 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
             .is_ok_and(|v| v != "/usr/share/vulkan/icd.d/lvp_icd.json")
     {
         return Err("offscreen refuses additional/conflicting Vulkan ICDs".into());
+    }
+    if width == 0 || height == 0 {
+        return Ok("CPU offscreen suspended: zero-size viewport".into());
     }
     pollster::block_on(async {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -460,8 +505,8 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
         let target = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("offscreen target"),
             size: wgpu::Extent3d {
-                width: WIDTH,
-                height: HEIGHT,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -474,13 +519,13 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
         gpu.render(
             scene,
             &target.create_view(&Default::default()),
-            WIDTH,
-            HEIGHT,
+            width,
+            height,
         );
-        let row_bytes = (WIDTH * 4).div_ceil(256) * 256;
+        let row_bytes = (width * 4).div_ceil(256) * 256;
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: u64::from(row_bytes) * u64::from(HEIGHT),
+            size: u64::from(row_bytes) * u64::from(height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
@@ -492,12 +537,12 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(row_bytes),
-                    rows_per_image: Some(HEIGHT),
+                    rows_per_image: Some(height),
                 },
             },
             wgpu::Extent3d {
-                width: WIDTH,
-                height: HEIGHT,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
         );
@@ -512,11 +557,24 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
             .map_err(|e| e.to_string())?;
         let mapped = buffer.slice(..).get_mapped_range();
         let expected = raster::rgba(scene);
-        for y in 0..HEIGHT as usize {
-            if mapped[y * row_bytes as usize..y * row_bytes as usize + WIDTH as usize * 4]
-                != expected[y * WIDTH as usize * 4..(y + 1) * WIDTH as usize * 4]
-            {
-                return Err(format!("GPU/CPU raster mismatch row{y}"));
+        let (vx, vy, vw, vh) = viewport(width, height);
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                let px = x as f32 + 0.5;
+                let py = y as f32 + 0.5;
+                let wanted = if px >= vx && px < vx + vw && py >= vy && py < vy + vh {
+                    let sx = (((px - vx) * WIDTH as f32 / vw) as usize).min(WIDTH as usize - 1);
+                    let sy = (((py - vy) * HEIGHT as f32 / vh) as usize).min(HEIGHT as usize - 1);
+                    &expected[(sy * WIDTH as usize + sx) * 4..(sy * WIDTH as usize + sx + 1) * 4]
+                } else {
+                    &[0, 0, 0, 255]
+                };
+                let offset = y * row_bytes as usize + x * 4;
+                if &mapped[offset..offset + 4] != wanted {
+                    return Err(format!(
+                        "GPU/CPU aspect-fit raster mismatch at {x},{y} in {width}x{height}"
+                    ));
+                }
             }
         }
         drop(mapped);
@@ -526,7 +584,7 @@ pub fn offscreen(scene: &Scene) -> Result<String, String> {
         }
         Ok(format!(
             "CPU offscreen exact RGBA match: {} ({:?}), {}x{}",
-            info.name, info.backend, WIDTH, HEIGHT
+            info.name, info.backend, width, height
         ))
     })
 }

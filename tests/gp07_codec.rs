@@ -2,7 +2,7 @@
 use serde_json::{Value, json};
 use shr_desk::{audio, processing};
 fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!("tests/fixtures/gp07/v1/{name}.json")).unwrap()
+    std::fs::read(format!("tests/fixtures/gp07/v2/{name}.json")).unwrap()
 }
 fn reply(name: &str) -> processing::Reply {
     processing::decode_reply(&fixture(name)).unwrap()
@@ -40,20 +40,20 @@ fn exact_producer_replies_and_request_envelopes() {
     assert_ne!(settling.channels[0].current, settling.channels[0].target);
     assert_eq!(
         reply("ready-reply").snapshot.unwrap().channels[0].gain_reduction_mdb,
-        Some(1800)
+        Some(1510)
     );
 }
 #[test]
 fn strict_domains_and_required_nullable_fields() {
     let original: Value = serde_json::from_slice(&fixture("ready-reply")).unwrap();
     let edits = [
-        ("/version", json!(2)),
+        ("/version", json!(1)),
         ("/revision", json!("01")),
         ("/context/epoch", json!(9)),
         ("/context/extra", json!(null)),
-        ("/snapshot/channels/0/current/low_hz", json!(20.0)),
-        ("/snapshot/channels/0/current/mid_gain_mdb", json!(101)),
-        ("/snapshot/channels/0/current/mid_q_milli", json!(0)),
+        ("/snapshot/channels/0/current/band1_hz", json!(20.0)),
+        ("/snapshot/channels/0/current/band2_gain_mdb", json!(101)),
+        ("/snapshot/channels/0/current/band2_q_milli", json!(0)),
         ("/snapshot/channels/0/current/eq_bypass", json!(1)),
         ("/snapshot/channels/0/gain_reduction_mdb", json!(240001)),
         ("/snapshot/channels/0/ready", json!(false)),
@@ -90,7 +90,7 @@ fn strict_domains_and_required_nullable_fields() {
     assert!(processing::decode_reply(&serde_json::to_vec(&v).unwrap()).is_err());
     let duplicate = String::from_utf8(fixture("snapshot-reply"))
         .unwrap()
-        .replacen("\"version\":1", "\"version\":1,\"version\":1", 1);
+        .replacen("\"version\":2", "\"version\":2,\"version\":2", 1);
     assert!(processing::decode_reply(duplicate.as_bytes()).is_err());
     let mut trailing = fixture("snapshot-reply");
     trailing.extend_from_slice(b" null");
@@ -103,21 +103,21 @@ fn numeric_operator_units_validate_atomically() {
         .current
         .clone();
     for (field, text) in [
-        (processing::Field::LowGain, "6.1"),
-        (processing::Field::MidQ, "2.4"),
+        (processing::Field::Band1Gain, "6.1"),
+        (processing::Field::Band2Q, "2.4"),
         (processing::Field::Attack, "0.1"),
         (processing::Field::CompressorBypass, "0"),
     ] {
         c.set_text(field, text).unwrap();
     }
-    assert_eq!(c.low_gain_mdb, 6100);
-    assert_eq!(c.mid_q_milli, 2400);
+    assert_eq!(c.band1_gain_mdb, 6100);
+    assert_eq!(c.band2_q_milli, 2400);
     assert_eq!(c.attack_us, 100);
     assert!(!c.compressor_bypass);
     let before = c.clone();
     for (field, text) in [
-        (processing::Field::LowHz, "100.1"),
-        (processing::Field::LowGain, "12.1"),
+        (processing::Field::Band1Hz, "100.1"),
+        (processing::Field::Band1Gain, "12.1"),
         (processing::Field::Ratio, "0"),
         (processing::Field::EqBypass, "2"),
         (processing::Field::Attack, "0.01"),
@@ -176,16 +176,27 @@ fn shared_ids_lease_pending_correlation_and_late_observation_fences() {
     final_reply.context = request.context;
     final_reply.revision = "13".into();
     final_reply.snapshot.as_mut().unwrap().revision = "13".into();
+    let actual_frame = final_reply.effective_frame.clone();
     s.accept_processing(final_reply.clone(), 7).unwrap();
+    assert_eq!(
+        s.processing_final.as_ref().unwrap().effective_frame,
+        actual_frame
+    );
+    assert_eq!(s.processing_final.as_ref().unwrap().revision, "13");
     assert!(s.pending.is_none());
     assert!(!s.processing_fresh(7));
     assert!(s.accept_processing(final_reply, 8).is_err());
+    assert_eq!(
+        s.processing_final.as_ref().unwrap().effective_frame,
+        actual_frame
+    );
     assert!(
         !s.ingest_processing(reply("snapshot-reply").snapshot.unwrap(), 100)
             .unwrap()
     );
     assert_eq!(s.processing_age(100), Some(93));
     s.disconnect();
+    assert!(s.processing_final.is_none());
     assert!(s.begin("processing_set", body, 101).is_err());
     assert!(s.retry(101).is_none());
 }
@@ -233,7 +244,9 @@ fn wrong_applied_config_and_cross_contract_reply_preserve_pending() {
     r.context = request.context.clone();
     r.revision = "13".into();
     r.snapshot.as_mut().unwrap().revision = "13".into();
-    r.snapshot.as_mut().unwrap().channels[0].target.mid_gain_mdb = 5000;
+    r.snapshot.as_mut().unwrap().channels[0]
+        .target
+        .band2_gain_mdb = 5000;
     assert!(s.accept_processing(r, 4).is_err());
     assert!(s.pending.is_some());
     let corpus: Value =
@@ -271,5 +284,71 @@ fn exact_nonzero_identity_reason_grammar_and_consumed_boundary() {
             processing::decode_reply(&serde_json::to_vec(&v).unwrap()).is_err(),
             "{reason}"
         );
+    }
+}
+
+#[test]
+fn v1_payloads_and_refusals_are_never_reinterpreted_as_v2() {
+    for name in [
+        "snapshot-reply",
+        "set-final",
+        "ready-reply",
+        "stale-revision",
+    ] {
+        let bytes = std::fs::read(format!("tests/fixtures/gp07/v1/{name}.json")).unwrap();
+        assert!(processing::decode_reply(&bytes).is_err());
+    }
+    let mut v: Value = serde_json::from_slice(&fixture("stale-revision")).unwrap();
+    v["version"] = json!(1);
+    v["reason"] = json!("unsupported_version");
+    assert!(processing::decode_reply(&serde_json::to_vec(&v).unwrap()).is_err());
+}
+#[test]
+fn every_band_has_strict_complete_independent_domains_and_semantic_fields() {
+    let original = reply("snapshot-reply").snapshot.unwrap().channels[0]
+        .target
+        .clone();
+    assert_eq!(
+        serde_json::to_value(&original)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .len(),
+        24
+    );
+    for band in 0..4 {
+        let mut c = original.clone();
+        for (offset, value) in [(0, "20000"), (1, "-12"), (2, "10"), (3, "1")] {
+            c.set_text(processing::FIELDS[1 + band * 4 + offset], value)
+                .unwrap();
+        }
+        let v = serde_json::to_value(&c).unwrap();
+        let b = band + 1;
+        assert_eq!(v[format!("band{b}_hz")], 20000);
+        assert_eq!(v[format!("band{b}_gain_mdb")], -12000);
+        assert_eq!(v[format!("band{b}_q_milli")], 10000);
+        assert_eq!(v[format!("band{b}_bypass")], true);
+        for (suffix, bad) in [
+            ("hz", json!(19)),
+            ("gain_mdb", json!(12001)),
+            ("q_milli", json!(101)),
+            ("bypass", json!(0)),
+        ] {
+            let mut bad_config = v.clone();
+            let key = format!("band{b}_{suffix}");
+            bad_config[&key] = bad;
+            assert!(processing::decode_config(&bad_config).is_err());
+            bad_config.as_object_mut().unwrap().remove(&key);
+            assert!(processing::decode_config(&bad_config).is_err());
+        }
+        for other in 1..=4 {
+            if other != b {
+                let baseline = serde_json::to_value(&original).unwrap();
+                for suffix in ["hz", "gain_mdb", "q_milli", "bypass"] {
+                    let key = format!("band{other}_{suffix}");
+                    assert_eq!(v[&key], baseline[&key]);
+                }
+            }
+        }
     }
 }

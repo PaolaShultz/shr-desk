@@ -953,7 +953,7 @@ mod gp07_stage_tests {
                 } else {
                     assert_eq!(kind, "processing_snapshot");
                     let mut r: Value = serde_json::from_str(include_str!(
-                        "../tests/fixtures/gp07/v1/snapshot-reply.json"
+                        "../tests/fixtures/gp07/v2/snapshot-reply.json"
                     ))
                     .unwrap();
                     r["revision"] = revision.into();
@@ -987,7 +987,7 @@ mod gp07_stage_tests {
             )
             .unwrap();
         let mut processing = crate::processing::decode_reply(include_bytes!(
-            "../tests/fixtures/gp07/v1/snapshot-reply.json"
+            "../tests/fixtures/gp07/v2/snapshot-reply.json"
         ))
         .unwrap()
         .snapshot

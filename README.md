@@ -17,7 +17,9 @@ unavailable. Optional GP05 read-only health is separate from the raw mixer;
 REC/PA/FX writable controls remain unavailable. Attaching is read-only, grants are explicit,
 and reconnect discards local intents without recalling a mix.
 
-The task0012 channel-processing extension adds explicit `--processing` capability
+The task0013 four-band channel-processing extension uses `GP07-processing:2`,
+four independent bell frequency/gain/Q/bypass controls and the unchanged compressor.
+It adds explicit `--processing` capability
 probing and a complete Channel EQ/compressor draft, Apply/review/confirm/Cancel
 workflow on the same real provider session. Current validation and remaining gates
 are recorded in [status](docs/STATUS.md); physical acceptance remains separate.

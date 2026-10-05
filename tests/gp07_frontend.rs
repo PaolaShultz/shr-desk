@@ -62,11 +62,18 @@ fn tap(f: &mut Frontend, key: &str) {
     f.pump();
 }
 fn controller(f: &mut Frontend, action: Action) {
+    let local = matches!(
+        action,
+        Action::ProcessingField(_) | Action::ProcessingText(_) | Action::ProcessingAdjust(_)
+    );
     f.inject_controller(action).unwrap();
     f.pump();
-    // Explicit injected gestures are bounded; allow the existing release queue to drain.
-    thread::sleep(Duration::from_millis(45));
-    f.pump();
+    // Local fields share keyboard semantics and do not enqueue provider releases.
+    // Allow actual context/authority gestures' release queue to drain.
+    if !local {
+        thread::sleep(Duration::from_millis(45));
+        f.pump();
+    }
 }
 fn field_keyboard(f: &mut Frontend, index: usize, value: &str) {
     assert!(index < processing::FIELDS.len());
@@ -96,7 +103,8 @@ fn field_keyboard(f: &mut Frontend, index: usize, value: &str) {
         f.message
     );
 }
-fn review_confirm(f: &mut Frontend, deadline: Instant, injected: bool) {
+fn review_confirm(f: &mut Frontend, deadline: Instant, injected: bool, cpu: bool) {
+    let reviewed_config = f.processing_draft.as_ref().unwrap().config.clone();
     if injected {
         controller(f, Action::ProcessingApply);
     } else {
@@ -105,23 +113,89 @@ fn review_confirm(f: &mut Frontend, deadline: Instant, injected: bool) {
     wait(f, deadline, "displayed review", |f| {
         f.state.as_ref().is_some_and(|u| u.review.is_some()) && f.processing_ready()
     });
-    let scene = f.scene();
-    assert!(scene.in_bounds());
-    let visible = text(f);
+    let mut visible = String::new();
+    for page in 0..f.review_pages() {
+        if page > 0 {
+            tap(f, "PageDown");
+        }
+        let scene = f.scene();
+        assert!(scene.in_bounds());
+        let _pixels = shr_desk::raster::rgba(&scene);
+        #[cfg(feature = "native")]
+        if cpu {
+            cpu_layout(&scene);
+            if let Some(path) = std::env::var_os("GP07_REVIEW_SCENE_EVIDENCE") {
+                shr_desk::raster::ppm(&scene, &PathBuf::from(path)).unwrap();
+            }
+        }
+        #[cfg(not(feature = "native"))]
+        let _ = cpu;
+        visible.push_str(&text(f));
+        let presented_id = f.state.as_ref().unwrap().review.as_ref().unwrap().0;
+        wait(f, deadline, "fresh same rendered review", |f| {
+            f.processing_ready()
+                && f.state
+                    .as_ref()
+                    .and_then(|u| u.review.as_ref())
+                    .is_some_and(|r| r.0 == presented_id)
+        });
+        f.mark_presented();
+    }
     assert!(visible.contains("APPLY channel"));
     assert!(visible.contains("Compressor bypass"));
+    for field in processing::FIELDS {
+        let displayed = reviewed_config.display(field);
+        assert!(
+            visible.contains(&displayed),
+            "unreviewable atomic field: {displayed}"
+        );
+    }
     assert!(visible.contains("240-frame"));
-    f.mark_presented();
     if injected {
         controller(f, Action::Confirm);
     } else {
         tap(f, "Enter");
     }
 }
+#[cfg(feature = "native")]
+fn cpu_layout(scene: &shr_desk::render::Scene) {
+    for (width, height) in [(1920, 1080), (960, 540), (540, 960), (3840, 2160), (0, 0)] {
+        let result = shr_desk::native::offscreen_at(scene, width, height).unwrap();
+        eprintln!("{result}");
+    }
+}
+fn entries(c: &processing::Config) -> Vec<String> {
+    vec![
+        u8::from(c.eq_bypass).to_string(),
+        c.band1_hz.to_string(),
+        format!("{:.3}", c.band1_gain_mdb as f64 / 1000.0),
+        format!("{:.3}", c.band1_q_milli as f64 / 1000.0),
+        u8::from(c.band1_bypass).to_string(),
+        c.band2_hz.to_string(),
+        format!("{:.3}", c.band2_gain_mdb as f64 / 1000.0),
+        format!("{:.3}", c.band2_q_milli as f64 / 1000.0),
+        u8::from(c.band2_bypass).to_string(),
+        c.band3_hz.to_string(),
+        format!("{:.3}", c.band3_gain_mdb as f64 / 1000.0),
+        format!("{:.3}", c.band3_q_milli as f64 / 1000.0),
+        u8::from(c.band3_bypass).to_string(),
+        c.band4_hz.to_string(),
+        format!("{:.3}", c.band4_gain_mdb as f64 / 1000.0),
+        format!("{:.3}", c.band4_q_milli as f64 / 1000.0),
+        u8::from(c.band4_bypass).to_string(),
+        u8::from(c.compressor_bypass).to_string(),
+        format!("{:.3}", c.threshold_mdb as f64 / 1000.0),
+        format!("{:.3}", c.ratio_milli as f64 / 1000.0),
+        format!("{:.3}", c.knee_mdb as f64 / 1000.0),
+        format!("{:.3}", c.attack_us as f64 / 1000.0),
+        c.release_ms.to_string(),
+        format!("{:.3}", c.makeup_mdb as f64 / 1000.0),
+    ]
+}
 fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     assert!(endpoint.is_absolute());
     let start = Instant::now();
-    let deadline = start + Duration::from_secs(17);
+    let deadline = start + Duration::from_secs(55);
     let mut f = Frontend::new(Config {
         endpoint: endpoint.to_path_buf(),
         show: SHOW.into(),
@@ -137,10 +211,6 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
         Frontend::processing_ready,
     );
     let initial = snapshot(&f).clone();
-    eprintln!(
-        "GP07 milestone fresh capability revision={}",
-        initial.revision
-    );
     tap(&mut f, "G");
     wait(&mut f, deadline, "explicit FOH grant", |f| {
         f.state
@@ -154,74 +224,174 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
         "Channel context",
         Frontend::processing_ready,
     );
-    tap(&mut f, "E");
-    assert!(f.processing_draft.is_some(), "{}", f.message);
-    // Full keyboard path: bypass, bell EQ, compressor law and explicit makeup.
-    field_keyboard(&mut f, 0, "0");
-    field_keyboard(&mut f, 4, "6");
-    field_keyboard(&mut f, 8, "0");
-    field_keyboard(&mut f, 9, "-48");
-    field_keyboard(&mut f, 10, "4");
-    field_keyboard(&mut f, 14, "3");
-    let channel1 = f.processing_draft.as_ref().unwrap().config.clone();
-    assert_eq!(
-        snapshot(&f).channels,
-        initial.channels,
-        "draft must not write"
-    );
-    assert!(text(&f).contains("LOCAL DRAFT"));
-    review_confirm(&mut f, deadline, false);
-    wait(&mut f, deadline, "channel1 confirmed", |f| {
-        f.processing_ready()
-            && snapshot(f).channels[0].current == channel1
-            && snapshot(f).channels[0]
-                .gain_reduction_mdb
-                .is_some_and(|n| n > 0)
-    });
-    assert_eq!(
-        snapshot(&f).channels[1].current,
-        initial.channels[1].current
-    );
-    assert!(text(&f).contains("Mid gain +6.0 dB"));
-    assert!(text(&f).contains("GR"));
-    let first = snapshot(&f).clone();
-    assert!(first.channels[0].gain_reduction_mdb.is_some_and(|n| n > 0));
-    eprintln!(
-        "GP07 milestone keyboard channel1 confirmed revision={}",
-        first.revision
-    );
-    // Second channel uses the same Action dispatcher, queue, review and authority.
-    controller(&mut f, Action::Move(1));
-    wait(
-        &mut f,
-        deadline,
-        "channel2 context",
-        Frontend::processing_ready,
-    );
-    controller(&mut f, Action::ProcessingEdit);
-    controller(&mut f, Action::ProcessingText("0".into()));
-    controller(&mut f, Action::ProcessingField(2));
-    controller(&mut f, Action::ProcessingText("-3".into()));
-    controller(&mut f, Action::ProcessingField(6));
-    controller(&mut f, Action::ProcessingText("0".into()));
-    controller(&mut f, Action::ProcessingField(1));
-    controller(&mut f, Action::ProcessingText("-24".into()));
-    controller(&mut f, Action::ProcessingField(1));
-    controller(&mut f, Action::ProcessingText("2".into()));
-    let channel2 = f.processing_draft.as_ref().unwrap().config.clone();
-    review_confirm(&mut f, deadline, true);
-    wait(&mut f, deadline, "channel2 confirmed", |f| {
-        f.processing_ready() && snapshot(f).channels[1].current == channel2
-    });
-    assert_eq!(snapshot(&f).channels[0].current, channel1);
-    assert_eq!(snapshot(&f).channels[2..], initial.channels[2..]);
-    assert!(text(&f).contains("Low gain -3.0 dB"));
+    let neutral = initial.channels[0].target.clone();
+    let mut planned = Vec::new();
+    for band in 1..=4 {
+        for (variant, hz, gain, q) in [
+            ("a", [200, 700, 2500, 6000][band - 1], 6000, 700),
+            ("b", [350, 1100, 4000, 9000][band - 1], -5000, 2300),
+        ] {
+            let mut v = serde_json::to_value(&neutral).unwrap();
+            v["eq_bypass"] = json!(false);
+            v[format!("band{band}_hz")] = json!(hz);
+            v[format!("band{band}_gain_mdb")] = json!(gain);
+            v[format!("band{band}_q_milli")] = json!(q);
+            planned.push((
+                format!("band{band}-{variant}"),
+                1usize,
+                processing::decode_config(&v).unwrap(),
+            ));
+        }
+    }
+    let mut combined = neutral.clone();
+    combined.eq_bypass = false;
+    combined.band1_hz = 6000;
+    combined.band1_gain_mdb = 4000;
+    combined.band1_q_milli = 700;
+    combined.band2_hz = 350;
+    combined.band2_gain_mdb = -3000;
+    combined.band2_q_milli = 2300;
+    combined.band3_hz = 9000;
+    combined.band3_gain_mdb = 5000;
+    combined.band3_q_milli = 1200;
+    combined.band4_hz = 1100;
+    combined.band4_gain_mdb = -4000;
+    combined.band4_q_milli = 1800;
+    planned.push(("crossed-cascade".into(), 1, combined.clone()));
+    for band in 1..=4 {
+        let mut v = serde_json::to_value(&combined).unwrap();
+        v[format!("band{band}_bypass")] = json!(true);
+        planned.push((
+            format!("band{band}-bypass"),
+            1,
+            processing::decode_config(&v).unwrap(),
+        ));
+    }
+    let mut bypass = combined.clone();
+    bypass.eq_bypass = true;
+    planned.push(("global-bypass".into(), 1, bypass));
+    let mut enabled_neutral = neutral.clone();
+    enabled_neutral.eq_bypass = false;
+    planned.push(("neutral".into(), 1, enabled_neutral));
+    let mut channel1 = combined.clone();
+    channel1.compressor_bypass = false;
+    channel1.threshold_mdb = -48000;
+    channel1.ratio_milli = 4000;
+    channel1.makeup_mdb = 3000;
+    planned.push(("compressor".into(), 1, channel1.clone()));
+    let mut channel2 = neutral.clone();
+    channel2.eq_bypass = false;
+    channel2.band3_hz = 1700;
+    channel2.band3_gain_mdb = -6000;
+    channel2.band3_q_milli = 1900;
+    planned.push(("channel2".into(), 2, channel2.clone()));
+    let mut edits = Vec::new();
+    let mut actions = Vec::new();
+    let mut first_revision = String::new();
+    let mut positive_gr = None;
+    for (edit_index, (label, channel, config)) in planned.into_iter().enumerate() {
+        if f.selected != channel - 1 {
+            let delta = channel as i32 - 1 - f.selected as i32;
+            controller(&mut f, Action::Move(delta));
+            wait(
+                &mut f,
+                deadline,
+                "channel context",
+                Frontend::processing_ready,
+            );
+        }
+        let injected = edit_index != 0;
+        if injected {
+            controller(&mut f, Action::ProcessingEdit);
+        } else {
+            tap(&mut f, "E");
+        }
+        assert!(f.processing_draft.is_some(), "{}", f.message);
+        let before = snapshot(&f).channels[channel - 1].target.clone();
+        let previous = entries(&before);
+        for (index, value) in entries(&config).into_iter().enumerate() {
+            if previous[index] == value {
+                continue;
+            }
+            if injected {
+                let delta = index as i32 - f.processing_field as i32;
+                controller(&mut f, Action::ProcessingField(delta));
+                controller(&mut f, Action::ProcessingText(value.clone()));
+            } else {
+                field_keyboard(&mut f, index, &value);
+            }
+            actions.push(json!({"edit":label,"field":format!("{:?}",processing::FIELDS[index]),"value":value,"path":if injected {"injected semantic action"} else {"keyboard semantic action"}}));
+        }
+        assert!(
+            f.processing_draft.is_some(),
+            "{label}: draft cancelled: {} / {:?}",
+            f.message,
+            f.state.as_ref().map(|s| (&s.status, s.processing_age_ms))
+        );
+        assert_eq!(
+            f.processing_draft.as_ref().unwrap().config,
+            config,
+            "{label}: {}",
+            f.message
+        );
+        assert_eq!(
+            snapshot(&f).channels[channel - 1].target,
+            before,
+            "draft must not write"
+        );
+        assert!(text(&f).contains("LOCAL DRAFT"));
+        review_confirm(&mut f, deadline, injected, cpu && edit_index == 0);
+        wait(&mut f, deadline, &label, |f| {
+            f.processing_ready()
+                && snapshot(f).channels[channel - 1].current == config
+                && f.state
+                    .as_ref()
+                    .and_then(|u| u.processing_final.as_ref())
+                    .is_some_and(|r| r.revision == snapshot(f).revision)
+        });
+        let final_reply = f.state.as_ref().unwrap().processing_final.as_ref().unwrap();
+        assert!(final_reply.reason.is_none() && final_reply.state == "final");
+        let frame = final_reply
+            .effective_frame
+            .clone()
+            .expect("actual final boundary required");
+        edits
+            .push(json!({"label":label,"channel":channel,"config":config,"effective_frame":frame}));
+        if edit_index == 0 {
+            first_revision = snapshot(&f).revision.clone();
+        }
+        let settled = snapshot(&f).frame.parse::<u64>().unwrap();
+        wait(&mut f, deadline, "576 source frame settled dwell", |f| {
+            f.processing_ready() && snapshot(f).frame.parse::<u64>().unwrap() >= settled + 576
+        });
+        if label == "compressor" {
+            wait(&mut f, deadline, "positive compressor GR", |f| {
+                snapshot(f).channels[0]
+                    .gain_reduction_mdb
+                    .is_some_and(|n| n > 0)
+            });
+            positive_gr = snapshot(&f).channels[0].gain_reduction_mdb;
+        }
+        assert_eq!(snapshot(&f).channels[2..], initial.channels[2..]);
+        eprintln!(
+            "GP07 edit {label} final boundary {frame} revision {}",
+            snapshot(&f).revision
+        );
+        // Preserve ordered useful evidence even if a later acceptance assertion fails.
+        if let Some(path) = evidence {
+            fs::write(
+                path,
+                serde_json::to_vec_pretty(
+                    &json!({"state":"in-progress","edits":edits,"actions":actions}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+    }
     let second = snapshot(&f).clone();
-    eprintln!(
-        "GP07 milestone injected controller channel2 confirmed revision={}",
-        second.revision
-    );
-    // A channel change cancels a modified local draft without any command.
+    assert_eq!(second.channels[0].current, channel1);
+    assert_eq!(second.channels[1].current, channel2);
     controller(&mut f, Action::ProcessingEdit);
     controller(&mut f, Action::ProcessingField(2));
     controller(&mut f, Action::ProcessingText("12".into()));
@@ -234,14 +404,13 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     );
     assert!(f.processing_draft.is_none());
     assert_eq!(snapshot(&f).revision, second.revision);
-    // A presented review is also revoked on reconnect; no replay, no implicit grant.
     tap(&mut f, "E");
-    field_keyboard(&mut f, 4, "-6");
+    field_keyboard(&mut f, 2, "-6");
     tap(&mut f, "F4");
     wait(&mut f, deadline, "review before reconnect", |f| {
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
-    let _ = f.scene();
+    let _ = shr_desk::raster::rgba(&f.scene());
     f.mark_presented();
     tap(&mut f, "F5");
     wait(&mut f, deadline, "fresh reconnect", |f| {
@@ -253,6 +422,10 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     assert_eq!(snapshot(&f).revision, second.revision);
     assert_eq!(snapshot(&f).channels[0].current, channel1);
     assert_eq!(snapshot(&f).channels[1].current, channel2);
+    assert!(
+        f.state.as_ref().unwrap().processing_final.is_none(),
+        "reconnect must discard old completion"
+    );
     tap(&mut f, "Enter");
     assert!(f.message.contains("no displayed"));
     let final_snapshot = snapshot(&f).clone();
@@ -262,28 +435,20 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     }
     #[cfg(feature = "native")]
     if cpu {
-        assert!(
-            shr_desk::native::offscreen(&f.scene())
-                .unwrap()
-                .contains("1920")
-        );
+        cpu_layout(&f.scene());
     }
     #[cfg(not(feature = "native"))]
     let _ = cpu;
-    eprintln!(
-        "GP07 milestone reconnect retained settings without replay revision={}",
-        final_snapshot.revision
-    );
     if let Some(path) = evidence {
-        fs::write(path, serde_json::to_vec_pretty(&json!({"kind":"gp07-real-frontend-driver","show":SHOW,"epoch":epoch,"initial_revision":initial.revision,"keyboard_revision":first.revision,"controller_revision":second.revision,"channel1_gain_reduction_mdb":first.channels[0].gain_reduction_mdb,"reconnect_revision":final_snapshot.revision,"channel1":channel1,"channel2":channel2,"context_cancel":true,"reconnect_no_replay":true,"visible_scene":true,"elapsed_ms":start.elapsed().as_millis(),"scope":"operator/provider readback; host owns sample/REC/analysis assertions"})).unwrap()).unwrap();
+        fs::write(path, serde_json::to_vec_pretty(&json!({"kind":"gp07-real-frontend-driver","show":SHOW,"epoch":epoch,"initial_revision":initial.revision,"keyboard_revision":first_revision,"controller_revision":second.revision,"channel1_gain_reduction_mdb":positive_gr,"reconnect_revision":final_snapshot.revision,"channel1":channel1,"channel2":channel2,"context_cancel":true,"reconnect_no_replay":true,"visible_scene":true,"edits":edits,"actions":actions,"elapsed_ms":start.elapsed().as_millis(),"scope":"operator/provider readback; host owns sample/REC/analysis assertions"})).unwrap()).unwrap();
     }
     drop(f);
     assert!(
-        start.elapsed() < Duration::from_secs(20),
-        "driver exceeded 20s bound"
+        start.elapsed() < Duration::from_secs(60),
+        "driver exceeded 60s bound"
     );
     eprintln!(
-        "GP07 milestone success frontend dropped elapsed_ms={}",
+        "GP07 success frontend dropped elapsed_ms={}",
         start.elapsed().as_millis()
     );
 }
@@ -312,6 +477,18 @@ impl Drop for Service {
 fn gp07_actual_release_provider() {
     let binary =
         std::env::var_os("SHR_DESK_GP07").expect("accepted release provider path required");
+    let service = launch_service(&binary);
+    let dir = service.dir.clone();
+    let evidence = std::env::var_os("GP07_DRIVER_EVIDENCE").map(PathBuf::from);
+    run_driver(
+        &dir.join("audio.sock"),
+        100,
+        evidence.as_deref(),
+        std::env::var("VK_DRIVER_FILES").is_ok_and(|v| v == "/usr/share/vulkan/icd.d/lvp_icd.json"),
+    );
+}
+
+fn launch_service(binary: &std::ffi::OsStr) -> Service {
     let dir = std::env::temp_dir().join(format!(
         "desk-gp07-{}-{}",
         std::process::id(),
@@ -347,11 +524,89 @@ fn gp07_actual_release_provider() {
         assert!(Instant::now() < end);
         thread::sleep(Duration::from_millis(10));
     }
-    let evidence = std::env::var_os("GP07_DRIVER_EVIDENCE").map(PathBuf::from);
-    run_driver(
-        &dir.join("audio.sock"),
-        100,
-        evidence.as_deref(),
-        std::env::var("VK_DRIVER_FILES").is_ok_and(|v| v == "/usr/share/vulkan/icd.d/lvp_icd.json"),
+    service
+}
+
+#[test]
+#[ignore = "requires hash-verified unchanged v1 release provider through SHR_DESK_GP07_LEGACY"]
+fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
+    let binary = std::env::var_os("SHR_DESK_GP07_LEGACY").expect("legacy provider required");
+    let service = launch_service(&binary);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut f = Frontend::new(Config {
+        endpoint: service.dir.join("audio.sock"),
+        show: SHOW.into(),
+        epoch: 100,
+        writer: "desk-v2-legacy-check".into(),
+        scope: "foh".into(),
+    });
+    wait(
+        &mut f,
+        deadline,
+        "ordinary GP03 attachment",
+        Frontend::fresh,
     );
+    let revision = f
+        .state
+        .as_ref()
+        .unwrap()
+        .snapshot
+        .as_ref()
+        .unwrap()
+        .authority
+        .revision
+        .clone();
+    f.enable_processing().unwrap();
+    wait(&mut f, deadline, "old provider disconnect observed", |f| {
+        f.state
+            .as_ref()
+            .is_some_and(|s| !s.fresh && s.processing_status.contains("UNAVAILABLE"))
+    });
+    let failure = f.state.as_ref().unwrap().processing_status.clone();
+    assert!(
+        !failure.contains("unsupported_version"),
+        "disconnect alone is not version proof"
+    );
+    assert!(!f.processing_ready());
+    eprintln!("Observed legacy probe failure: {failure}");
+    tap(&mut f, "F8");
+    wait(&mut f, deadline, "explicit GP03-only reconnect", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|s| {
+                s.status.contains("read-only") && s.processing_status.contains("explicit legacy")
+            })
+    });
+    assert!(f.state.as_ref().unwrap().processing.is_none());
+    assert_eq!(
+        f.state
+            .as_ref()
+            .unwrap()
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .authority
+            .revision,
+        revision
+    );
+    tap(&mut f, "G");
+    wait(&mut f, deadline, "legacy GP03 grant", |f| {
+        f.state
+            .as_ref()
+            .is_some_and(|s| s.status.starts_with("grant applied"))
+    });
+    tap(&mut f, "M");
+    wait(&mut f, deadline, "legacy GP03 protected review", |f| {
+        f.state.as_ref().is_some_and(|s| s.review.is_some())
+    });
+    let _ = shr_desk::raster::rgba(&f.scene());
+    f.mark_presented();
+    tap(&mut f, "Enter");
+    wait(&mut f, deadline, "legacy GP03 confirmation", |f| {
+        f.state
+            .as_ref()
+            .is_some_and(|s| s.status.starts_with("set applied"))
+    });
+    assert!(f.state.as_ref().unwrap().processing.is_none());
+    drop(f);
+    drop(service);
 }

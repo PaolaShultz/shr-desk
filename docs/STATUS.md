@@ -1,7 +1,8 @@
 # Status and next steps
 
 Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
-Task0012 processing development is local pending coordinator review/publication.
+Task0012 processing source was published and synchronized. Task0013 four-band
+processing development is local pending coordinator review/publication.
 No hardware verification or binary release.
 
 ## Implemented and offline-validated
@@ -282,3 +283,40 @@ driver review findings were repaired; exact producer fixtures remain unchanged.
 Final validation and independent review are complete. Source publication is
 coordinator-owned; no public binary release, window, physical endpoint or host
 service change accompanies this software acceptance.
+
+## Task0013 four independent parametric bands — local implementation
+
+The consumer now requires GP07-processing:2 with all 24 atomic fields, four
+independent bell frequency/gain/Q/bypass controls, global EQ bypass and unchanged
+compressor editing/readback/GR. Stable band identities may cross in frequency.
+Channel displays settled, target and local draft separately; E, field navigation,
+numeric entry, Apply, complete displayed review, Confirm and Cancel use the
+existing semantic action path. Original paired freshness, context/revision pinning,
+writer/lease/request history and no-replay recovery remain in place.
+
+The v2 producer corpus is hash-pinned; v1 bytes remain unchanged and are refused
+by the v2 consumer. F8 explicitly reconnects GP03-only after a legacy provider's
+probe disconnect, without claiming the disconnect proves unsupported version.
+The real driver records at least 17 complete reviewed transactions and actual
+final effective frames. Final normal suites pass **116 default / 118 native** tests,
+including strict v1 refusal, all-band domains, original freshness/revision fences,
+complete review geometry and controller-queue recovery.
+
+Actual supplied release-provider validation passes 17 reviewed edits, positive GR,
+second-channel isolation, context cancellation and reconnect without replay. The
+native run completes in 30.3 seconds. Actual Channel and complete review scenes
+match CPU Vulkan readback at 1920x1080, 960x540, 540x960 and 3840x2160; zero size
+suspends presentation. Both full-HD scenes were visually inspected. This exposed
+and fixed a 2048-pixel requested resolution limit and scaled texel selection from
+interpolated UVs. Direct framebuffer mapping now gives deterministic aspect-fit
+readback. Unsent controller field gestures now match keyboard release behavior,
+so they cannot fill the provider queue and delay paired observations.
+
+The unchanged legacy release provider produces the observed disconnect on a v2
+probe; explicit F8 GP03 reconnect then passes grant/review/confirm without replay.
+Nine Python publication tests, both warnings-denied Clippy feature sets, the
+default release build and the complete-index publication guard pass. The native
+release build is in progress; native runtime/CPU validation above has passed.
+Coordinator owns independent joint sample/REC/analysis/monitor/FX/PA acceptance
+and source publication. These are software-only
+checks; no physical display, controller, audio, listening or combined-load claim.

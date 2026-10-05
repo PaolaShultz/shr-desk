@@ -1,0 +1,28 @@
+{
+  "contract": "GP07-processing",
+  "version": 2,
+  "provider_repository": "https://github.com/PaolaShultz/gigpies",
+  "provider_base": "874cff2dede9ae19bc0b19dc4431d412e490e6b4",
+  "source_snapshot_sha256": {
+    "src/channel_processing.rs": "18b0dd1f2b98be7db231f74619208da83d6533d35da64ad7c8498cede60d9ac8",
+    "src/processing_wire.rs": "f220d4c5303cc876e79a9b5166b64945a3349533aee5d426fab55b43d34fe35a",
+    "src/mixer.rs": "66a825c6873b68b37bfe6f00fecdb05218f52a7a58c49a9ceabfd29d976956b2",
+    "src/mixer_control.rs": "d755c4be9c7432bef021c8b38f3b3f460cd9ed4bfe719545473ac482cc5c3854",
+    "src/control_model.rs": "4841d07ab2ea493017fa1b0f3fdd99b132e2fe632c6fc97dac726954599142be",
+    "src/local_audio.rs": "5aa53bad7b87971dcb50390d4d7e02d4ff6b3a89238f30869a3a95b027b84445",
+    "src/lib.rs": "5f7eb6a2ef3e116e1eb35b3384576a067caeaf90677f9a604e6c0f56efa01f1b",
+    "src/automix/dsp.rs": "594926182a549d9174505db2259ca694ed5eb4ecc9e12029b0e48cbda7b6a3b8",
+    "tests/gp07.rs": "27c361f5110c4c069f5ce7b7387009a85d002fb13abf11357b755c8fb6f885c3"
+  },
+  "fixture_sha256": {
+    "backpressure.json": "127c470fa20ec55764dcd6547152cad14b843587e428bb46f8d7d256ef6ddef6",
+    "ready-reply.json": "6e194d9c2771f3eb8167efbed70971bab32965f24f60740e00967d0ca90e7e6f",
+    "set-final.json": "8749259a364365e76f4103b03e38266de8fd55aa3808f26bd5b3ddca50fcea54",
+    "set-pending.json": "220b09df16f9aae0b34aa1fcc2d2a608f1c4b3fd0551eec50f655d2ef0e2ae70",
+    "set-request.json": "72c5564bac12ca591ee881843ab11448b80f3dabb3452b423e44389c52ea81ee",
+    "snapshot-reply.json": "851e5f4e27ec877d7e51769c2daaf977a141931b6896486960fbbd60f1a76f61",
+    "snapshot-request.json": "c38c69065460f79b99d5a516f5fd54f9d498d40a3d2d5e75f7dfc4538c58e4ff",
+    "stale-revision.json": "c91b5ddf35b7ee2b4aab565ea43e015f351a9af5693e1a791030c8481326c7a5"
+  },
+  "provenance": "Executed by real OfflineEngine; exact source snapshot replay validated all fixture bytes after focused additions. Original v1 corpus retained unchanged as refusal evidence."
+}
