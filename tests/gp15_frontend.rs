@@ -219,6 +219,10 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
     );
     action(&mut routes, Action::StructureApply);
     confirm_structure(&mut routes, end);
+    // A changed source map deliberately retires the old authenticated session
+    // after its final reply. Explicitly reconnect read-only; never replay the
+    // patch or restore its writer grant while verifying the new exact map.
+    tap(&mut routes, "F5");
     wait(&mut routes, end, "fresh applied exact output patch", |f| {
         f.fresh()
             && f.state.as_ref().is_some_and(|u| {
@@ -228,6 +232,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     })
             })
     });
+    assert!(!routes.state.as_ref().unwrap().writer_granted());
     drop(routes);
     let mut pa = attach("pa_configuration", remote.clone(), epoch, end);
     wait(&mut pa, end, "actual PA state", |f| {
