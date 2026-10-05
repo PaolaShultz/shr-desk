@@ -1,0 +1,15 @@
+{
+  "body": {
+    "scope": "talkback_foh"
+  },
+  "contract": "C-AUDIO",
+  "epoch": "1",
+  "expected_revision": "0",
+  "kind": "grant",
+  "lease": null,
+  "module": "audio",
+  "request_id": "1",
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "version": 2,
+  "writer": "protected-foh"
+}

@@ -59,3 +59,8 @@ references, not path dependencies. This package builds independently with
 Rust 1.97.1, edition 2024, and a locked crate with pinned serde/serde_json for the provider boundary and optional pinned native graphics dependencies.
 
 Code: MIT. Bundled unmodified Terminus Font: SIL OFL 1.1; see [notices](THIRD_PARTY.md).
+
+Task0015 adds explicit `--brain-audio` monitoring/talkback and duplex-device
+configuration controls on the real dynamic provider session. Producer corpora and
+focused safety checks are implemented; final integrated acceptance remains pending.
+See [native frontend](docs/NATIVE_FRONTEND.md) for controls and lifecycle boundaries.

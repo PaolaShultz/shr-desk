@@ -1,0 +1,100 @@
+{
+  "bridge": null,
+  "connected": true,
+  "contract": "GP15-device",
+  "observation": {
+    "brain_epoch": 77,
+    "brain_map": 1,
+    "config": {
+      "buffer_frames": 192,
+      "capture_channels": 1,
+      "device_id": "fake-brain-duplex",
+      "endpoint": "fake:brain",
+      "format": "float32_le",
+      "hardware_monitoring_record": null,
+      "microphone": {
+        "id": "talkback-mic",
+        "slot": 0,
+        "socket": "mic-observed-model"
+      },
+      "monitor": [
+        {
+          "id": "operator-left",
+          "slot": 0,
+          "socket": "left-model"
+        },
+        {
+          "id": "operator-right",
+          "slot": 1,
+          "socket": "right-model"
+        }
+      ],
+      "period_frames": 48,
+      "playback_channels": 2,
+      "sample_rate": 48000,
+      "shared_clock_record": null,
+      "socket_mapping_record": null
+    },
+    "error": null,
+    "frame": 0,
+    "status": {
+      "armed": false,
+      "capabilities": {
+        "buffer_frames": 192,
+        "capture_channels": 1,
+        "device_id": "fake-brain-duplex",
+        "endpoint": "fake:brain",
+        "format": "float32_le",
+        "period_frames": 48,
+        "physical": false,
+        "playback_channels": 2,
+        "sample_rate": 48000,
+        "shared_duplex_clock": true
+      },
+      "capture_frame": 0,
+      "capture_stalls": 0,
+      "captured_peak_nano": 0,
+      "fault": null,
+      "faults": 0,
+      "monitor_bridge": {
+        "armed": false,
+        "destination_frame": null,
+        "epochs": {
+          "destination": 77,
+          "route": 1,
+          "source": 9
+        },
+        "fault": null,
+        "filter_delay_output_frames": 128,
+        "filter_latency_nominal_us": 2667,
+        "occupancy_frames": 0,
+        "overflows": 0,
+        "physical_clock_lock_verified": false,
+        "physical_mapping_uncertainty_milliframes": null,
+        "queue_latency_nominal_us": 0,
+        "ratio_ppb": 1000000000,
+        "ready": false,
+        "rejected": 0,
+        "skew_ppb": 0,
+        "source_frame": null,
+        "target_frames": 960,
+        "underruns": 0
+      },
+      "outgoing_peak_nano": 0,
+      "physical_mapping_verified": false,
+      "playback_frame": 0,
+      "playback_peak_nano": 0,
+      "playback_stalls": 0,
+      "readback": {
+        "configuration_generation": 1,
+        "epoch": 77
+      }
+    },
+    "success": null,
+    "ticket": null
+  },
+  "observed_ms": 0,
+  "pending": null,
+  "state": "snapshot",
+  "version": 1
+}

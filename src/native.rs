@@ -440,8 +440,19 @@ pub fn run_with_processing(
     role: Option<crate::roles::Config>,
     processing: bool,
 ) -> Result<(), String> {
+    run_with_capabilities(config, role, processing, false)
+}
+pub fn run_with_capabilities(
+    config: Config,
+    role: Option<crate::roles::Config>,
+    processing: bool,
+    brain_audio: bool,
+) -> Result<(), String> {
     let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
     let mut front = Frontend::new(config);
+    if brain_audio {
+        front.enable_brain_audio()?;
+    }
     front.require_role();
     if let Some(role) = role {
         front.attach_role(role);

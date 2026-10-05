@@ -449,3 +449,40 @@ The coordinator owns final exact-source review, publication/CI and canonical
 synchronization. No source push, binary release, deployment or physical activation
 is performed by this worker. The earlier local handoff commits and normal cache
 remain preserved.
+
+## Task0015 Brain audio consumer — implemented, integrated acceptance pending
+
+The real dynamic frontend now has explicit `--brain-audio`/API opt-in, strict
+GP15-brain and GP15-device consumers on the existing authority session, separate
+local-operator/talkback/FOH grants, complete reviewed configuration, and actual
+nano-amplitude meters and bridge telemetry with units. Source selection is singular
+and disarmed; fresh device readback precedes a separate requested arm, and actual
+readiness follows provider prefill. Device configuration starts from confirmed
+mapping and distinguishes source-boundary accepted intent from exact device-applied
+readback. Desk opens no PCM or physical controller endpoint and contains no DSP.
+
+Held PTT uses shared typed keyboard/controller actions and real key releases,
+explicit injected MIDI edges, a fresh provider generation for each press and
+observed-frame-bound heartbeats. A separate priority close lane preserves ordinary
+pending correlation. Focus/controller/session/lease loss, stalled UI liveness and
+refusal stop renewal; queued old presses cannot become a new hold. The producer's
+150 ms deadman remains the final bound when a priority close is refused or lost.
+
+Fifty producer Brain payloads cover 16/17/32/33/48 inputs with independently varying
+1/3/5/7/9 monitor buses, all three grants and held-control pending/final/refusal
+states. The final monotonic-heartbeat amendment is hash-pinned in
+`tests/fixtures/gp15/v1/PROVENANCE.json`; the actual device corpus has independent
+provenance in `tests/fixtures/gp15/device-v1`. Initial incompatible provisional
+Brain payloads remain explicitly labelled under `gp15/initial`, not accepted.
+
+Focused consumer, session and frontend safety tests pass, and the final default
+normal suites pass **152 default / 154 native tests**, each with ten explicit
+opt-ins ignored. Native includes actual producer Brain/device scenes at 1920×1080,
+960×540, 540×960 and 3840×2160 through CPU lavapipe. Final warnings-denied Clippy
+and release artifact identities are recorded in the bounded worker handoff. The ignored external driver uses actual
+Frontend route/channel/device/listen/TB/FOH actions and correlated revisions. Its
+optional fault marker lets the coordinator interrupt only its owned duplex process.
+A reservation acknowledgment is not an actual run or acceptance result. Root owns
+integrated mTLS/sample/owner assertions and publication; no software integration,
+physical audio, device mapping/clock lock, display, MIDI, DMX or deployment
+acceptance is inferred from these consumer fixtures and offline checks.

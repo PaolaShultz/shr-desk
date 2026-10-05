@@ -1,0 +1,19 @@
+{
+  "base": "ddc39eff59276a08311f01240d17e681632aaca0",
+  "files": {
+    "tests/fixtures/brain-device-v1/snapshot-unavailable.json": "cc12de65ae32d730d3657f9021c2d91759a841304b45576c947ae1afcb86e773",
+    "tests/fixtures/brain-device-v1/configure-failed-device.json": "a2291793e21f90b08a6ab42f561e026b3902c31640311b3ee5b3977e5e8eb943",
+    "tests/fixtures/brain-device-v1/snapshot-unarmed.json": "3454c22fac0c1635f97b4328822339c1611b583b1b319de78bbd86f4b26919cf",
+    "tests/fixtures/brain-device-v1/apply-configuration.json": "fbeb04adbd91219077f8bfd6d6efe10ad271814f705f5f3d5932672f3bc5dfb4",
+    "tests/fixtures/brain-device-v1/snapshot-configured.json": "ae0dfc8eaa5f545fe093aad99a625fe09c86d6503c61ced008d268494dd8daa0",
+    "tests/fixtures/brain-device-v1/README.md": "12065419ff5197dc5d73740abcd6d570242c75ca6c7a4b9c92c5e57d5a3dc74f",
+    "tests/fixtures/brain-device-v1/configure-request.json": "a648cd18bc71c7686f15b631a07396d9e41687ae697b8dfb3036b451a274c5a3",
+    "tests/fixtures/brain-device-v1/configure-pending.json": "c9cc585a81928f1304216a10fe3558bda91af5d6de576f61238c38358406ac6d",
+    "tests/fixtures/brain-device-v1/configure-applied-device.json": "cdf9783dbe138a73348ee8638f8eb5e1b0479bea9511eed6df483cacef30808a",
+    "tests/fixtures/brain-device-v1/configure-accepted-intent.json": "33c92990ec0dcfe6aa0db43eed632aa0ae6ea7d81005d46f449651d1677548b2"
+  },
+  "sources": {
+    "src/remote/brain_audio.rs": "106f213fd743c5c75d59a1bc5b451586f761d0d31d90b46ec5f5828e4e30ea9b",
+    "src/remote/host.rs": "4c2ce2790f6d98cfa1082fb011815338a980fae150d3258a569ecfcffc9ec3ba"
+  }
+}

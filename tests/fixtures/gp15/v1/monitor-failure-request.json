@@ -1,0 +1,22 @@
+{
+  "body": {
+    "armed": false,
+    "dim": false,
+    "gain_cdb": -1200,
+    "mute": true,
+    "source": {
+      "input": 48,
+      "kind": "afl"
+    }
+  },
+  "contract": "GP15-brain",
+  "epoch": "1",
+  "expected_revision": "1",
+  "kind": "monitor_set",
+  "lease": "1",
+  "module": "audio",
+  "request_id": "3",
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "version": 1,
+  "writer": "desk"
+}

@@ -10,7 +10,7 @@ use std::{
     path::Path,
 };
 
-const HELP: &str = "shr-desk: offline surface prototype (no hardware or network)\n\n  shr-desk gallery DIRECTORY   Render three 1920x1080 SVG screens + index\n  shr-desk simulate            Line-oriented interactive control simulator\n\n  shr-desk --provider SHOW_UUID EPOCH --snapshot-file FILE [--snapshot-file FILE ...] [--select INPUT_ID] [--render FILE.svg]\n    Explicit headless read-only GP02 snapshot bodies; no connection or devices\n\nReal local offline provider (explicit opt-in):\n  shr-desk --audio-local ENDPOINT SHOW_UUID EPOCH WRITER foh|monitor1|monitor2 [--script FILE|-]\n  Script: snapshot, grant, input-release, set INPUT PARAM INTEGER|BOOL, send INPUT MONITOR MDB, mode manual|assist, json KIND BODY, status, export FILE, release\n  Private owned Unix endpoint only; no hardware acceptance.\n\nSimulation commands:\n  select ID | level DB | pan -100..100 | mute | hold | release\n  mode auto|assist|manual | propose ID DB | page mix|channel|analysis\n  midi HEX HEX HEX   Inject one complete message using the fixture profile\n  confirm | cancel | back | bank -1|1 | key KEY | keydown KEY | keyup KEY\n  focus text|surface|lost | disconnect | reconnect | render FILE.svg | status | help | quit\n\nHold/mute/release/mode open previews; confirm commits, cancel discards.\nDraft pads: P1 Confirm, P2 Cancel, P8 Back; mode picker P1/P2/P3 Auto/Assist/Manual.\nKeys: F1/F2/F6 pages, arrows/Tab selection, PageUp/PageDown banks, +/- gain, [/ ] pan,\nM/H/R/A previews, F10 menu, 1/2/3 mode choice, Enter confirm, Esc back/cancel.\nSimulator state is synthetic and discarded on exit. No device is opened.\n\nRead-only module health: --modules-status ENDPOINT SHOW_UUID EPOCH\n\nReal frontend: --headless ENDPOINT SHOW EPOCH WRITER SCOPE OUTPUT.ppm [--role-provider EXEC REGISTRY ACQUIRE_JSON]\nOptional native feature: --native ENDPOINT SHOW EPOCH WRITER SCOPE [--role-provider EXEC REGISTRY ACQUIRE_JSON]\nCPU GPU check: --offscreen ENDPOINT SHOW EPOCH WRITER SCOPE OUTPUT.ppm\nAdd --dynamic to explicitly select C-AUDIO2/rendered2 and GP07-processing3 (no silent downgrade). Add --processing to a real frontend invocation to probe GP07 on its shared connection. Channel: E edit, U/I field, J/K fine, N/P coarse, F4 Apply, Enter confirm, Esc cancel.\nNative opens a window only when explicitly invoked; do not launch during software-only work.";
+const HELP: &str = "shr-desk: offline surface prototype (no hardware or network)\n\n  shr-desk gallery DIRECTORY   Render three 1920x1080 SVG screens + index\n  shr-desk simulate            Line-oriented interactive control simulator\n\n  shr-desk --provider SHOW_UUID EPOCH --snapshot-file FILE [--snapshot-file FILE ...] [--select INPUT_ID] [--render FILE.svg]\n    Explicit headless read-only GP02 snapshot bodies; no connection or devices\n\nReal local offline provider (explicit opt-in):\n  shr-desk --audio-local ENDPOINT SHOW_UUID EPOCH WRITER foh|monitor1|monitor2 [--script FILE|-]\n  Script: snapshot, grant, input-release, set INPUT PARAM INTEGER|BOOL, send INPUT MONITOR MDB, mode manual|assist, json KIND BODY, status, export FILE, release\n  Private owned Unix endpoint only; no hardware acceptance.\n\nSimulation commands:\n  select ID | level DB | pan -100..100 | mute | hold | release\n  mode auto|assist|manual | propose ID DB | page mix|channel|analysis\n  midi HEX HEX HEX   Inject one complete message using the fixture profile\n  confirm | cancel | back | bank -1|1 | key KEY | keydown KEY | keyup KEY\n  focus text|surface|lost | disconnect | reconnect | render FILE.svg | status | help | quit\n\nHold/mute/release/mode open previews; confirm commits, cancel discards.\nDraft pads: P1 Confirm, P2 Cancel, P8 Back; mode picker P1/P2/P3 Auto/Assist/Manual.\nKeys: F1/F2/F6 pages, arrows/Tab selection, PageUp/PageDown banks, +/- gain, [/ ] pan,\nM/H/R/A previews, F10 menu, 1/2/3 mode choice, Enter confirm, Esc back/cancel.\nSimulator state is synthetic and discarded on exit. No device is opened.\n\nRead-only module health: --modules-status ENDPOINT SHOW_UUID EPOCH\n\nReal frontend: --headless ENDPOINT SHOW EPOCH WRITER SCOPE OUTPUT.ppm [--role-provider EXEC REGISTRY ACQUIRE_JSON]\nOptional native feature: --native ENDPOINT SHOW EPOCH WRITER SCOPE [--role-provider EXEC REGISTRY ACQUIRE_JSON]\nCPU GPU check: --offscreen ENDPOINT SHOW EPOCH WRITER SCOPE OUTPUT.ppm\nAdd --brain-audio for explicit GP15 monitoring/PTT on C-AUDIO2. F3 Brain page; T hold talkback (release closes); source/arm and destinations require reviewed separate grants. Add --dynamic to explicitly select C-AUDIO2/rendered2 and GP07-processing3 (no silent downgrade). Add --processing to a real frontend invocation to probe GP07 on its shared connection. Channel: E edit, U/I field, J/K fine, N/P coarse, F4 Apply, Enter confirm, Esc cancel.\nNative opens a window only when explicitly invoked; do not launch during software-only work.";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -28,7 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         None
     };
-    let dynamic = remote.is_some() || args.iter().any(|a| a == "--dynamic");
+    let brain_audio = args.iter().any(|a| a == "--brain-audio");
+    let dynamic = brain_audio || remote.is_some() || args.iter().any(|a| a == "--dynamic");
     let processing = args.iter().any(|a| a == "--processing");
     if (processing || dynamic)
         && !args
@@ -37,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     {
         return Err("--processing is an explicit real frontend capability probe".into());
     }
-    args.retain(|a| a != "--processing" && a != "--dynamic");
+    args.retain(|a| a != "--processing" && a != "--dynamic" && a != "--brain-audio");
     match args.as_slice() {
         [] => println!("{HELP}"),
         [a] if a == "--help" || a == "help" => println!("{HELP}"),
@@ -61,14 +62,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
         }
         [a, rest @ ..] if a == "--headless" => {
-            frontend_headless(rest, processing, dynamic, remote.clone())?
+            frontend_headless(rest, processing, dynamic, remote.clone(), brain_audio)?
         }
         #[cfg(feature = "native")]
         [a, rest @ ..] if a == "--native" => {
             let (mut config, role) = native_args(rest)?;
             config.wire_version = if dynamic { 2 } else { 1 };
             config.remote = remote.clone();
-            shr_desk::native::run_with_processing(config, role, processing)?;
+            shr_desk::native::run_with_capabilities(config, role, processing, brain_audio)?;
         }
         #[cfg(feature = "native")]
         [a, rest @ ..] if a == "--offscreen" => {
@@ -81,6 +82,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             if processing {
                 front.enable_processing()?;
+            }
+            if brain_audio {
+                front.enable_brain_audio()?;
             }
             wait_front(&mut front)?;
             println!("{}", shr_desk::native::offscreen(&front.scene())?);
@@ -399,6 +403,7 @@ fn frontend_headless(
     processing: bool,
     dynamic: bool,
     remote: Option<shr_desk::remote::Config>,
+    brain_audio: bool,
 ) -> Result<(), String> {
     let (mut config, output, role) = headless_args(args)?;
     config.wire_version = if dynamic { 2 } else { 1 };
@@ -409,6 +414,9 @@ fn frontend_headless(
     }
     if processing {
         front.enable_processing()?;
+    }
+    if brain_audio {
+        front.enable_brain_audio()?;
     }
     wait_front(&mut front)?;
     shr_desk::raster::ppm(&front.scene(), Path::new(output))?;

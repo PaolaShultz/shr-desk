@@ -1,0 +1,48 @@
+{
+  "applied_frame": "48",
+  "context": {
+    "epoch": "1",
+    "expected_revision": "0",
+    "lease": "1",
+    "module": "audio",
+    "request_id": "2",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "writer": "desk"
+  },
+  "contract": "GP15-brain",
+  "reason": null,
+  "revision": "1",
+  "snapshot": {
+    "audible_path_ready": false,
+    "deadman_ms": 150,
+    "fade_frames": 240,
+    "frame": "48",
+    "heartbeat_ms": 50,
+    "held_generation": null,
+    "hold_deadline_ms": null,
+    "hold_generation_counter": "0",
+    "microphone_peak_nano": 0,
+    "monitor_armed": false,
+    "monitor_dim": false,
+    "monitor_gain_cdb": -1200,
+    "monitor_mute": true,
+    "monitor_path_ready": false,
+    "monitor_peak_nano": 0,
+    "outgoing_peak_nano": 0,
+    "revision": "1",
+    "selection_generation": "1",
+    "source": {
+      "kind": "none"
+    },
+    "talkback_foh": false,
+    "talkback_gain_cdb": -1200,
+    "talkback_monitors": [
+      0,
+      4
+    ],
+    "talkback_mute": false,
+    "talkback_path_ready": false
+  },
+  "state": "final",
+  "version": 1
+}

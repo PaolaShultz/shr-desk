@@ -383,3 +383,65 @@ no writer lease. Rearm requires an unquiesced observation at least 240 source fr
 past the final's effective frame. A final boundary acknowledgment alone does not
 prove that a ramp has completed. The separate 48-input driver covers all 24 fields
 at inputs 16/17/32/33/48; the 16/32 profile runs use structural and media witnesses.
+
+## Task0015 Brain operator audio (implementation in progress)
+
+`--brain-audio` explicitly selects the dynamic C-AUDIO2 session and probes
+GP15-brain:1. The API equivalent is `Frontend::enable_brain_audio()`. Attachment
+stays read-only. Local listen, talkback destinations and protected FOH use the
+separate `local_operator_monitor`, `talkback_destinations`, and `talkback_foh`
+grants. They retain the existing session identity, request counter and revision;
+Desk does not open PCM or run DSP.
+
+F3 opens Brain. `0` selects none, `1` main, `P` selected-input PFL and `L` AFL.
+`U/I` browse actual monitor buses and `O` selects that bus as the sole listen
+source. Source changes are disarmed; after fresh device readback, `B` requests
+separate arming; actual path readiness follows provider prefill. `M` toggles monitor mute, `D` dim and `+/-` adjust gain in 1 dB
+steps. Every configuration change opens the complete existing review workflow;
+Enter confirms only after every page was presented. Gains use integer centidB
+from -9000 through 0. Dim is the planned -20 dB behavior; provider readback remains
+authoritative. PFL is post EQ/compressor before mute/fader/pan, centered; AFL is
+after all those controls, stereo. Performer monitor sends keep their raw
+post-mute tap.
+
+`V` toggles the browsed bus in the talkback destination list, `X` toggles talkback
+mute and `[/]` adjust talkback gain. `F` requests protected FOH inclusion through
+its separate grant. Default provider state is muted with no destinations and FOH
+excluded. `T` is a held PTT edge: native key-up closes it. Typed controller actions
+share this path. `configure_talkback_controller(channel,note)` and
+`inject_talkback_midi(bytes)` accept explicitly configured complete semantic MIDI
+edges without opening MIDI. A release is required after bind/fence; note-off and
+note-on velocity zero close, and repeats/pressure cannot start another hold.
+
+PTT generations come from the confirmed producer highwater. Heartbeats run only
+while the UI continues pumping a live held gesture; an expired UI liveness token
+cannot be revived by a later pump. Heartbeats include the latest confirmed source
+frame, run at 50 ms, and require an observation no older than 50 ms. The provider
+owns the 150 ms deadman and 240-frame/5 ms fade. Key-up, focus loss, input overflow,
+controller removal, session/lease loss and faults stop the held signal. A bounded
+priority close uses the same authority counter even while ordinary work is
+pending; a stale revision can refuse it, so the provider deadman is the final
+bound. Reconnect never replays a hold or configuration.
+
+Sample meters are actual integer nano-amplitude observations (1.0 FS = 1e9),
+presented with units. Requested state, granted authority, applied revision/frame,
+readiness and stale observations remain distinct. Physical identity, clock lock,
+controller/display operation and audio acceptance are not inferred from fixtures.
+The ignored `gp15_frontend` driver uses real Frontend actions against an explicitly
+configured mTLS endpoint; it requires a mutually acknowledged reservation.
+
+Brain `E` opens a device draft copied from the latest confirmed configuration.
+`F2` enters a complete JSON replacement, `F4` opens the paged complete mapping
+review, and Enter applies it through GP15-device on the existing authenticated
+connection. No guessed endpoint or socket labels are inserted. Confirmed mapping
+includes one capture microphone and exactly two distinct stereo playback slots.
+The provider owns capability admission. `pending`, `accepted_intent`,
+`applied_device`, and `failed_device` are distinct outcomes; only a matching ticket
+and exact configured mapping in actual device readback qualifies as applied.
+Device configuration never implicitly arms the listen path.
+
+The device pane presents provider ratio/skew in parts per billion, queue occupancy
+and target in frames, queue/filter nominal latency in microseconds, error counters,
+and nullable physical mapping uncertainty in milliframes. These are software
+observations; clock lock and physical mapping stay explicitly unverified unless
+supplied as actual producer observations.

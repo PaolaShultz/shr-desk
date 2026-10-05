@@ -1,0 +1,10 @@
+{
+  "bridge": null,
+  "connected": false,
+  "contract": "GP15-device",
+  "observation": null,
+  "observed_ms": null,
+  "pending": null,
+  "state": "snapshot",
+  "version": 1
+}

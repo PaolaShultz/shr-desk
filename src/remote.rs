@@ -54,6 +54,9 @@ enum Permission {
     Monitor(u32),
     PaConfiguration,
     OutputRoutes,
+    LocalOperatorMonitor,
+    TalkbackDestinations,
+    TalkbackFoh,
     Analysis,
     Fx,
 }
@@ -230,6 +233,9 @@ impl Connection {
                 Permission::Monitor(n) => scope == format!("monitor{n}"),
                 Permission::PaConfiguration => scope == "pa_configuration",
                 Permission::OutputRoutes => scope == "output_routes",
+                Permission::LocalOperatorMonitor => scope == "local_operator_monitor",
+                Permission::TalkbackDestinations => scope == "talkback_destinations",
+                Permission::TalkbackFoh => scope == "talkback_foh",
                 _ => false,
             });
             if !permitted {

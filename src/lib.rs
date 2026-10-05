@@ -29,3 +29,7 @@ pub mod structure;
 pub mod pages;
 
 pub mod remote;
+
+pub mod brain;
+
+pub mod brain_device;

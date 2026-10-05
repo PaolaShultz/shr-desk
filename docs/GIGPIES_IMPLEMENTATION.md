@@ -319,3 +319,14 @@ actual final effective-frame evidence and individual field actions. F8 provides
 an explicit GP03-only recovery for old providers without silent downgrade/replay.
 See [Native frontend](NATIVE_FRONTEND.md) for controls and [Status](STATUS.md) for
 validation; the coordinator independently owns signal acceptance and publication.
+
+### Task0015 Brain operator consumer
+
+Desk owns the explicit GP15 controls, shared authority/session integration,
+keyboard and injected controller lifecycle, strict readback and complete reviews.
+GigPies owns duplex transport, endpoint configuration/application, bridge telemetry,
+DSP, source-frame expiry and all sample assertions. Desk has no PCM or sibling
+path dependency. Root provides the final producer corpus and independently owns
+acceptance and publication; a worker compile or synthetic adversary is not that
+gate. See Native frontend for the current interaction path and private task0015
+handoff for exact tested revisions and outstanding gates.

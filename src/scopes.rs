@@ -11,6 +11,9 @@ enum Wire {
     Monitor(u16),
     PaConfiguration,
     OutputRoutes,
+    LocalOperatorMonitor,
+    TalkbackDestinations,
+    TalkbackFoh,
 }
 impl Wire {
     fn label(self) -> Result<String, String> {
@@ -22,6 +25,9 @@ impl Wire {
             Self::Monitor(_) => return Err("noncanonical monitor scope".into()),
             Self::PaConfiguration => "pa_configuration".into(),
             Self::OutputRoutes => "output_routes".into(),
+            Self::LocalOperatorMonitor => "local_operator_monitor".into(),
+            Self::TalkbackDestinations => "talkback_destinations".into(),
+            Self::TalkbackFoh => "talkback_foh".into(),
         })
     }
     fn from_label(label: &str) -> Result<Self, String> {
@@ -31,6 +37,9 @@ impl Wire {
             "monitor2" => Self::Monitor2,
             "pa_configuration" => Self::PaConfiguration,
             "output_routes" => Self::OutputRoutes,
+            "local_operator_monitor" => Self::LocalOperatorMonitor,
+            "talkback_destinations" => Self::TalkbackDestinations,
+            "talkback_foh" => Self::TalkbackFoh,
             _ => {
                 let n: u16 = label
                     .strip_prefix("monitor")

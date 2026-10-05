@@ -150,3 +150,21 @@ the structural receipt, so a later raw-only poll cannot restore structural fresh
 Immutable page assembly, identity/context checks, revision/topology coherence and
 query receipts remain
 required; cached mutation replies cannot refresh observations.
+
+## Task0015 Brain consumer boundary
+
+The opt-in GP15-brain:1 consumer shares C-AUDIO2 identity, lease, request history
+and revision. Its three scopes are distinct snake-case string permissions:
+`local_operator_monitor`, `talkback_destinations`, `talkback_foh`. Internal
+`brain_*` action names avoid colliding with C-AUDIO's writer `release`; encoding
+uses the producer's exact command names. Successful Brain mutations, including
+held edges, increment the shared revision once at the source boundary. Strict
+snapshot/pending/final replies carry correlated context, revision, applied frame
+and optional readback. Duplicate finals do not renew observation freshness.
+
+Each PTT heartbeat carries decimal-string generation and observed source frame.
+The provider validates observation age and owns expiry; Desk cannot extend expiry
+from a delayed acknowledgment or UI queue. Source changes require disarmed
+readback and separate arming before actual prefill readiness. FOH inclusion is a separately protected
+permission, never implied by ordinary talkback destinations. Provider-generated
+fixtures are retained with provenance; provisional bytes are not acceptance.

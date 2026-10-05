@@ -587,14 +587,49 @@ impl Request {
                 return fail("structural writer context");
             }
         }
-        let contract = if crate::structure::is_kind(&self.kind) {
+        if crate::brain::is_kind(&self.kind) {
+            if self.version != 2 || c.epoch == "0" {
+                return fail("Brain requires C-AUDIO2 identity");
+            }
+            crate::brain::validate_body(&self.kind, &self.body, None, 4096, 4096)?;
+            if (self.kind == "brain_snapshot") != c.writer.is_none() {
+                return fail("Brain writer context");
+            }
+            if self.kind != "brain_snapshot"
+                && (c.lease.is_none() || c.request_id.is_none() || c.expected_revision.is_none())
+            {
+                return fail("Brain mutation authority");
+            }
+        }
+        if self.kind == "device_snapshot" {
+            if self.version != 2 || c.writer.is_some() {
+                return fail("device snapshot session");
+            }
+            return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"kind":"device_snapshot","writer":null})).map_err(|e|e.to_string());
+        }
+        if self.kind == "device_configure" {
+            if self.version != 2
+                || c.writer.is_none()
+                || c.lease.is_none()
+                || c.request_id.is_none()
+                || c.expected_revision.is_none()
+            {
+                return fail("device configuration authority");
+            }
+            crate::provider::keys(&self.body, &["config"])?;
+            let config = crate::brain_device::Config::decode(self.body["config"].clone())?;
+            return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":"device_configure","body":{},"config":config})).map_err(|e|e.to_string());
+        }
+        let contract = if crate::brain::is_kind(&self.kind) {
+            "GP15-brain"
+        } else if crate::structure::is_kind(&self.kind) {
             "GP14-structure"
         } else if self.kind.starts_with("processing_") {
             "GP07-processing"
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":if contract == "GP14-structure" {1} else if contract == "GP07-processing" {self.version + 1} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
+        let v = json!({"contract":contract,"version":if matches!(contract,"GP14-structure"|"GP15-brain") {1} else if contract == "GP07-processing" {self.version + 1} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -636,6 +671,16 @@ pub struct Session {
     next_id: u64,
     pub snapshot: Option<RenderedSnapshot>,
     receipt: Option<u64>,
+    pub device: Option<crate::brain_device::Snapshot>,
+    pub device_final: Option<crate::brain_device::Reply>,
+    device_receipt: Option<u64>,
+    device_ticket: Option<u64>,
+    device_replies: std::collections::VecDeque<[u8; 32]>,
+    pub brain: Option<crate::brain::Snapshot>,
+    pub brain_final: Option<crate::brain::Reply>,
+    brain_receipt: Option<u64>,
+    brain_closing: Option<Request>,
+    brain_replies: std::collections::VecDeque<[u8; 32]>,
     pub processing: Option<crate::processing::Snapshot>,
     processing_receipt: Option<u64>,
     pub structural: Option<crate::structure::Snapshot>,
@@ -682,6 +727,16 @@ impl Session {
             next_id: 1,
             snapshot: None,
             receipt: None,
+            device: None,
+            device_final: None,
+            device_receipt: None,
+            device_ticket: None,
+            device_replies: std::collections::VecDeque::new(),
+            brain: None,
+            brain_final: None,
+            brain_receipt: None,
+            brain_closing: None,
+            brain_replies: std::collections::VecDeque::new(),
             processing: None,
             processing_receipt: None,
             structural: None,
@@ -773,6 +828,13 @@ impl Session {
         self.pending = None;
         self.lease = None;
         self.receipt = None;
+        self.device_receipt = None;
+        self.device_ticket = None;
+        self.device_replies.clear();
+        self.brain_receipt = None;
+        self.brain_closing = None;
+        self.brain_replies.clear();
+        self.brain_final = None;
         self.processing_receipt = None;
         self.structural_receipt = None;
         self.structural_replies.clear();
@@ -813,6 +875,274 @@ impl Session {
                 .lease
                 .as_ref()
                 .is_some_and(|l| now >= l.renew_at && now < l.deadline)
+    }
+    pub fn device_request(&self) -> Request {
+        let mut r = self.snapshot_request();
+        r.kind = "device_snapshot".into();
+        r
+    }
+    pub fn device_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .device_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self
+                .device
+                .as_ref()
+                .is_some_and(|s| s.connected && s.observation.is_some())
+    }
+    pub(crate) fn invalidate_device(&mut self) {
+        self.device_receipt = None;
+    }
+    pub fn dispatch_device(&mut self, bytes: &[u8], now: u64) -> Result<(), String> {
+        use sha2::{Digest, Sha256};
+        match crate::brain_device::decode(bytes)? {
+            crate::brain_device::Message::Snapshot(s) => {
+                if let (Some(old), Some(new)) = (
+                    self.device.as_ref().and_then(|s| s.observation.as_ref()),
+                    s.observation.as_ref(),
+                ) {
+                    if old.brain_epoch == new.brain_epoch
+                        && old.brain_map == new.brain_map
+                        && new.frame < old.frame
+                    {
+                        return fail("regressive device observation");
+                    }
+                    if old.brain_epoch == new.brain_epoch
+                        && old.brain_map == new.brain_map
+                        && new.frame == old.frame
+                        && self.device.as_ref().and_then(|s| s.observed_ms) == s.observed_ms
+                    {
+                        // Repeated cached device reports do not refresh authority.
+                        if !s.connected {
+                            self.device_receipt = None;
+                        }
+                        self.device = Some(s);
+                        return Ok(());
+                    }
+                }
+                self.device_receipt = Some(now);
+                self.device = Some(s);
+                Ok(())
+            }
+            crate::brain_device::Message::Reply(r) => {
+                let digest: [u8; 32] = Sha256::digest(bytes).into();
+                if self.device_replies.contains(&digest) {
+                    return Ok(());
+                }
+                let p = self
+                    .pending
+                    .as_ref()
+                    .filter(|p| {
+                        p.request.kind == "device_configure" && p.request.context == r.context
+                    })
+                    .ok_or("device reply correlation")?;
+                if self.device_ticket.is_some_and(|t| t != r.ticket) {
+                    return fail("device ticket changed");
+                }
+                let expected = provider::counter(
+                    r.context
+                        .expected_revision
+                        .as_deref()
+                        .ok_or("device revision")?,
+                )?;
+                let revision = provider::counter(&r.revision)?;
+                if r.state == "pending" && revision != expected
+                    || matches!(r.state.as_str(), "accepted_intent" | "applied_device")
+                        && revision <= expected
+                {
+                    return fail("device source boundary revision");
+                }
+                if r.state == "applied_device"
+                    && serde_json::to_value(&r.observation.as_ref().unwrap().config)
+                        .map_err(|e| e.to_string())?
+                        != p.request.body["config"]
+                {
+                    return fail("device applied mapping differs from request");
+                }
+                self.device_ticket = Some(r.ticket);
+                self.last_result = format!(
+                    "device {} ticket {} / revision {} / {:?}",
+                    r.state, r.ticket, r.revision, r.reason
+                );
+                if matches!(r.state.as_str(), "applied_device" | "failed_device") {
+                    self.pending = None;
+                    self.device_ticket = None;
+                    self.device_receipt = None;
+                    self.needs_snapshot = true;
+                }
+                self.device_final = Some(r);
+                if self.device_replies.len() == 128 {
+                    self.device_replies.pop_front();
+                }
+                self.device_replies.push_back(digest);
+                Ok(())
+            }
+        }
+    }
+    pub fn brain_request(&self) -> Request {
+        let mut r = self.snapshot_request();
+        r.kind = "brain_snapshot".into();
+        r
+    }
+    pub fn brain_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .brain_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self.brain.as_ref().is_some_and(|b| {
+                self.snapshot
+                    .as_ref()
+                    .is_some_and(|s| s.authority.revision == b.revision)
+            })
+    }
+    pub(crate) fn invalidate_brain_observation(&mut self) {
+        self.brain_receipt = None;
+    }
+    pub fn brain_age(&self, now: u64) -> Option<u64> {
+        self.brain_receipt.map(|t| now.saturating_sub(t))
+    }
+    pub fn ingest_brain(
+        &mut self,
+        snapshot: crate::brain::Snapshot,
+        now: u64,
+    ) -> Result<bool, String> {
+        let raw = self
+            .snapshot
+            .as_ref()
+            .ok_or("Brain needs actual topology")?;
+        snapshot.validate(raw.authority.inputs.len(), raw.authority.monitors.len())?;
+        if self.version != 2 {
+            return fail("Brain requires dynamic session");
+        }
+        if let Some(old) = &self.brain {
+            if provider::counter(&snapshot.revision)? < provider::counter(&old.revision)?
+                || provider::counter(&snapshot.frame)? < provider::counter(&old.frame)?
+            {
+                return fail("regressive Brain observation");
+            }
+            if snapshot.revision == old.revision && snapshot.frame == old.frame {
+                return Ok(false);
+            }
+        }
+        self.brain = Some(snapshot);
+        self.brain_receipt = Some(now);
+        Ok(true)
+    }
+    /// Closing has its own bounded correlation lane and never waits for an ordinary pending command.
+    /// It cannot open a path, renew a hold, or restore expired authority.
+    pub fn brain_close_request(&mut self, now: u64) -> Result<Request, String> {
+        if let Some(r) = &self.brain_closing {
+            return Ok(r.clone());
+        }
+        let lease = self
+            .lease
+            .as_ref()
+            .filter(|l| now < l.deadline)
+            .ok_or("no live close authority; provider deadman bounds closure")?;
+        if self.version != 2 || self.scope != "talkback_destinations" {
+            return fail("talkback close scope");
+        }
+        let id = self.next_id;
+        self.next_id = id.checked_add(1).ok_or("request counter exhausted")?;
+        let mut r = self.brain_request();
+        if let Some(generation) = self.brain.as_ref().and_then(|s| s.held_generation.as_ref()) {
+            r.kind = "brain_release".into();
+            r.body = json!({"generation":generation});
+        } else {
+            r.kind = "brain_close".into();
+        }
+        r.context.writer = Some(self.writer.clone());
+        r.context.lease = Some(lease.token.clone());
+        r.context.request_id = Some(id.to_string());
+        r.context.expected_revision = Some(
+            self.snapshot
+                .as_ref()
+                .ok_or("snapshot")?
+                .authority
+                .revision
+                .clone(),
+        );
+        r.encode()?;
+        self.brain_closing = Some(r.clone());
+        Ok(r)
+    }
+    pub fn dispatch_brain(&mut self, reply: crate::brain::Reply, now: u64) -> Result<(), String> {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&reply).map_err(|e| e.to_string())?;
+        let reply = crate::brain::decode_reply(&bytes)?;
+        let fingerprint: [u8; 32] = Sha256::digest(&bytes).into();
+        if self.brain_replies.contains(&fingerprint) {
+            return Ok(());
+        }
+        if reply.context == self.brain_request().context {
+            if reply.state != "snapshot" {
+                return fail("Brain snapshot reply required");
+            }
+            self.ingest_brain(reply.snapshot.ok_or("Brain snapshot missing")?, now)?;
+            return Ok(());
+        }
+        let closing = self
+            .brain_closing
+            .as_ref()
+            .is_some_and(|r| r.context == reply.context);
+        let ordinary = self.pending.as_ref().is_some_and(|p| {
+            crate::brain::is_kind(&p.request.kind) && p.request.context == reply.context
+        });
+        if !closing && !ordinary {
+            return fail("unknown Brain reply correlation");
+        }
+        let expected = provider::counter(
+            reply
+                .context
+                .expected_revision
+                .as_deref()
+                .ok_or("Brain revision")?,
+        )?;
+        if reply.state == "pending" {
+            if provider::counter(&reply.revision)? != expected {
+                return fail("Brain pending revision");
+            }
+            if ordinary {
+                self.pending.as_mut().unwrap().state = PendingState::Accepted;
+            }
+        } else {
+            if reply.state != "final"
+                || (reply.reason.is_none()
+                    && (reply.applied_frame.is_none()
+                        || provider::counter(&reply.revision)?
+                            != expected.checked_add(1).ok_or("Brain revision exhausted")?))
+            {
+                return fail("Brain final revision/frame");
+            }
+            if let Some(snapshot) = reply.snapshot.clone() {
+                self.ingest_brain(snapshot, now)?;
+            } else {
+                self.brain_receipt = None;
+            }
+            self.last_result = match &reply.reason {
+                Some(r) => format!("Brain REFUSED: {r}"),
+                None => format!(
+                    "Brain applied revision {} at frame {}",
+                    reply.revision,
+                    reply.applied_frame.as_deref().unwrap_or("unknown")
+                ),
+            };
+            self.brain_final = Some(reply);
+            if closing {
+                self.brain_closing = None;
+            }
+            if ordinary {
+                self.pending = None;
+            }
+            self.needs_snapshot = true;
+            self.preview = None;
+        }
+        if self.brain_replies.len() == 128 {
+            self.brain_replies.pop_front();
+        }
+        self.brain_replies.push_back(fingerprint);
+        Ok(())
     }
     pub fn structural_request(&self) -> Request {
         let mut request = self.snapshot_request();
@@ -1153,6 +1483,38 @@ impl Session {
     }
     fn validate_command(&self, kind: &str, body: &Value, now: u64) -> Result<(), String> {
         match kind {
+            "device_configure" => {
+                if self.scope != "local_operator_monitor" || !self.device_fresh(now) {
+                    return fail("fresh device observation and local operator lease required");
+                }
+                provider::keys(body, &["config"])?;
+                crate::brain_device::Config::decode(body["config"].clone())?;
+                Ok(())
+            }
+            kind if crate::brain::is_kind(kind) => {
+                if kind == "brain_hold" && self.brain_closing.is_some() {
+                    return fail("prior close must settle before a new hold");
+                }
+                if self.version != 2
+                    || crate::brain::scope(kind) != Some(self.scope.as_str())
+                    || !self.brain_fresh(now)
+                {
+                    return fail("fresh Brain readback and separate scope grant required");
+                }
+                if kind == "brain_monitor_set" && body["armed"] == true && !self.device_fresh(now) {
+                    return fail(
+                        "separate arm requires fresh actual device readback; audible readiness follows prefill",
+                    );
+                }
+                let raw = self.snapshot.as_ref().unwrap();
+                crate::brain::validate_body(
+                    kind,
+                    body,
+                    self.brain.as_ref(),
+                    raw.authority.inputs.len(),
+                    raw.authority.monitors.len(),
+                )
+            }
             kind if crate::structure::is_kind(kind) => {
                 if self.version != 2
                     || crate::structure::scope(kind) != Some(self.scope.as_str())
@@ -1779,5 +2141,139 @@ mod actual_structural_exchange_tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod brain_safety_tests {
+    use super::*;
+    // Explicit adversarial state derived from the actual GP14 topology. This is
+    // not a GP15 producer fixture or an acceptance claim.
+    fn session(scope: &str) -> Session {
+        let v: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/gp14/v1/profile-48.json"))
+                .unwrap();
+        let raw = decode_reply(&serde_json::to_vec(&v["snapshot"]).unwrap())
+            .unwrap()
+            .snapshot
+            .unwrap();
+        let mut s = Session::new_version(
+            &raw.authority.show_id,
+            provider::counter(&raw.authority.epoch).unwrap(),
+            "brain-test",
+            scope,
+            2,
+        )
+        .unwrap();
+        s.ingest_snapshot(raw, 0).unwrap();
+        s.lease = Some(Lease {
+            token: "7".into(),
+            deadline: 2000,
+            renew_at: 1000,
+        });
+        s.next_id = 2;
+        s.input_released();
+        let b = crate::brain::Snapshot {
+            source: crate::brain::Source::Main,
+            selection_generation: "1".into(),
+            monitor_gain_cdb: -1200,
+            monitor_mute: true,
+            monitor_dim: false,
+            monitor_armed: false,
+            talkback_monitors: vec![0],
+            talkback_foh: false,
+            talkback_gain_cdb: -1200,
+            talkback_mute: false,
+            hold_generation_counter: "0".into(),
+            held_generation: None,
+            hold_deadline_ms: None,
+            audible_path_ready: true,
+            talkback_path_ready: true,
+            monitor_path_ready: true,
+            microphone_peak_nano: 0,
+            outgoing_peak_nano: 0,
+            monitor_peak_nano: 0,
+            frame: s.snapshot.as_ref().unwrap().frame.clone(),
+            revision: s.snapshot.as_ref().unwrap().authority.revision.clone(),
+            heartbeat_ms: 50,
+            deadman_ms: 150,
+            fade_frames: 240,
+        };
+        s.ingest_brain(b, 0).unwrap();
+        s
+    }
+    #[test]
+    fn brain_priority_close_preserves_pending_and_stops_at_expired_authority() {
+        let mut s = session("talkback_destinations");
+        let hold = s.begin("brain_hold", json!({"generation":"1"}), 0).unwrap();
+        let close = s.brain_close_request(1).unwrap();
+        assert_ne!(close.context.request_id, hold.context.request_id);
+        assert_eq!(s.pending.as_ref().unwrap().request, hold);
+        assert_eq!(s.brain_close_request(2).unwrap(), close);
+        let mut fresh = session("talkback_destinations");
+        assert!(fresh.brain_close_request(2000).is_err());
+        assert!(
+            session("local_operator_monitor")
+                .brain_close_request(1)
+                .is_err()
+        );
+        s.disconnect();
+        assert!(s.brain_close_request(3).is_err());
+        assert!(s.pending.is_none());
+    }
+    #[test]
+    fn brain_correlation_refuses_wrong_context_and_duplicate_cannot_refresh() {
+        let mut s = session("talkback_destinations");
+        let r = s.begin("brain_hold", json!({"generation":"1"}), 0).unwrap();
+        let revision =
+            provider::counter(r.context.expected_revision.as_ref().unwrap()).unwrap() + 1;
+        let mut b = s.brain.clone().unwrap();
+        b.revision = revision.to_string();
+        b.frame = (provider::counter(&b.frame).unwrap() + 48).to_string();
+        b.held_generation = Some("1".into());
+        b.hold_generation_counter = "1".into();
+        b.hold_deadline_ms = Some("150".into());
+        let reply = crate::brain::Reply {
+            contract: "GP15-brain".into(),
+            version: 1,
+            state: "final".into(),
+            reason: None,
+            context: r.context.clone(),
+            revision: revision.to_string(),
+            applied_frame: Some(b.frame.clone()),
+            snapshot: Some(b),
+        };
+        let mut bad = reply.clone();
+        bad.context.request_id = Some("999".into());
+        assert!(s.dispatch_brain(bad, 1).is_err());
+        assert!(s.pending.is_some());
+        let mut bad = reply.clone();
+        bad.revision = (revision + 1).to_string();
+        bad.snapshot.as_mut().unwrap().revision = bad.revision.clone();
+        assert!(s.dispatch_brain(bad, 1).is_err());
+        s.dispatch_brain(reply.clone(), 1).unwrap();
+        assert!(s.pending.is_none());
+        assert_eq!(s.brain_receipt, Some(1));
+        s.dispatch_brain(reply, 220).unwrap();
+        assert_eq!(s.brain_receipt, Some(1));
+        assert!(s.needs_snapshot);
+        s.invalidate_brain_observation();
+        assert!(!s.brain_fresh(2));
+    }
+    #[test]
+    fn brain_source_arm_requires_separate_readback_and_monitor_readiness() {
+        let mut s = session("local_operator_monitor");
+        let mut body = json!({"source":{"kind":"pfl","input":47},"gain_cdb":-1200,"mute":false,"dim":false,"armed":true});
+        assert!(s.begin("brain_monitor_set", body.clone(), 0).is_err());
+        body["armed"] = json!(false);
+        assert!(s.begin("brain_monitor_set", body, 0).is_ok());
+        let mut s = session("local_operator_monitor");
+        s.brain.as_mut().unwrap().monitor_path_ready = false;
+        assert!(s.begin("brain_monitor_set",json!({"source":{"kind":"main"},"gain_cdb":-1200,"mute":false,"dim":false,"armed":true}),0).is_err());
+        assert!(
+            session("talkback_destinations")
+                .begin("brain_talkback_foh", json!({"enabled":true}), 0)
+                .is_err()
+        );
     }
 }

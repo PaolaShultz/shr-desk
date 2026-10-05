@@ -286,6 +286,7 @@ pub struct Operator {
     start: Instant,
     draft: Option<Draft>,
     scope: String,
+    brain_signal: Option<std::sync::Arc<crate::brain::HoldSignal>>,
     guard: Option<(std::sync::Arc<std::sync::atomic::AtomicU64>, u64)>,
 }
 impl Operator {
@@ -371,6 +372,7 @@ impl Operator {
             draft: None,
             scope: scope.into(),
             guard: None,
+            brain_signal: None,
         })
     }
     pub(crate) fn cancel(&mut self) {
@@ -384,7 +386,19 @@ impl Operator {
     ) {
         self.guard = Some((generation, expected));
     }
-    fn check_guard(&self) -> Result<(), String> {
+    pub(crate) fn brain_signal(&mut self, signal: std::sync::Arc<crate::brain::HoldSignal>) {
+        self.brain_signal = Some(signal);
+    }
+    fn check_guard(&mut self) -> Result<(), String> {
+        if self
+            .brain_signal
+            .as_ref()
+            .is_some_and(|s| s.close.swap(false, std::sync::atomic::Ordering::AcqRel))
+        {
+            // Best effort bounded priority close, even when ordinary mutation is pending.
+            // Heartbeats stop at the UI signal immediately; provider deadman is final bound.
+            let _ = self.close_brain();
+        }
         if self
             .guard
             .as_ref()
@@ -401,6 +415,8 @@ impl Operator {
                 && (d.kind != "processing_set" || self.session.processing_fresh(self.now()))
                 && (!crate::structure::is_kind(&d.kind)
                     || self.session.structural_fresh(self.now()))
+                && (d.kind != "device_configure" || self.session.device_fresh(self.now()))
+                && (!crate::brain::is_kind(&d.kind) || self.session.brain_fresh(self.now()))
                 && (d.kind != "release_preview"
                     || self
                         .session
@@ -415,6 +431,7 @@ impl Operator {
     }
     pub(crate) fn reviewed(&self) -> Option<String> {
         self.draft.as_ref().map(|d| {
+            if d.kind=="device_configure" {return format!("DEVICE CONFIGURATION / revision {} / separate rearm required\n{}",d.revision,serde_json::to_string_pretty(&d.body["config"]).unwrap_or_default());}
             if d.kind == "processing_set" {
                 let config = crate::processing::decode_config(&d.body["config"]).expect("validated draft");
                 return format!("APPLY channel {} / FOH EQ then compressor / monitors raw-post-mute unchanged / revision {} / show {} / epoch {}\n{}\n240-frame output crossfade; Enter confirms complete replacement; Esc cancels",
@@ -458,6 +475,15 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some("GP15-device") {
+            self.session.dispatch_device(bytes, self.now())?;
+            return Ok(true);
+        }
+        if tag.contract.as_deref() == Some("GP15-brain") {
+            let reply = crate::brain::decode_reply(bytes)?;
+            self.session.dispatch_brain(reply, self.now())?;
+            return Ok(true);
+        }
         if tag.contract.as_deref() == Some("GP14-structure") {
             let reply = crate::structure::decode_reply(bytes)?;
             if reply.context == self.session.structural_request().context {
@@ -502,6 +528,124 @@ impl Operator {
         }
         // Cached old replies never ingest snapshots or renew freshness.
         Ok(true)
+    }
+    pub(crate) fn refresh_device(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        let deadline = Instant::now() + Duration::from_millis(250);
+        self.transport
+            .send_frame_until(&self.session.device_request().encode()?, deadline)?;
+        for _ in 0..64 {
+            self.check_guard()?;
+            if Instant::now() >= deadline {
+                break;
+            }
+            if let Some(bytes) = self.transport.receive_until(deadline)? {
+                let v: serde_json::Value =
+                    serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+                let observation = v["contract"] == "GP15-device" && v["state"] == "snapshot";
+                if Instant::now() >= deadline {
+                    break;
+                }
+                if !self.processing_frame(&bytes)? {
+                    let r = audio::decode_reply(&bytes)?;
+                    self.telemetry(&r)?;
+                }
+                if observation {
+                    return Ok(());
+                }
+            }
+        }
+        self.session.invalidate_device();
+        Err("device observation deadline".into())
+    }
+    pub(crate) fn refresh_brain(&mut self) -> Result<(), String> {
+        let result = self.refresh_brain_inner();
+        if result.is_err() {
+            self.session.invalidate_brain_observation();
+        }
+        result
+    }
+    fn refresh_brain_inner(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        let deadline = Instant::now() + Duration::from_millis(250);
+        self.transport
+            .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        self.transport
+            .send_frame_until(&self.session.brain_request().encode()?, deadline)?;
+        let previous = self
+            .session
+            .brain
+            .as_ref()
+            .map(|s| (s.revision.clone(), s.frame.clone()));
+        let mut requested_revision = None;
+        for _ in 0..64 {
+            self.check_guard()?;
+            if Instant::now() >= deadline {
+                break;
+            }
+            if let Some(bytes) = self.transport.receive_until(deadline)? {
+                if Instant::now() >= deadline {
+                    break;
+                }
+                if !self.processing_frame(&bytes)? {
+                    let r = audio::decode_reply(&bytes)?;
+                    self.telemetry(&r)?;
+                }
+                if let (Some(raw), Some(brain)) = (&self.session.snapshot, &self.session.brain)
+                    && raw.authority.revision != brain.revision
+                    && requested_revision.as_ref() != Some(&brain.revision)
+                {
+                    requested_revision = Some(brain.revision.clone());
+                    self.transport
+                        .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+                }
+                if self.session.brain_fresh(self.now())
+                    && self
+                        .session
+                        .brain
+                        .as_ref()
+                        .map(|s| (s.revision.clone(), s.frame.clone()))
+                        != previous
+                {
+                    return Ok(());
+                }
+            }
+        }
+        Err("Brain paired observation deadline".into())
+    }
+    pub(crate) fn close_brain(&mut self) -> Result<(), String> {
+        if self
+            .session
+            .brain
+            .as_ref()
+            .is_none_or(|b| b.held_generation.is_none())
+            && self.session.pending.as_ref().is_none_or(|p| {
+                !matches!(p.request.kind.as_str(), "brain_hold" | "brain_heartbeat")
+            })
+        {
+            return Ok(());
+        }
+        let r = self.session.brain_close_request(self.now())?;
+        self.transport
+            .send_frame_until(&r.encode()?, Instant::now() + Duration::from_millis(20))
+    }
+    /// Send one ephemeral edge; worker polls completion, never retries a hold/heartbeat.
+    pub(crate) fn brain_edge(&mut self, kind: &str, generation: u64) -> Result<(), String> {
+        let body = if kind == "brain_heartbeat" {
+            if self
+                .session
+                .brain_age(self.now())
+                .is_none_or(|age| age > 50)
+            {
+                return Err("heartbeat needs observation no older than 50 ms".into());
+            }
+            json!({"generation":generation.to_string(),"observed_frame":self.session.brain.as_ref().ok_or("Brain readback")?.frame})
+        } else {
+            json!({"generation":generation.to_string()})
+        };
+        let r = self.session.begin(kind, body, self.now())?;
+        self.transport
+            .send_frame_until(&r.encode()?, Instant::now() + Duration::from_millis(20))
     }
     pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
         let result = self.refresh_structural_inner();
@@ -727,6 +871,26 @@ impl Operator {
                 Ok(Some(b)) => {
                     if self.processing_frame(&b)? {
                         if self.session.pending.is_none() {
+                            if kind == "device_configure"
+                                && self
+                                    .session
+                                    .device_final
+                                    .as_ref()
+                                    .is_some_and(|r| r.state != "applied_device")
+                            {
+                                return Err(
+                                    "device configuration failed; actual device not applied".into(),
+                                );
+                            }
+                            if crate::brain::is_kind(kind)
+                                && let Some(reason) = self
+                                    .session
+                                    .brain_final
+                                    .as_ref()
+                                    .and_then(|r| r.reason.as_ref())
+                            {
+                                return Err(format!("Brain refused: {reason}"));
+                            }
                             // Structural map commits may deliberately close the old
                             // authenticated session after its final. Preserve that
                             // correlated completion independently of the next refresh.
@@ -804,7 +968,11 @@ impl Operator {
         }
         // Pin the queued review's context before any refresh can observe a newer
         // revision. The frontend already checked its original queued revision.
-        let processing_context = if kind == "processing_set" || crate::structure::is_kind(kind) {
+        let processing_context = if kind == "processing_set"
+            || crate::structure::is_kind(kind)
+            || crate::brain::is_kind(kind)
+            || kind == "device_configure"
+        {
             Some((
                 self.session
                     .snapshot
@@ -828,6 +996,19 @@ impl Operator {
                     self.session.snapshot_request().version,
                 )?;
                 self.refresh_processing()?;
+            } else if kind == "device_configure" {
+                self.refresh_device()?;
+                crate::brain_device::Config::decode(body["config"].clone())?;
+            } else if crate::brain::is_kind(kind) {
+                self.refresh_brain()?;
+                let raw = self.session.snapshot.as_ref().ok_or("snapshot")?;
+                crate::brain::validate_body(
+                    kind,
+                    &body,
+                    self.session.brain.as_ref(),
+                    raw.authority.inputs.len(),
+                    raw.authority.monitors.len(),
+                )?;
             } else {
                 self.refresh_structural()?;
                 crate::structure::validate_body(kind, &body, self.session.structural.as_ref())?;
@@ -886,9 +1067,17 @@ impl Operator {
                 return Err("reviewed confirmation context changed during renewal".into());
             }
         }
-        if d.kind == "processing_set" || crate::structure::is_kind(&d.kind) {
+        if d.kind == "processing_set"
+            || crate::structure::is_kind(&d.kind)
+            || crate::brain::is_kind(&d.kind)
+            || d.kind == "device_configure"
+        {
             if d.kind == "processing_set" {
                 self.refresh_processing()?;
+            } else if d.kind == "device_configure" {
+                self.refresh_device()?;
+            } else if crate::brain::is_kind(&d.kind) {
+                self.refresh_brain()?;
             } else {
                 self.refresh_structural()?;
             }
@@ -984,6 +1173,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         draft: None,
         scope: args[4].clone(),
         guard: None,
+        brain_signal: None,
     };
     op.refresh()?;
     let session_deadline = Instant::now() + Duration::from_secs(30);
@@ -1259,6 +1449,7 @@ mod gp07_stage_tests {
             draft: None,
             scope: "foh".into(),
             guard: None,
+            brain_signal: None,
         };
         assert!(!op.session.processing_fresh(op.now()));
         if change_before_stage {

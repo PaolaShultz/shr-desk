@@ -32,6 +32,13 @@ pub struct Config {
 }
 #[derive(Clone, Debug)]
 pub enum Operation {
+    EnableBrain,
+    ReviewDevice(Box<crate::brain_device::Config>),
+    BrainPress(u64),
+    ReviewBrain {
+        kind: String,
+        body: Value,
+    },
     ReviewStructure {
         kind: String,
         body: Value,
@@ -72,6 +79,13 @@ struct Request {
 pub struct Update {
     pub generation: u64,
     pub snapshot: Option<RenderedSnapshot>,
+    pub device: Option<crate::brain_device::Snapshot>,
+    pub device_final: Option<crate::brain_device::Reply>,
+    pub device_fresh: bool,
+    pub brain: Option<crate::brain::Snapshot>,
+    pub brain_final: Option<crate::brain::Reply>,
+    pub brain_fresh: bool,
+    pub brain_status: String,
     pub processing: Option<crate::processing::Snapshot>,
     pub processing_age_ms: Option<u64>,
     pub processing_status: String,
@@ -106,6 +120,7 @@ pub struct Provider {
     stop: Arc<AtomicBool>,
     child: Option<JoinHandle<()>>,
     authorization: Arc<AtomicBool>,
+    brain_signal: Arc<crate::brain::HoldSignal>,
 }
 impl Provider {
     pub fn start(config: Config) -> Self {
@@ -116,7 +131,9 @@ impl Provider {
         let (l, g, s) = (latest.clone(), generation.clone(), stop.clone());
         let authorization = Arc::new(AtomicBool::new(true));
         let a = authorization.clone();
-        let child = thread::spawn(move || worker(config, rx, l, g, s, a));
+        let brain_signal = Arc::new(crate::brain::HoldSignal::default());
+        let b = brain_signal.clone();
+        let child = thread::spawn(move || worker(config, rx, l, g, s, (a, b)));
         Self {
             tx,
             latest,
@@ -124,6 +141,7 @@ impl Provider {
             stop,
             child: Some(child),
             authorization,
+            brain_signal,
         }
     }
     fn send(&self, revision: Option<String>, operation: Operation) -> Result<(), String> {
@@ -142,6 +160,7 @@ impl Provider {
         self.latest.update.lock().unwrap().take()
     }
     pub fn fence(&self) -> u64 {
+        self.brain_signal.release();
         self.generation
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |g| g.checked_add(1))
             .expect("generation exhausted")
@@ -153,6 +172,7 @@ impl Provider {
 }
 impl Drop for Provider {
     fn drop(&mut self) {
+        self.brain_signal.release();
         self.stop.store(true, Ordering::Release);
         if let Some(c) = self.child.take() {
             let _ = c.join();
@@ -165,8 +185,9 @@ fn worker(
     latest: Arc<Latest>,
     generation: Arc<AtomicU64>,
     stop: Arc<AtomicBool>,
-    authorization: Arc<AtomicBool>,
+    signals: (Arc<AtomicBool>, Arc<crate::brain::HoldSignal>),
 ) {
+    let (authorization, brain_signal) = signals;
     let mut op: Option<Operator> = None;
     let mut structural_final: Option<crate::structure::Reply> = None;
     let mut g = generation.load(Ordering::Acquire);
@@ -175,6 +196,12 @@ fn worker(
     let mut status = "provider unavailable; read-only attach".to_string();
     let mut operation_error: Option<String> = None;
     let mut last_operation: Option<String> = None;
+    let mut brain_enabled = false;
+    let mut brain_status = "unavailable; explicit --brain-audio required".to_string();
+    let mut held: Option<(u64, u64)> = None;
+    let mut heartbeat = Instant::now();
+    let mut brain_poll = Instant::now();
+    let mut device_poll = Instant::now();
     let mut processing_requested = false;
     let mut processing_enabled = false;
     let mut processing_status = "unavailable; GP07 probe not enabled".to_string();
@@ -182,6 +209,15 @@ fn worker(
     let mut connect = true;
     let mut reconnects = 0u64;
     while !stop.load(Ordering::Acquire) {
+        if held.is_some_and(|(id, _)| !brain_signal.live_id(id))
+            || (held.is_some() && !authorization.load(Ordering::Acquire))
+        {
+            brain_signal.release();
+            if let Some(o) = &mut op {
+                let _ = o.close_brain();
+            }
+            held = None;
+        }
         let current = generation.load(Ordering::Acquire);
         if current != g {
             g = current;
@@ -213,17 +249,21 @@ fn worker(
                 )
             };
             match connection {
-                Ok(mut o) => match o.refresh() {
-                    Ok(()) => {
-                        status = "provider attached read-only; explicit G grant required".into();
-                        op = Some(o)
+                Ok(mut o) => {
+                    o.brain_signal(brain_signal.clone());
+                    match o.refresh() {
+                        Ok(()) => {
+                            status =
+                                "provider attached read-only; explicit G grant required".into();
+                            op = Some(o)
+                        }
+                        Err(e) => status = format!("UNAVAILABLE: {e}"),
                     }
-                    Err(e) => status = format!("UNAVAILABLE: {e}"),
-                },
+                }
                 Err(e) => status = format!("UNAVAILABLE: {e}"),
             }
         }
-        if let Ok(r) = rx.recv_timeout(Duration::from_millis(40)) {
+        if let Ok(r) = rx.recv_timeout(Duration::from_millis(if held.is_some() { 5 } else { 40 })) {
             // A recovery request can wake recv after its generation was revoked.
             // Synchronize before comparing so a fresh reconnect is never discarded.
             let current = generation.load(Ordering::Acquire);
@@ -248,6 +288,7 @@ fn worker(
                         | Operation::Reconnect
                         | Operation::LegacyReconnect
                         | Operation::EnableProcessing
+                        | Operation::EnableBrain
                 )
             {
                 status = "ROLE UNAVAILABLE: new provider writes refused".into();
@@ -257,7 +298,10 @@ fn worker(
                 operation_error = None;
                 last_operation = None;
             }
-            if matches!(r.operation, Operation::EnableProcessing) {
+            if matches!(r.operation, Operation::EnableBrain) {
+                brain_enabled = true;
+                brain_status = "awaiting actual Brain readback".into();
+            } else if matches!(r.operation, Operation::EnableProcessing) {
                 processing_requested = true;
                 processing_enabled = true;
                 processing_status = "awaiting capability snapshot".into();
@@ -268,6 +312,11 @@ fn worker(
                 if matches!(r.operation, Operation::LegacyReconnect) {
                     processing_requested = false;
                     processing_status = "disabled by explicit legacy GP03 reconnect".into();
+                }
+                brain_signal.release();
+                held = None;
+                if let Some(o) = &mut op {
+                    let _ = o.close_brain();
                 }
                 op = None;
                 review = None;
@@ -285,6 +334,13 @@ fn worker(
                         last_operation: last_operation.clone(),
                         writer_lease_remaining_ms: confirmed_lease_remaining(o),
                         snapshot: o.session.snapshot.clone(),
+                        device: o.session.device.clone(),
+                        device_final: o.session.device_final.clone(),
+                        device_fresh: o.session.device_fresh(o.now()),
+                        brain: o.session.brain.clone(),
+                        brain_final: o.session.brain_final.clone(),
+                        brain_fresh: o.session.brain_fresh(o.now()),
+                        brain_status: brain_status.clone(),
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
                         processing_status: processing_status.clone(),
@@ -297,6 +353,10 @@ fn worker(
                             "PENDING {}; awaiting provider confirmation",
                             match &r.operation {
                                 Operation::EnableProcessing => "capability query",
+                                Operation::ReviewDevice(_) => "device configuration review",
+                                Operation::EnableBrain => "Brain capability probe",
+                                Operation::BrainPress(_) => "talkback press",
+                                Operation::ReviewBrain { .. } => "Brain configuration review",
                                 Operation::ReviewProcessing { .. } => "processing review",
                                 Operation::ReviewStructure { .. } => "structural review",
                                 Operation::Grant => "writer grant",
@@ -316,7 +376,9 @@ fn worker(
                     });
                 }
                 let local_result = match &r.operation {
-                    Operation::ReviewStructure { .. }
+                    Operation::ReviewDevice(_)
+                    | Operation::ReviewBrain { .. }
+                    | Operation::ReviewStructure { .. }
                     | Operation::ReviewProcessing { .. }
                     | Operation::ReviewSet { .. }
                     | Operation::Preview(_)
@@ -341,7 +403,47 @@ fn worker(
                         return Err("input context changed; intent discarded".into());
                     }
                     match r.operation {
-                        Operation::EnableProcessing => unreachable!(),
+                        Operation::EnableProcessing | Operation::EnableBrain => unreachable!(),
+                        Operation::ReviewDevice(config) => {
+                            if !brain_enabled {
+                                return Err("Brain opt-in required".into());
+                            }
+                            brain_signal.release();
+                            held = None;
+                            o.stage("device_configure", json!({"config":config}))?;
+                            serial = serial.checked_add(1).ok_or("review counter exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
+                        Operation::BrainPress(intent) => {
+                            if !brain_enabled || !brain_signal.live_id(intent) || held.is_some() {
+                                return Err("PTT edge expired/repeated".into());
+                            }
+                            let next = crate::provider::counter(
+                                &o.session
+                                    .brain
+                                    .as_ref()
+                                    .ok_or("Brain readback")?
+                                    .hold_generation_counter,
+                            )?
+                            .checked_add(1)
+                            .ok_or("PTT generation exhausted")?;
+                            o.brain_edge("brain_hold", next)?;
+                            held = Some((intent, next));
+                            heartbeat = Instant::now();
+                            Ok(())
+                        }
+                        Operation::ReviewBrain { kind, body } => {
+                            if !brain_enabled {
+                                return Err("Brain explicit opt-in required".into());
+                            }
+                            brain_signal.release();
+                            held = None;
+                            o.stage(&kind, body)?;
+                            serial = serial.checked_add(1).ok_or("review counter exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
                         Operation::ReviewProcessing { input, config } => {
                             o.stage("processing_set", json!({"input": input, "config": config}))?;
                             serial = serial.checked_add(1).ok_or("review counter exhausted")?;
@@ -456,6 +558,13 @@ fn worker(
                     last_operation: last_operation.clone(),
                     writer_lease_remaining_ms: confirmed_lease_remaining(o),
                     snapshot: o.session.snapshot.clone(),
+                    device: o.session.device.clone(),
+                    device_final: o.session.device_final.clone(),
+                    device_fresh: o.session.device_fresh(o.now()),
+                    brain: o.session.brain.clone(),
+                    brain_final: o.session.brain_final.clone(),
+                    brain_fresh: o.session.brain_fresh(o.now()),
+                    brain_status: brain_status.clone(),
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
                     processing_status: processing_status.clone(),
@@ -474,6 +583,62 @@ fn worker(
                 && let Err(e) = o.mutate("renew", json!({}))
             {
                 status = format!("LEASE UNCERTAIN: {e}");
+            }
+            if brain_enabled {
+                if held.is_none() && device_poll.elapsed() >= Duration::from_millis(180) {
+                    if let Err(e) = o.refresh_device() {
+                        brain_status = format!("device unavailable: {e}");
+                    }
+                    device_poll = Instant::now();
+                }
+                if held.is_some() && !brain_signal.live() {
+                    brain_signal.release();
+                    let _ = o.close_brain();
+                    held = None;
+                }
+                if brain_poll.elapsed() >= Duration::from_millis(40) {
+                    match o.refresh_brain() {
+                        Ok(()) => brain_status = "actual readback received".into(),
+                        Err(e) => {
+                            brain_status = format!("STALE: {e}");
+                            brain_signal.release();
+                            held = None;
+                            let _ = o.close_brain();
+                        }
+                    }
+                    brain_poll = Instant::now();
+                }
+                if let Some((intent, n)) = held {
+                    let refused = o.session.pending.is_none()
+                        && (o
+                            .session
+                            .brain_final
+                            .as_ref()
+                            .is_some_and(|r| r.reason.is_some())
+                            || o.session.brain.as_ref().is_none_or(|b| {
+                                b.held_generation.as_deref() != Some(n.to_string().as_str())
+                            }));
+                    if refused
+                        || !brain_signal.live_id(intent)
+                        || !o.session.brain_fresh(o.now())
+                        || o.session.lease_deadline().is_none_or(|d| o.now() >= d)
+                    {
+                        brain_signal.release();
+                        let _ = o.close_brain();
+                        held = None;
+                    } else if heartbeat.elapsed()
+                        >= Duration::from_millis(crate::brain::HEARTBEAT_MS)
+                        && o.session.pending.is_none()
+                    {
+                        if let Err(e) = o.brain_edge("brain_heartbeat", n) {
+                            brain_status = e;
+                            brain_signal.release();
+                            held = None;
+                            let _ = o.close_brain();
+                        }
+                        heartbeat = Instant::now();
+                    }
+                }
             }
             if config.wire_version == 2
                 && matches!(config.scope.as_str(), "pa_configuration" | "output_routes")
@@ -519,6 +684,13 @@ fn worker(
             last_operation: last_operation.clone(),
             writer_lease_remaining_ms: op.as_ref().and_then(confirmed_lease_remaining),
             snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
+            device: op.as_ref().and_then(|o| o.session.device.clone()),
+            device_final: op.as_ref().and_then(|o| o.session.device_final.clone()),
+            device_fresh: op.as_ref().is_some_and(|o| o.session.device_fresh(o.now())),
+            brain: op.as_ref().and_then(|o| o.session.brain.clone()),
+            brain_final: op.as_ref().and_then(|o| o.session.brain_final.clone()),
+            brain_fresh: op.as_ref().is_some_and(|o| o.session.brain_fresh(o.now())),
+            brain_status: brain_status.clone(),
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
             processing_status: processing_status.clone(),
@@ -538,7 +710,11 @@ fn worker(
         };
         publish_provider_update(&latest, update, operation_error.as_deref());
     }
-    // No release/recall is sent on UI exit. Engine owns persistent held state.
+    brain_signal.release();
+    if let Some(o) = &mut op {
+        let _ = o.close_brain();
+    }
+    // Persistent mixer holds remain engine-owned; only ephemeral talkback closes.
 }
 
 fn confirmed_lease_remaining(operator: &Operator) -> Option<u64> {
@@ -611,6 +787,14 @@ pub struct Frontend {
     module_config: Config,
     module_client: Option<crate::modules::Worker>,
     pub modules: Option<crate::modules::Update>,
+    brain_enabled: bool,
+    brain_page: bool,
+    ptt_pressed: bool,
+    brain_bus: usize,
+    pub device_draft: Option<crate::brain_device::Config>,
+    device_draft_context: Option<(String, u64)>,
+    device_entry: Option<String>,
+    hold_midi: Option<crate::brain::HoldMidi>,
     pub selected: usize,
     topology_page: Option<usize>,
     pub processing_draft: Option<ProcessingDraft>,
@@ -648,6 +832,14 @@ impl Frontend {
             module_config: config,
             module_client: None,
             modules: None,
+            brain_enabled: false,
+            brain_page: false,
+            ptt_pressed: false,
+            brain_bus: 0,
+            device_draft: None,
+            device_draft_context: None,
+            device_entry: None,
+            hold_midi: None,
             selected: 0,
             topology_page: None,
             processing_draft: None,
@@ -675,6 +867,36 @@ impl Frontend {
             role_status: None,
             observed_generation: 1,
         }
+    }
+    pub fn enable_brain_audio(&mut self) -> Result<(), String> {
+        if self.module_config.wire_version != 2 {
+            return Err("--brain-audio requires explicit dynamic C-AUDIO2 session".into());
+        }
+        self.brain_enabled = true;
+        self.provider.send(None, Operation::EnableBrain)
+    }
+    pub fn talkback_release(&mut self) {
+        self.ptt_pressed = false;
+        self.provider.brain_signal.release();
+    }
+    pub fn controller_removed(&mut self) {
+        self.talkback_release();
+        self.fence();
+    }
+    pub fn configure_talkback_controller(&mut self, channel: u8, note: u8) -> Result<(), String> {
+        self.talkback_release();
+        self.hold_midi = Some(crate::brain::HoldMidi::new(channel, note)?);
+        Ok(())
+    }
+    pub fn inject_talkback_midi(&mut self, bytes: &[u8]) -> Result<(), String> {
+        if let Some(pressed) = self.hold_midi.as_mut().and_then(|d| d.decode(bytes)) {
+            self.inject_controller(if pressed {
+                Action::TalkbackPress
+            } else {
+                Action::TalkbackRelease
+            })?;
+        }
+        Ok(())
     }
     /// Explicit GP03-only fresh attachment; drops drafts, authority and queued intents.
     pub fn reconnect_legacy(&mut self) -> Result<(), String> {
@@ -717,6 +939,10 @@ impl Frontend {
         self.fence_local();
     }
     fn fence_local(&mut self) {
+        self.talkback_release();
+        if let Some(d) = &mut self.hold_midi {
+            d.fence();
+        }
         self.blocked.extend(self.queue.iter().filter_map(|e| {
             if let Event::Key { key, pressed: true } = e {
                 Some(key.clone())
@@ -729,6 +955,9 @@ impl Frontend {
         self.pressed.clear();
         self.mode_picker = false;
         self.processing_draft = None;
+        self.device_draft = None;
+        self.device_draft_context = None;
+        self.device_entry = None;
         self.structural_draft = None;
         self.structure_text_entry = false;
         self.processing_entry.clear();
@@ -739,6 +968,28 @@ impl Frontend {
         self.review_seen.clear();
     }
     pub fn enqueue(&mut self, event: Event) -> Result<(), String> {
+        if matches!(&event,Event::Key{key,pressed:false} if key.eq_ignore_ascii_case("T"))
+            || matches!(
+                &event,
+                Event::Controller {
+                    action: Action::TalkbackRelease,
+                    ..
+                }
+            )
+        {
+            self.talkback_release();
+            self.queue.retain(|e| {
+                !matches!(e,Event::Key{key,pressed:true} if key.eq_ignore_ascii_case("T"))
+                    && !matches!(
+                        e,
+                        Event::Controller {
+                            action: Action::TalkbackPress,
+                            ..
+                        }
+                    )
+            });
+        }
+
         if matches!(&event,Event::Key{key,..} if key.len()>32) {
             return Err("key capacity".into());
         }
@@ -779,6 +1030,9 @@ impl Frontend {
         Ok(())
     }
     pub fn pump(&mut self) {
+        if self.ptt_pressed && self.focused && self.device_ready {
+            self.provider.brain_signal.pulse();
+        }
         if let Some(client) = &self.role_client
             && let Some(status) = client.take()
         {
@@ -837,6 +1091,19 @@ impl Frontend {
             self.processing_entry.clear();
             self.message = "Structural draft cancelled: authority/freshness changed".into();
         }
+        if self.device_draft_context.as_ref().is_some_and(|(r, g)| {
+            *g != self.provider.generation()
+                || !self.fresh()
+                || self
+                    .state
+                    .as_ref()
+                    .and_then(|u| u.snapshot.as_ref())
+                    .is_none_or(|s| &s.authority.revision != r)
+        }) {
+            self.device_draft = None;
+            self.device_draft_context = None;
+            self.device_entry = None;
+        }
         while let Some(event) = self.queue.pop_front() {
             if let Event::Controller { action, generation } = event {
                 if generation == self.provider.generation()
@@ -845,14 +1112,18 @@ impl Frontend {
                     && self.width > 0
                     && self.height > 0
                 {
-                    let opens_editor =
-                        matches!(action, Action::ProcessingEdit | Action::StructureEdit);
+                    let opens_editor = matches!(
+                        action,
+                        Action::ProcessingEdit | Action::StructureEdit | Action::DeviceEdit
+                    );
                     if let Err(e) = self.action(action) {
                         self.message = e;
                     }
                     // Match keyboard release behavior: unsent local field gestures
                     // must not fill the provider queue or delay paired observations.
-                    if (self.processing_draft.is_none() && self.structural_draft.is_none())
+                    if (self.processing_draft.is_none()
+                        && self.structural_draft.is_none()
+                        && self.device_draft.is_none())
                         || opens_editor
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
@@ -862,10 +1133,15 @@ impl Frontend {
             }
             if let Event::Key { key, pressed } = event {
                 if !pressed {
+                    if key.eq_ignore_ascii_case("T") {
+                        self.talkback_release();
+                    }
                     self.pressed.remove(&key);
                     self.blocked.remove(&key);
                     if self.focused
-                        && ((self.processing_draft.is_none() && self.structural_draft.is_none())
+                        && ((self.processing_draft.is_none()
+                            && self.structural_draft.is_none()
+                            && self.device_draft.is_none())
                             || matches!(key.as_str(), "E" | "F9"))
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
@@ -964,6 +1240,16 @@ impl Frontend {
                 .is_some_and(|s| !s.faulted && s.channels.iter().all(|c| c.ready))
             && (!self.role_required || self.provider.authorization.load(Ordering::Acquire))
     }
+    fn brain_confirmed(&self) -> Result<&crate::brain::Snapshot, String> {
+        if !self.brain_enabled || !self.fresh() {
+            return Err("Brain disabled/stale".into());
+        }
+        self.state
+            .as_ref()
+            .filter(|s| s.brain_fresh)
+            .and_then(|s| s.brain.as_ref())
+            .ok_or("fresh Brain readback required".into())
+    }
     fn send(&mut self, operation: Operation) -> Result<(), String> {
         if self.role_required && !self.provider.authorization.load(Ordering::Acquire) {
             return Err("live GP09 role lease required; keyboard-only read-only surface".into());
@@ -983,6 +1269,30 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if let Some(entry) = &mut self.device_entry {
+            match key {
+                "Esc" => {
+                    self.device_entry = None;
+                }
+                "Backspace" => {
+                    entry.pop();
+                }
+                "Enter" => {
+                    let text = entry.clone();
+                    self.action(Action::DeviceText(text))?;
+                    self.device_entry = None;
+                }
+                _ if key.chars().count() == 1 && !key.chars().any(char::is_control) => {
+                    if entry.len() > 16000 {
+                        return Err("device editor capacity".into());
+                    }
+                    entry.push_str(key);
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
+
         if self.structure_text_entry && self.structural_draft.is_some() {
             match key {
                 "Esc" => {
@@ -1022,6 +1332,112 @@ impl Frontend {
         } else {
             key
         };
+        if self.brain_enabled {
+            match key {
+                "F3" => return self.action(Action::BrainPage),
+                "T" => return self.action(Action::TalkbackPress),
+                _ => {}
+            }
+            if self.brain_page {
+                if key == "E" {
+                    return self.action(Action::DeviceEdit);
+                }
+                if self.device_draft.is_some() {
+                    if key == "F4" {
+                        return self.action(Action::DeviceApply);
+                    }
+                    if key == "F2" {
+                        self.device_entry = Some(String::new());
+                        return Ok(());
+                    }
+                    if key == "Esc" {
+                        self.device_draft = None;
+                        self.device_draft_context = None;
+                        return Ok(());
+                    }
+                }
+                let source = match key {
+                    "0" => Some(crate::brain::Source::None),
+                    "1" => Some(crate::brain::Source::Main),
+                    "P" => Some(crate::brain::Source::Pfl {
+                        input: self.selected,
+                    }),
+                    "L" => Some(crate::brain::Source::Afl {
+                        input: self.selected,
+                    }),
+                    _ => None,
+                };
+                if let Some(source) = source {
+                    return self.action(Action::BrainSource(source));
+                }
+                if key == "B" {
+                    return self.action(Action::BrainArm);
+                }
+                if key == "D" {
+                    return self.action(Action::BrainDim);
+                }
+                if key == "M" {
+                    return self.action(Action::BrainMute);
+                }
+                if matches!(key, "+" | "-") {
+                    let gain = self.brain_confirmed()?.monitor_gain_cdb;
+                    return self.action(Action::BrainGain(
+                        (gain + if key == "+" { 100 } else { -100 }).clamp(-9000, 0),
+                    ));
+                }
+                if matches!(key, "U" | "I") {
+                    let count = self
+                        .state
+                        .as_ref()
+                        .and_then(|s| s.snapshot.as_ref())
+                        .map_or(0, |s| s.authority.monitors.len());
+                    self.brain_bus = if key == "U" {
+                        self.brain_bus.saturating_sub(1)
+                    } else {
+                        self.brain_bus
+                            .saturating_add(1)
+                            .min(count.saturating_sub(1))
+                    };
+                    return Ok(());
+                }
+                if key == "O" {
+                    return self.action(Action::BrainSource(crate::brain::Source::Monitor {
+                        index: self.brain_bus,
+                    }));
+                }
+                if matches!(key, "V" | "X" | "[" | "]") {
+                    let b = self.brain_confirmed()?;
+                    let (mut monitors, mut gain, mut mute) = (
+                        b.talkback_monitors.clone(),
+                        b.talkback_gain_cdb,
+                        b.talkback_mute,
+                    );
+                    match key {
+                        "V" => {
+                            if let Some(i) = monitors.iter().position(|n| *n == self.brain_bus) {
+                                monitors.remove(i);
+                            } else {
+                                monitors.push(self.brain_bus);
+                                monitors.sort_unstable();
+                            }
+                        }
+                        "X" => mute = !mute,
+                        "[" => gain = (gain - 100).max(-9000),
+                        "]" => gain = (gain + 100).min(0),
+                        _ => {}
+                    }
+                    return self.action(Action::TalkbackConfigure {
+                        monitors,
+                        gain_cdb: gain,
+                        mute,
+                    });
+                }
+                if key == "F" {
+                    let enabled = !self.brain_confirmed()?.talkback_foh;
+                    return self.action(Action::TalkbackFoh(enabled));
+                }
+            }
+        }
         if key == "F8" {
             return self.reconnect_legacy();
         }
@@ -1113,6 +1529,130 @@ impl Frontend {
     }
     fn action(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::DeviceEdit => {
+                if !self.brain_enabled
+                    || !self.fresh()
+                    || self.state.as_ref().is_some_and(|u| u.review.is_some())
+                {
+                    return Err("fresh Brain device readback and no open review required".into());
+                }
+                let u = self
+                    .state
+                    .as_ref()
+                    .filter(|u| u.device_fresh)
+                    .ok_or("device stale/unavailable")?;
+                self.device_draft = Some(
+                    u.device
+                        .as_ref()
+                        .and_then(|d| d.observation.as_ref())
+                        .ok_or("actual device configuration absent")?
+                        .config
+                        .clone(),
+                );
+                self.device_draft_context = Some((
+                    u.snapshot
+                        .as_ref()
+                        .ok_or("snapshot")?
+                        .authority
+                        .revision
+                        .clone(),
+                    self.provider.generation(),
+                ));
+                Ok(())
+            }
+            Action::DeviceText(text) => {
+                if self.device_draft.is_none() {
+                    return Err("open device draft first".into());
+                }
+                self.device_draft = Some(crate::brain_device::Config::decode(
+                    crate::provider::parse_document(text.as_bytes())?,
+                )?);
+                Ok(())
+            }
+            Action::DeviceApply => {
+                let config = self.device_draft.clone().ok_or("device draft required")?;
+                let (revision, generation) = self
+                    .device_draft_context
+                    .as_ref()
+                    .ok_or("device draft context")?;
+                if *generation != self.provider.generation()
+                    || self
+                        .state
+                        .as_ref()
+                        .and_then(|u| u.snapshot.as_ref())
+                        .is_none_or(|s| &s.authority.revision != revision)
+                {
+                    return Err("device draft context changed".into());
+                }
+                self.send(Operation::ReviewDevice(Box::new(config)))?;
+                self.device_draft = None;
+                self.device_draft_context = None;
+                Ok(())
+            }
+            Action::TalkbackRelease => {
+                self.talkback_release();
+                Ok(())
+            }
+            Action::TalkbackPress => {
+                if !self.brain_enabled
+                    || self.ptt_pressed
+                    || !self.focused
+                    || !self.device_ready
+                    || !self
+                        .state
+                        .as_ref()
+                        .is_some_and(|s| s.brain_fresh && s.writer_granted())
+                {
+                    return Err("fresh authorized Brain and new PTT edge required".into());
+                }
+                self.ptt_pressed = true;
+                let intent = self.provider.brain_signal.press();
+                if let Err(e) = self.send(Operation::BrainPress(intent)) {
+                    self.talkback_release();
+                    return Err(e);
+                }
+                Ok(())
+            }
+            Action::BrainPage => {
+                if !self.brain_enabled {
+                    return Err("Brain opt-in required".into());
+                }
+                self.brain_page = !self.brain_page;
+                Ok(())
+            }
+            Action::BrainSource(source) => {
+                let b = self.brain_confirmed()?.clone();
+                self.send(Operation::ReviewBrain{kind:"brain_monitor_set".into(),body:json!({"source":source,"gain_cdb":b.monitor_gain_cdb,"mute":b.monitor_mute,"dim":b.monitor_dim,"armed":false})})
+            }
+            Action::BrainArm | Action::BrainDim | Action::BrainMute | Action::BrainGain(_) => {
+                let b = self.brain_confirmed()?.clone();
+                let gain = if let Action::BrainGain(n) = action {
+                    n
+                } else {
+                    b.monitor_gain_cdb
+                };
+                self.send(Operation::ReviewBrain{kind:"brain_monitor_set".into(),body:json!({"source":b.source,"gain_cdb":gain,"mute":if matches!(action,Action::BrainMute){!b.monitor_mute}else{b.monitor_mute},"dim":if matches!(action,Action::BrainDim){!b.monitor_dim}else{b.monitor_dim},"armed":if matches!(action,Action::BrainArm){true}else{b.monitor_armed}})})
+            }
+            Action::TalkbackConfigure {
+                monitors,
+                gain_cdb,
+                mute,
+            } => {
+                self.brain_confirmed()?;
+                self.talkback_release();
+                self.send(Operation::ReviewBrain {
+                    kind: "brain_talkback_set".into(),
+                    body: json!({"monitors":monitors,"gain_cdb":gain_cdb,"mute":mute}),
+                })
+            }
+            Action::TalkbackFoh(enabled) => {
+                self.brain_confirmed()?;
+                self.talkback_release();
+                self.send(Operation::ReviewBrain {
+                    kind: "brain_talkback_foh".into(),
+                    body: json!({"enabled":enabled}),
+                })
+            }
             Action::StructureEdit => {
                 if self.processing_draft.is_some()
                     || self.structural_draft.is_some()
@@ -1667,6 +2207,216 @@ impl Frontend {
                 "#66dfd3",
             );
             line(972, self.message.clone(), "#f47c85");
+            return scene;
+        }
+        if let Some(d) = &self.device_draft {
+            line(
+                12,
+                "LOCAL DEVICE DRAFT from confirmed configuration / no PCM in Desk".into(),
+                "#66dfd3",
+            );
+            line(48,"F2 enter complete JSON replacement | F4 Apply complete review | Esc discard | physical evidence remains explicit".into(),"#f1bd6b");
+            for (i, text) in d.review().unwrap_or_default().lines().take(33).enumerate() {
+                line(96 + i as u32 * 24, text.into(), "#e4e8e9");
+            }
+            if let Some(entry) = &self.device_entry {
+                line(924, format!("JSON entry: {entry}"), "#66dfd3");
+            }
+            line(984, self.message.clone(), "#f47c85");
+            return scene;
+        }
+        if self.brain_page {
+            line(
+                12,
+                format!(
+                    "BRAIN AUDIO / scope {} / {}",
+                    self.scope,
+                    if self.fresh() { "fresh" } else { "STALE" }
+                ),
+                "#66dfd3",
+            );
+            line(48,"F3 return | T hold PTT, release closes | G grant | Q release writer | F5 reconnect read-only".into(),"#f1bd6b");
+            if let Some(u) = &self.state {
+                line(
+                    84,
+                    format!("AUTHORIZED {} | {}", u.writer_granted(), u.brain_status),
+                    "#e4e8e9",
+                );
+                if let Some(b) = &u.brain {
+                    line(
+                        132,
+                        format!(
+                            "APPLIED revision {} frame {} | readiness {} | observation {}",
+                            b.revision,
+                            b.frame,
+                            b.audible_path_ready,
+                            if u.brain_fresh && self.fresh() {
+                                "FRESH"
+                            } else {
+                                "STALE"
+                            }
+                        ),
+                        "#e4e8e9",
+                    );
+                    line(
+                        180,
+                        format!(
+                            "ONE LISTEN SOURCE {:?} / selection generation {}",
+                            b.source, b.selection_generation
+                        ),
+                        "#66dfd3",
+                    );
+                    line(216,"PFL post EQ/compressor, PRE mute/fader/pan, centered | AFL POST all, stereo".into(),"#e4e8e9");
+                    line(
+                        252,
+                        format!(
+                            "Monitor {:+.2} dB / mute {} / dim {} (-20 dB planned) / armed {}",
+                            f64::from(b.monitor_gain_cdb) / 100.,
+                            b.monitor_mute,
+                            b.monitor_dim,
+                            b.monitor_armed
+                        ),
+                        "#e4e8e9",
+                    );
+                    line(288,"0 none | 1 main | P selected PFL | L selected AFL | O bus | B separate arm | D dim | M mute | +/- gain".into(),"#f1bd6b");
+                    let buses = u.snapshot.as_ref().map(|s| &s.authority.monitors);
+                    line(
+                        336,
+                        format!(
+                            "Bus cursor {}: {} | U/I browse actual buses | V toggle destination (review required)",
+                            self.brain_bus,
+                            buses
+                                .and_then(|v| v.get(self.brain_bus))
+                                .map_or("unavailable", String::as_str)
+                        ),
+                        "#66dfd3",
+                    );
+                    line(
+                        372,
+                        format!(
+                            "TB destinations {:?} / separate FOH {} / mute {} / gain {:+.2} dB",
+                            b.talkback_monitors,
+                            b.talkback_foh,
+                            b.talkback_mute,
+                            f64::from(b.talkback_gain_cdb) / 100.
+                        ),
+                        "#e4e8e9",
+                    );
+                    line(408,"X TB mute | [/] TB gain | F protected FOH toggle (separate talkback_foh grant)".into(),"#f1bd6b");
+                    line(
+                        456,
+                        format!(
+                            "PTT requested {} / APPLIED generation {:?} / high {} / 50 ms heartbeat, 150 ms deadman, 5 ms fade",
+                            self.ptt_pressed, b.held_generation, b.hold_generation_counter
+                        ),
+                        "#e4e8e9",
+                    );
+                    line(
+                        504,
+                        format!(
+                            "Actual sample peaks (linear FS): mic {:.6} / outgoing {:.6} / monitor {:.6}",
+                            b.microphone_peak_nano as f64 / 1e9,
+                            b.outgoing_peak_nano as f64 / 1e9,
+                            b.monitor_peak_nano as f64 / 1e9
+                        ),
+                        "#66dfd3",
+                    );
+                    line(552,"Performer monitor tap remains raw post-mute sends. Source selection never implicitly sums.".into(),"#e4e8e9");
+                }
+                if let Some(d) = &u.device {
+                    if let Some(o) = &d.observation {
+                        line(
+                            600,
+                            format!(
+                                "DEVICE {} endpoint {} / epoch {} map {} / {} / E edit complete configuration",
+                                o.config.device_id,
+                                o.config.endpoint,
+                                o.brain_epoch,
+                                o.brain_map,
+                                if u.device_fresh && self.fresh() {
+                                    "FRESH"
+                                } else {
+                                    "STALE"
+                                }
+                            ),
+                            "#66dfd3",
+                        );
+                        line(
+                            636,
+                            format!(
+                                "MIC {} socket {} USB slot {} | L {}:{} | R {}:{}",
+                                o.config.microphone.id,
+                                o.config.microphone.socket,
+                                o.config.microphone.slot,
+                                o.config.monitor[0].socket,
+                                o.config.monitor[0].slot,
+                                o.config.monitor[1].socket,
+                                o.config.monitor[1].slot
+                            ),
+                            "#e4e8e9",
+                        );
+                        let b = &o.status["monitor_bridge"];
+                        line(
+                            672,
+                            format!(
+                                "Bridge ratio {} ppb / skew {} ppb / occupancy {} frames / target {} frames",
+                                b["ratio_ppb"],
+                                b["skew_ppb"],
+                                b["occupancy_frames"],
+                                b["target_frames"]
+                            ),
+                            "#e4e8e9",
+                        );
+                        line(
+                            708,
+                            format!(
+                                "Latency nominal: queue {} us + filter {} us / mapping uncertainty {} milliframes",
+                                b["queue_latency_nominal_us"],
+                                b["filter_latency_nominal_us"],
+                                b["physical_mapping_uncertainty_milliframes"]
+                            ),
+                            "#e4e8e9",
+                        );
+                        line(
+                            744,
+                            format!(
+                                "Fault {} / underruns {} / overflows {} / rejected {} / physical lock {}",
+                                b["fault"],
+                                b["underruns"],
+                                b["overflows"],
+                                b["rejected"],
+                                b["physical_clock_lock_verified"]
+                            ),
+                            "#e4e8e9",
+                        );
+                    } else {
+                        line(
+                            600,
+                            "Device unavailable; no endpoint identity invented".into(),
+                            "#f1bd6b",
+                        );
+                    }
+                }
+                if let Some(r) = &u.device_final {
+                    line(
+                        792,
+                        format!(
+                            "Device {} ticket {} revision {} / accepted intent is not applied device",
+                            r.state, r.ticket, r.revision
+                        ),
+                        "#f1bd6b",
+                    );
+                }
+                line(
+                    864,
+                    u.last_operation
+                        .clone()
+                        .unwrap_or_else(|| "No requested change".into()),
+                    "#f1bd6b",
+                );
+            }
+            line(936,"All configuration changes require complete review + Enter. Attachment cannot arm or recall a mix.".into(),"#e4e8e9");
+            line(984, self.message.clone(), "#f47c85");
             return scene;
         }
         if let Some(draft) = &self.structural_draft {
@@ -2309,6 +3059,13 @@ mod tests {
                 .unwrap();
         let review=(0..80).map(|i|format!("target input-{i:02} current -6000 target -3000 delta3000 show/epoch/revision/scope ")).collect::<String>();
         f.state = Some(Update {
+            device: None,
+            device_final: None,
+            device_fresh: false,
+            brain: None,
+            brain_final: None,
+            brain_fresh: false,
+            brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
@@ -2371,6 +3128,13 @@ mod tests {
         // Layout-only future-capacity fixture, not an accepted GP03 snapshot.
         snapshot.authority.inputs = (1..=36).map(|n| format!("input-{n:02}")).collect();
         f.state = Some(Update {
+            device: None,
+            device_final: None,
+            device_fresh: false,
+            brain: None,
+            brain_final: None,
+            brain_fresh: false,
+            brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
@@ -2420,6 +3184,150 @@ mod tests {
 #[cfg(test)]
 mod processing_tests {
     use super::*;
+    fn brain_surface() -> (Frontend, Receiver<Request>) {
+        let mut f = surface();
+        let (tx, rx) = mpsc::sync_channel(8);
+        f.provider = Provider {
+            tx,
+            latest: Arc::new(Latest::default()),
+            generation: Arc::new(AtomicU64::new(1)),
+            stop: Arc::new(AtomicBool::new(false)),
+            child: None,
+            authorization: Arc::new(AtomicBool::new(true)),
+            brain_signal: Arc::new(crate::brain::HoldSignal::default()),
+        };
+        f.module_config.wire_version = 2;
+        f.brain_enabled = true;
+        f.brain_page = true;
+        let b =
+            crate::brain::decode_reply(include_bytes!("../tests/fixtures/gp15/v1/hold-final.json"))
+                .unwrap();
+        let u = f.state.as_mut().unwrap();
+        u.brain = b.snapshot;
+        u.brain_fresh = true;
+        u.writer_lease_remaining_ms = Some(2000);
+        u.received = Instant::now();
+        (f, rx)
+    }
+    #[test]
+    fn brain_keyboard_controller_edges_and_same_batch_keyup_do_not_resurrect() {
+        let (mut f, rx) = brain_surface();
+        f.enqueue(Event::Key {
+            key: "t".into(),
+            pressed: true,
+        })
+        .unwrap();
+        f.enqueue(Event::Key {
+            key: "t".into(),
+            pressed: false,
+        })
+        .unwrap();
+        f.pump();
+        assert!(!f.ptt_pressed);
+        assert!(!f.provider.brain_signal.live());
+        assert!(
+            rx.try_iter()
+                .all(|r| !matches!(r.operation, Operation::BrainPress(_)))
+        );
+        f.enqueue(Event::Key {
+            key: "t".into(),
+            pressed: true,
+        })
+        .unwrap();
+        f.pump();
+        let first = rx
+            .try_iter()
+            .find_map(|r| {
+                if let Operation::BrainPress(id) = r.operation {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert!(f.provider.brain_signal.live_id(first));
+        f.enqueue(Event::Key {
+            key: "t".into(),
+            pressed: true,
+        })
+        .unwrap();
+        f.pump();
+        assert!(
+            rx.try_iter()
+                .all(|r| !matches!(r.operation, Operation::BrainPress(_)))
+        );
+        f.enqueue(Event::Key {
+            key: "t".into(),
+            pressed: false,
+        })
+        .unwrap();
+        assert!(!f.provider.brain_signal.live_id(first));
+        f.pump();
+        f.inject_controller(Action::TalkbackPress).unwrap();
+        f.pump();
+        let second = rx
+            .try_iter()
+            .find_map(|r| {
+                if let Operation::BrainPress(id) = r.operation {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert_ne!(first, second);
+        assert!(!f.provider.brain_signal.live_id(first));
+        f.inject_controller(Action::TalkbackRelease).unwrap();
+        assert!(!f.provider.brain_signal.live());
+        f.controller_removed();
+        assert!(!f.ptt_pressed);
+    }
+    #[test]
+    fn brain_focus_loss_and_lost_ui_pump_close_without_waiting_for_queue() {
+        let (mut f, _rx) = brain_surface();
+        f.action(Action::TalkbackPress).unwrap();
+        assert!(f.ptt_pressed);
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert!(!f.provider.brain_signal.live());
+        assert!(!f.ptt_pressed);
+        assert!(f.action(Action::TalkbackPress).is_err());
+        let (mut f, _rx) = brain_surface();
+        f.action(Action::TalkbackPress).unwrap();
+        std::thread::sleep(Duration::from_millis(105));
+        f.pump();
+        assert!(!f.provider.brain_signal.live());
+    }
+    #[test]
+    fn brain_actual_snapshot_scene_and_device_draft_are_truthful_and_fit() {
+        let (mut f, rx) = brain_surface();
+        let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
+            include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+        )
+        .unwrap() else {
+            panic!()
+        };
+        let u = f.state.as_mut().unwrap();
+        u.device = Some(d);
+        u.device_fresh = true;
+        let scene = f.scene();
+        assert!(scene.primitives.iter().any(|p|matches!(p,Primitive::Text{value,..}if value.contains("ratio")&&value.contains("ppb"))));
+        f.action(Action::DeviceEdit).unwrap();
+        assert_eq!(f.device_draft.as_ref().unwrap().endpoint, "fake:brain");
+        assert!(rx.try_recv().is_err());
+        let text = f.device_draft.as_ref().unwrap().review().unwrap();
+        f.action(Action::DeviceText(text)).unwrap();
+        f.action(Action::DeviceApply).unwrap();
+        assert!(
+            rx.try_iter()
+                .any(|r| matches!(r.operation, Operation::ReviewDevice(_)))
+        );
+        #[cfg(feature = "native")]
+        if std::env::var_os("VK_DRIVER_FILES").is_some() {
+            for (w, h) in [(1920, 1080), (960, 540), (540, 960), (3840, 2160)] {
+                crate::native::offscreen_at(&scene, w, h).unwrap();
+            }
+        }
+    }
     fn surface() -> Frontend {
         let mut f = Frontend::new(Config {
             wire_version: 1,
@@ -2443,6 +3351,13 @@ mod processing_tests {
         .unwrap()
         .snapshot;
         f.state = Some(Update {
+            device: None,
+            device_final: None,
+            device_fresh: false,
+            brain: None,
+            brain_final: None,
+            brain_fresh: false,
+            brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
@@ -2576,6 +3491,7 @@ mod processing_tests {
             stop: Arc::new(AtomicBool::new(false)),
             child: None,
             authorization: Arc::new(AtomicBool::new(true)),
+            brain_signal: Arc::new(crate::brain::HoldSignal::default()),
         };
         let state = f.state.as_mut().unwrap();
         state.structural_fresh = true;
@@ -2932,6 +3848,7 @@ mod processing_tests {
             stop: Arc::new(AtomicBool::new(false)),
             child: None,
             authorization: Arc::new(AtomicBool::new(true)),
+            brain_signal: Arc::new(crate::brain::HoldSignal::default()),
         };
         f.state.as_mut().unwrap().received = Instant::now();
         f.inject_controller(Action::ProcessingEdit).unwrap();

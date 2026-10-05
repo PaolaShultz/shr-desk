@@ -5,6 +5,23 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    DeviceEdit,
+    DeviceText(String),
+    DeviceApply,
+    BrainPage,
+    BrainSource(crate::brain::Source),
+    BrainArm,
+    BrainDim,
+    BrainMute,
+    BrainGain(i32),
+    TalkbackConfigure {
+        monitors: Vec<usize>,
+        gain_cdb: i32,
+        mute: bool,
+    },
+    TalkbackFoh(bool),
+    TalkbackPress,
+    TalkbackRelease,
     Topology,
     StructureEdit,
     StructureField(i32),
@@ -169,7 +186,20 @@ pub fn key_action(key: &str) -> Option<Action> {
 }
 pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
     match action {
-        Action::Topology
+        Action::DeviceEdit
+        | Action::DeviceText(_)
+        | Action::DeviceApply
+        | Action::BrainPage
+        | Action::BrainSource(_)
+        | Action::BrainArm
+        | Action::BrainDim
+        | Action::BrainMute
+        | Action::BrainGain(_)
+        | Action::TalkbackConfigure { .. }
+        | Action::TalkbackFoh(_)
+        | Action::TalkbackPress
+        | Action::TalkbackRelease
+        | Action::Topology
         | Action::StructureEdit
         | Action::StructureField(_)
         | Action::StructureText(_)

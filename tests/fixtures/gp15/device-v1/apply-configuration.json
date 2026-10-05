@@ -1,0 +1,36 @@
+{
+  "config": {
+    "buffer_frames": 192,
+    "capture_channels": 1,
+    "device_id": "fake-brain-duplex",
+    "endpoint": "fake:brain",
+    "format": "float32_le",
+    "hardware_monitoring_record": null,
+    "microphone": {
+      "id": "talkback-mic",
+      "slot": 0,
+      "socket": "mic-observed-model"
+    },
+    "monitor": [
+      {
+        "id": "operator-left",
+        "slot": 1,
+        "socket": "left-model"
+      },
+      {
+        "id": "operator-right",
+        "slot": 0,
+        "socket": "right-model"
+      }
+    ],
+    "period_frames": 48,
+    "playback_channels": 2,
+    "sample_rate": 48000,
+    "shared_clock_record": null,
+    "socket_mapping_record": null
+  },
+  "contract": "GP15-device",
+  "kind": "apply_configuration",
+  "ticket": 1,
+  "version": 1
+}

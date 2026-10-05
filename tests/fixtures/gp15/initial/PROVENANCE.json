@@ -1,0 +1,11 @@
+{
+  "contract": "GP15-brain:1",
+  "status": "producer-generated initial corpus; final acceptance pending",
+  "source": "root-supplied engine test outputs, task0015",
+  "files": {
+    "monitor-failure.json": "375e227adf3e384be4a2dbc96194e7171760df28a8da21620bfc16592d3a2239",
+    "monitor-failure-request.json": "8f73239220450992aa632f6d68e0e73d4747362fceb393348e49aaeacbd5022f",
+    "monitor-success.json": "9b9d1e83afab8b5981e9060b0206150e81266467a95c519cdae4d743e864ca40",
+    "monitor-request.json": "ff6769aec96912fea0a8ab65387f6e6952174cbde0b9b58cf3b9f978db9729cd"
+  }
+}
