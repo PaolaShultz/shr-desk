@@ -87,6 +87,23 @@ retain the original caller deadline rather than starting a new200ms allowance.
 The shared pages wrapper propagates that deadline through every segment and checks
 it before admission; ordinary pending-command reads/retries also retain their
 existing operation deadline.
+Brain snapshot queries carry bounded local FIFO probe IDs and timestamps taken
+before sending. Every strictly validated snapshot reply consumes one probe, even
+when its frame/revision equals the cached state; pending/final replies consume none.
+A refresh waits for its own probe, not a previously queued observation. Immediately
+before each heartbeat, the worker obtains a new paired probe within30ms, preserving
+20ms for the send and the existing50ms source-frame freshness limit. Fresh raw
+state is reused only at the same revision; absent, expired or mismatched raw state
+triggers a read-only query within the same probe deadline. The heartbeat
+uses that probe's exact frame and revision, checks the same live hold, and never
+substitutes a later final's cached frame or receipt timestamp. Probe failures,
+unmatched replies, partial sends or overflow invalidate provenance and stop
+heartbeats; there is no resynchronization or mutation replay. Context cancellation
+discards the matched observation while retaining generation-tagged outstanding
+probes: their replies consume FIFO slots but cannot authorize the new context.
+A new explicit interaction requires its own probe in the current generation.
+The provider's150ms observation-bound deadman remains authoritative; a delayed
+network can still cause a safe refusal rather than an extension of either limit.
 An observed Brain revision must match raw state before refresh reports a coherent
 pair; timeout or cumulative saturation still closes the uncertain client path.
 Older rejected observations never renew freshness. Buffered telemetry does not add an artificial delay ahead of

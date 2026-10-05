@@ -301,7 +301,15 @@ impl AuthorityConnection for Transport {
         Transport::receive_available_until(self, deadline)
     }
 }
+#[derive(Default)]
+struct BrainProbes {
+    next: u64,
+    pending: std::collections::VecDeque<(u64, Instant, u64)>,
+    matched: Option<(u64, Instant, crate::brain::Snapshot)>,
+    invalid: bool,
+}
 pub struct Operator {
+    brain_probes: BrainProbes,
     transport: Box<dyn AuthorityConnection>,
     pub(crate) session: Session,
     start: Instant,
@@ -394,9 +402,13 @@ impl Operator {
             scope: scope.into(),
             guard: None,
             brain_signal: None,
+            brain_probes: BrainProbes::default(),
         })
     }
     pub(crate) fn cancel(&mut self) {
+        // Keep FIFO ordinals for replies already in flight, but none of their
+        // observations may authorize input in the next controller generation.
+        self.brain_probes.matched = None;
         self.draft = None;
         self.session.context_changed();
     }
@@ -505,8 +517,32 @@ impl Operator {
             return Ok(true);
         }
         if tag.contract.as_deref() == Some("GP15-brain") {
-            let reply = crate::brain::decode_reply(bytes)?;
-            self.session.dispatch_brain(reply, self.now())?;
+            let result = (|| {
+                let reply = crate::brain::decode_reply(bytes)?;
+                let snapshot = (reply.state == "snapshot")
+                    .then(|| reply.snapshot.clone())
+                    .flatten();
+                self.session.dispatch_brain(reply, self.now())?;
+                if let Some(snapshot) = snapshot {
+                    if self.brain_probes.invalid {
+                        return Err("Brain probe provenance invalid".into());
+                    }
+                    let (id, sent, generation) = self
+                        .brain_probes
+                        .pending
+                        .pop_front()
+                        .ok_or("unmatched Brain snapshot probe")?;
+                    if generation == self.session.generation() {
+                        self.brain_probes.matched = Some((id, sent, snapshot));
+                    }
+                }
+                Ok(())
+            })();
+            if let Err(e) = result {
+                self.invalidate_brain_probes();
+                let _ = self.close_brain();
+                return Err(e);
+            }
             return Ok(true);
         }
         if tag.contract.as_deref() == Some("GP14-structure") {
@@ -583,25 +619,53 @@ impl Operator {
         self.session.invalidate_device();
         Err("device observation deadline".into())
     }
+    fn invalidate_brain_probes(&mut self) {
+        self.brain_probes.invalid = true;
+        self.brain_probes.pending.clear();
+        self.brain_probes.matched = None;
+        self.session.invalidate_brain_observation();
+        if let Some(signal) = &self.brain_signal {
+            signal.release();
+        }
+    }
+    fn send_brain_probe(&mut self, deadline: Instant) -> Result<u64, String> {
+        if self.brain_probes.invalid || self.brain_probes.pending.len() >= 64 {
+            self.invalidate_brain_probes();
+            let _ = self.close_brain();
+            return Err("Brain probe provenance/queue bound".into());
+        }
+        let id = self
+            .brain_probes
+            .next
+            .checked_add(1)
+            .ok_or("Brain probe exhausted")?;
+        let bytes = self.session.brain_request().encode()?;
+        let sent = Instant::now();
+        self.brain_probes.next = id;
+        self.brain_probes
+            .pending
+            .push_back((id, sent, self.session.generation()));
+        if let Err(e) = self.transport.send_frame_until(&bytes, deadline) {
+            self.invalidate_brain_probes();
+            let _ = self.close_brain();
+            return Err(e);
+        }
+        Ok(id)
+    }
     pub(crate) fn refresh_brain(&mut self) -> Result<(), String> {
-        let result = self.refresh_brain_inner();
+        self.refresh_brain_until(Instant::now() + Duration::from_millis(250))
+    }
+    fn refresh_brain_until(&mut self, deadline: Instant) -> Result<(), String> {
+        let result = self.refresh_brain_inner(deadline);
         if result.is_err() {
-            self.session.invalidate_brain_observation();
+            self.invalidate_brain_probes();
+            let _ = self.close_brain();
         }
         result
     }
-    fn refresh_brain_inner(&mut self) -> Result<(), String> {
+    fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), String> {
         self.check_guard()?;
-        let deadline = Instant::now() + Duration::from_millis(250);
-        self.transport
-            .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
-        self.transport
-            .send_frame_until(&self.session.brain_request().encode()?, deadline)?;
-        let previous = self
-            .session
-            .brain
-            .as_ref()
-            .map(|s| (s.revision.clone(), s.frame.clone()));
+        let probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
         for _ in 0..64 {
             self.check_guard()?;
@@ -616,8 +680,13 @@ impl Operator {
                     let r = audio::decode_reply(&bytes)?;
                     self.telemetry(&r)?;
                 }
-                if let (Some(raw), Some(brain)) = (&self.session.snapshot, &self.session.brain)
-                    && raw.authority.revision != brain.revision
+                if let Some(brain) = &self.session.brain
+                    && (!self.session.fresh(self.now())
+                        || self
+                            .session
+                            .snapshot
+                            .as_ref()
+                            .is_none_or(|raw| raw.authority.revision != brain.revision))
                     && requested_revision.as_ref() != Some(&brain.revision)
                 {
                     requested_revision = Some(brain.revision.clone());
@@ -626,11 +695,17 @@ impl Operator {
                 }
                 if self.session.brain_fresh(self.now())
                     && self
-                        .session
-                        .brain
+                        .brain_probes
+                        .matched
                         .as_ref()
-                        .map(|s| (s.revision.clone(), s.frame.clone()))
-                        != previous
+                        .is_some_and(|(id, _, snapshot)| {
+                            *id == probe
+                                && self
+                                    .session
+                                    .snapshot
+                                    .as_ref()
+                                    .is_some_and(|raw| raw.authority.revision == snapshot.revision)
+                        })
                 {
                     return Ok(());
                 }
@@ -654,23 +729,62 @@ impl Operator {
         self.transport
             .send_frame_until(&r.encode()?, Instant::now() + Duration::from_millis(20))
     }
+    fn heartbeat_probe_body(
+        &self,
+        generation: u64,
+        now: Instant,
+    ) -> Result<(Value, Instant), String> {
+        let (_, sent, snapshot) = self
+            .brain_probes
+            .matched
+            .as_ref()
+            .ok_or("heartbeat needs matched probe")?;
+        if self.brain_probes.invalid
+            || now.saturating_duration_since(*sent) > Duration::from_millis(30)
+            || !self.session.brain_fresh(self.now())
+            || self.session.pending.is_some()
+            || snapshot.held_generation.as_deref() != Some(generation.to_string().as_str())
+            || self
+                .session
+                .snapshot
+                .as_ref()
+                .is_none_or(|raw| raw.authority.revision != snapshot.revision)
+            || self.session.brain.as_ref().is_none_or(|b| {
+                b.held_generation != snapshot.held_generation || b.revision != snapshot.revision
+            })
+            || self.brain_signal.as_ref().is_some_and(|s| !s.live())
+        {
+            return Err("heartbeat fresh probe/held context unavailable".into());
+        }
+        Ok((
+            json!({"generation":generation.to_string(),"observed_frame":snapshot.frame}),
+            (now + Duration::from_millis(20)).min(*sent + Duration::from_millis(50)),
+        ))
+    }
     /// Send one ephemeral edge; worker polls completion, never retries a hold/heartbeat.
     pub(crate) fn brain_edge(&mut self, kind: &str, generation: u64) -> Result<(), String> {
-        let body = if kind == "brain_heartbeat" {
-            if self
-                .session
-                .brain_age(self.now())
-                .is_none_or(|age| age > 50)
-            {
-                return Err("heartbeat needs observation no older than 50 ms".into());
-            }
-            json!({"generation":generation.to_string(),"observed_frame":self.session.brain.as_ref().ok_or("Brain readback")?.frame})
-        } else {
-            json!({"generation":generation.to_string()})
-        };
-        let r = self.session.begin(kind, body, self.now())?;
-        self.transport
-            .send_frame_until(&r.encode()?, Instant::now() + Duration::from_millis(20))
+        let result = (|| {
+            let mut deadline = Instant::now() + Duration::from_millis(20);
+            let body = if kind == "brain_heartbeat" {
+                // Receipt time is not source freshness. Match our own FIFO query,
+                // then bound the entire observation-to-send interval from BEFORE send.
+                self.refresh_brain_until(Instant::now() + Duration::from_millis(30))?;
+                self.check_guard()?;
+                let (body, send_deadline) =
+                    self.heartbeat_probe_body(generation, Instant::now())?;
+                deadline = send_deadline;
+                body
+            } else {
+                json!({"generation":generation.to_string()})
+            };
+            let r = self.session.begin(kind, body, self.now())?;
+            self.transport.send_frame_until(&r.encode()?, deadline)
+        })();
+        if result.is_err() && kind == "brain_heartbeat" {
+            self.invalidate_brain_probes();
+            let _ = self.close_brain();
+        }
+        result
     }
     pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
         let result = self.refresh_structural_inner();
@@ -912,8 +1026,7 @@ impl Operator {
                 self.transport
                     .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
                 if brain_observed {
-                    self.transport
-                        .send_frame_until(&self.session.brain_request().encode()?, deadline)?;
+                    self.send_brain_probe(deadline)?;
                 }
                 requested = Some(revisions);
             }
@@ -1258,6 +1371,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         scope: args[4].clone(),
         guard: None,
         brain_signal: None,
+        brain_probes: BrainProbes::default(),
     };
     op.refresh()?;
     let session_deadline = Instant::now() + Duration::from_secs(30);
@@ -1556,6 +1670,7 @@ mod gp07_stage_tests {
             scope: "foh".into(),
             guard: None,
             brain_signal: None,
+            brain_probes: BrainProbes::default(),
         };
         assert!(!op.session.processing_fresh(op.now()));
         if change_before_stage {
@@ -1620,7 +1735,7 @@ mod remote_document_tests {
         assert!(bytes.len() > crate::provider::MAX_BYTES);
         let snapshot = audio::decode_reply(&bytes).unwrap().snapshot.unwrap();
         let mut operator = Operator::from_document_connection(
-            Box::new(CompleteDocument(Some(bytes))),
+            Box::new(CompleteDocument(Some(bytes.clone()))),
             &snapshot.authority.show_id,
             snapshot.authority.epoch.parse().unwrap(),
             "remote-doc-test",
@@ -1628,7 +1743,18 @@ mod remote_document_tests {
             2,
         )
         .unwrap();
-        operator.refresh().unwrap();
+        // This regression protects document-vs-Unix-frame transport selection,
+        // not debug schema throughput. Exercise the actual constructor's transport
+        // under a deadline; keep strict decoding outside refresh's separate250ms
+        // production budget (covered by the focused deadline/readback tests).
+        let received = operator
+            .transport
+            .receive_available_until(Instant::now() + Duration::from_millis(250))
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, bytes);
+        let reply = audio::decode_reply(&received).unwrap();
+        operator.telemetry(&reply).unwrap();
         assert_eq!(
             operator.session.snapshot.unwrap().authority.inputs.len(),
             48
@@ -1880,8 +2006,13 @@ mod brain_fifo_tests {
         }
     }
     impl AuthorityConnection for FakeAuthorityConnection {
-        fn send_frame_until(&mut self, _: &[u8], _: Instant) -> Result<(), String> {
-            panic!("buffered refresh must not send or replay a command")
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            assert_eq!(
+                request["kind"], "close",
+                "only failure closure may send during buffered refresh"
+            );
+            Ok(())
         }
         fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
             self.receive_available()
@@ -2229,5 +2360,246 @@ mod brain_fifo_tests {
                 .contains("unknown Brain reply correlation")
         );
         assert!(op.session.pending.is_some());
+    }
+    fn probe_reply(op: &Operator, frame: u64) -> Value {
+        let mut snapshot = op.session.brain.clone().unwrap();
+        snapshot.frame = frame.to_string();
+        json!({"contract":"GP15-brain","version":1,"state":"snapshot","reason":null,
+            "context":op.session.brain_request().context,"revision":snapshot.revision,
+            "applied_frame":null,"snapshot":snapshot})
+    }
+    struct ProbeConnection {
+        peer: FakeAuthorityConnection,
+        sent: Arc<Mutex<Vec<Value>>>,
+        fail: bool,
+        first_delay: Option<Duration>,
+    }
+    impl AuthorityConnection for ProbeConnection {
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            self.sent
+                .lock()
+                .unwrap()
+                .push(serde_json::from_slice(bytes).unwrap());
+            if self.fail {
+                Err("partial probe send".into())
+            } else {
+                Ok(())
+            }
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            if let Some(delay) = self.first_delay.take() {
+                std::thread::sleep(delay);
+            }
+            self.peer.receive_available()
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            self.peer.receive_available()
+        }
+    }
+    fn probe_connection(
+        op: &mut Operator,
+        peer: &FakeAuthorityConnection,
+        fail: bool,
+    ) -> Arc<Mutex<Vec<Value>>> {
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(ProbeConnection {
+            peer: peer.clone(),
+            sent: sent.clone(),
+            fail,
+            first_delay: None,
+        });
+        sent
+    }
+    #[test]
+    fn brain_probe_waits_for_own_reply_not_buffered_progress() {
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        let base = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap();
+        let old = op
+            .send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        peer.push(probe_reply(&op, base + 48));
+        peer.push(probe_reply(&op, base + 96));
+        op.refresh_brain().unwrap();
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, old + 1);
+        assert_eq!(
+            op.brain_probes.matched.as_ref().unwrap().2.frame,
+            (base + 96).to_string()
+        );
+        assert!(op.brain_probes.pending.is_empty());
+        assert!(peer.0.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn equal_snapshot_consumes_probe_but_final_never_does() {
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        let id = op
+            .send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap();
+        op.processing_frame(&serde_json::to_vec(&probe_reply(&op, frame)).unwrap())
+            .unwrap();
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, id);
+        assert!(op.brain_probes.pending.is_empty());
+        op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        let r = op
+            .session
+            .begin("brain_hold", json!({"generation":"1"}), op.now())
+            .unwrap();
+        let (pending, final_reply) = replies(&op, &r, true);
+        for reply in [pending, final_reply] {
+            op.processing_frame(&serde_json::to_vec(&reply).unwrap())
+                .unwrap();
+        }
+        assert_eq!(op.brain_probes.pending.len(), 1);
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, id);
+    }
+    #[test]
+    fn heartbeat_uses_probe_send_age_and_exact_frame_not_newer_cached_final() {
+        let (mut op, _, _) = setup();
+        let mut snapshot = op.session.brain.clone().unwrap();
+        snapshot.held_generation = Some("1".into());
+        op.session.brain = Some(snapshot.clone());
+        let now = Instant::now();
+        op.brain_probes.matched = Some((1, now - Duration::from_millis(31), snapshot.clone()));
+        // Receipt is fresh, but a probe with insufficient send budget is refused.
+        assert!(op.session.brain_age(op.now()).unwrap() < 50);
+        assert!(op.heartbeat_probe_body(1, now).is_err());
+        op.brain_probes.matched = Some((1, now - Duration::from_millis(29), snapshot.clone()));
+        op.session.brain.as_mut().unwrap().frame = "999999".into();
+        let (body, deadline) = op.heartbeat_probe_body(1, now).unwrap();
+        assert_eq!(body["observed_frame"], snapshot.frame);
+        assert_eq!(deadline, now + Duration::from_millis(20));
+        op.session.brain.as_mut().unwrap().held_generation = None;
+        assert!(op.heartbeat_probe_body(1, now).is_err());
+    }
+    #[test]
+    fn heartbeat_edge_queries_own_fresh_frame_before_single_send() {
+        let (mut op, peer, raw) = setup();
+        let sent = probe_connection(&mut op, &peer, false);
+        let brain = op.session.brain.as_mut().unwrap();
+        brain.held_generation = Some("1".into());
+        brain.hold_generation_counter = "1".into();
+        brain.hold_deadline_ms = Some("150".into());
+        let frame = brain.frame.parse::<u64>().unwrap() + 48;
+        let _ = raw;
+        peer.push(probe_reply(&op, frame));
+        op.brain_edge("brain_heartbeat", 1).unwrap();
+        let sent = sent.lock().unwrap();
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[0]["kind"], "brain_snapshot");
+        assert_eq!(sent[1]["kind"], "heartbeat");
+        assert_eq!(sent[1]["body"]["observed_frame"], frame.to_string());
+    }
+    #[test]
+    fn brain_probe_requests_expired_same_revision_raw_before_admitting_pair() {
+        let (mut op, peer, raw) = setup();
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(ProbeConnection {
+            peer: peer.clone(),
+            sent: sent.clone(),
+            fail: false,
+            first_delay: Some(Duration::from_millis(10)),
+        });
+        // Raw starts fresh, then expires while the Brain reply is in flight.
+        op.start = Instant::now() - Duration::from_millis(245);
+        assert!(op.session.fresh(op.now()));
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap()
+            + 48;
+        peer.push(probe_reply(&op, frame));
+        peer.push(raw_at(
+            &raw,
+            &op.session.brain.as_ref().unwrap().revision,
+            &frame.to_string(),
+        ));
+        op.refresh_brain().unwrap();
+        assert!(op.session.brain_fresh(op.now()));
+        let sent = sent.lock().unwrap();
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[0]["kind"], "brain_snapshot");
+        assert_eq!(sent[1]["kind"], "snapshot");
+    }
+    #[test]
+    fn probe_partial_send_unmatched_reply_and_overflow_poison_provenance() {
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, true);
+        assert!(
+            op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+                .is_err()
+        );
+        assert!(op.brain_probes.invalid);
+        assert!(op.brain_probes.pending.is_empty());
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap();
+        assert!(
+            op.processing_frame(&serde_json::to_vec(&probe_reply(&op, frame)).unwrap())
+                .is_err()
+        );
+        assert!(op.brain_probes.invalid);
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        for _ in 0..64 {
+            op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+                .unwrap();
+        }
+        assert!(
+            op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+                .is_err()
+        );
+        assert!(op.brain_probes.invalid);
+        let (mut op, peer, _) = setup();
+        probe_connection(&mut op, &peer, false);
+        op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap();
+        op.cancel();
+        assert!(!op.brain_probes.invalid);
+        assert_eq!(op.brain_probes.pending.len(), 1);
+        op.processing_frame(&serde_json::to_vec(&probe_reply(&op, frame)).unwrap())
+            .unwrap();
+        assert!(op.brain_probes.matched.is_none());
+        assert!(op.brain_probes.pending.is_empty());
+        op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+            .unwrap();
+        op.processing_frame(&serde_json::to_vec(&probe_reply(&op, frame)).unwrap())
+            .unwrap();
+        assert!(op.brain_probes.matched.is_some());
     }
 }
