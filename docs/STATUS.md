@@ -2,7 +2,7 @@
 
 Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
 Task0012 processing source was published and synchronized. Task0013 four-band
-processing development is local pending coordinator review/publication.
+processing software acceptance is recorded below; source publication is coordinator-owned.
 No hardware verification or binary release.
 
 ## Implemented and offline-validated
@@ -284,7 +284,7 @@ Final validation and independent review are complete. Source publication is
 coordinator-owned; no public binary release, window, physical endpoint or host
 service change accompanies this software acceptance.
 
-## Task0013 four independent parametric bands — local implementation
+## Task0013 four independent parametric bands — software acceptance
 
 The consumer now requires GP07-processing:2 with all 24 atomic fields, four
 independent bell frequency/gain/Q/bypass controls, global EQ bypass and unchanged
