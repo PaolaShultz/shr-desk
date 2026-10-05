@@ -74,6 +74,21 @@ dispatched in wire FIFO order before newest-first raw snapshot coalescing. This
 preserves pending/final and priority-close correlation; a contract final cannot
 invalidate raw freshness after the batch has admitted its newest raw observation.
 Raw and contract revision equality remains required for coherent Brain freshness.
+A valid final arriving before its raw readback keeps the same refresh operation
+open: it requests read-only snapshots and waits within the original total250ms
+and64-frame budget. Later drained batches retain FIFO contract ordering. The
+deadline and frame budget never restart, and no mutation or hold is replayed.
+Unsolicited raw-only stale/regressive batches retain the legacy no-query refusal;
+continuation applies to contract readback, Brain pairing or initial quiet attachment.
+Available-frame Unix reads inherit the same absolute deadline, including a partial
+prefix/body; readability never starts a fresh per-frame timeout. QUIC available
+reads limit only the first-byte probe to1ms; body and segmented snapshot assembly
+retain the original caller deadline rather than starting a new200ms allowance.
+The shared pages wrapper propagates that deadline through every segment and checks
+it before admission; ordinary pending-command reads/retries also retain their
+existing operation deadline.
+An observed Brain revision must match raw state before refresh reports a coherent
+pair; timeout or cumulative saturation still closes the uncertain client path.
 Older rejected observations never renew freshness. Buffered telemetry does not add an artificial delay ahead of
 correlated command replies. A fresh reconnect request arriving during a worker
 receive wait is checked against the new generation before it is processed.

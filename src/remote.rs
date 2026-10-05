@@ -309,7 +309,10 @@ impl AuthorityConnection for Connection {
         self.receive_inner(deadline, false)
     }
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
-        self.receive_inner(Instant::now() + Duration::from_millis(1), true)
+        self.receive_inner(Instant::now() + Duration::from_millis(200), true)
+    }
+    fn receive_available_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        self.receive_inner(deadline, true)
     }
 }
 async fn write(
@@ -330,8 +333,8 @@ async fn write(
     .await
     .map_err(|_| "remote write deadline".to_string())?
 }
-async fn read(
-    receive: &mut quinn::RecvStream,
+async fn read<R: tokio::io::AsyncRead + Unpin>(
+    receive: &mut R,
     deadline: Instant,
     available: bool,
 ) -> Result<Option<Response>, String> {
@@ -340,11 +343,6 @@ async fn read(
     };
     // The producer segments the complete remote Response, outside its payload.
     // Reassemble that immutable envelope before decoding the session binding.
-    let deadline = if available {
-        Instant::now() + Duration::from_millis(200)
-    } else {
-        deadline
-    };
     let mut assembly = crate::pages::Assembly::default();
     let mut frame = first;
     loop {
@@ -360,21 +358,25 @@ fn decode_response(bytes: &[u8]) -> Result<Response, String> {
     let value = provider::parse_document(bytes)?;
     serde_json::from_value(value).map_err(|e| e.to_string())
 }
-async fn read_frame(
-    receive: &mut quinn::RecvStream,
+async fn read_frame<R: tokio::io::AsyncRead + Unpin>(
+    receive: &mut R,
     deadline: Instant,
     available: bool,
 ) -> Result<Option<Vec<u8>>, String> {
+    use tokio::io::AsyncReadExt;
     let mut length = [0; 4];
-    match tokio::time::timeout_at(deadline.into(), receive.read_exact(&mut length[..1])).await {
-        Err(_) => return Ok(None),
-        Ok(result) => result.map_err(|e| e.to_string())?,
-    }
-    let deadline = if available {
-        Instant::now() + Duration::from_millis(200)
+    let probe_deadline = if available {
+        deadline.min(Instant::now() + Duration::from_millis(1))
     } else {
         deadline
     };
+    match tokio::time::timeout_at(probe_deadline.into(), receive.read_exact(&mut length[..1])).await
+    {
+        Err(_) => return Ok(None),
+        Ok(result) => {
+            result.map_err(|e| e.to_string())?;
+        }
+    }
     // Once any prefix arrives a partial-frame timeout is fatal; no frame replay.
     tokio::time::timeout_at(deadline.into(), async {
         receive
@@ -399,6 +401,40 @@ async fn read_frame(
 #[cfg(test)]
 mod envelope_tests {
     use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn available_partial_frame_and_page_assembly_keep_original_deadline() {
+        use tokio::io::AsyncWriteExt;
+        for paged in [false, true] {
+            let (mut writer, mut receive) = tokio::io::duplex(65_540);
+            if paged {
+                let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+                    "../tests/fixtures/gp14/v1/remote-response-pages.json"
+                ))
+                .unwrap();
+                let first = pages[0].as_bytes();
+                writer
+                    .write_all(&(first.len() as u32).to_be_bytes())
+                    .await
+                    .unwrap();
+                writer.write_all(first).await.unwrap();
+            } else {
+                // Available prefix, withheld remainder: do not grant another200ms.
+                writer.write_all(&[0]).await.unwrap();
+            }
+            let deadline = Instant::now() + Duration::from_millis(20);
+            // Independent outer guard proves the production parser does not
+            // restart a200ms body/next-page budget after an available first byte.
+            let result = tokio::time::timeout(
+                Duration::from_millis(120),
+                read(&mut receive, deadline, true),
+            )
+            .await
+            .expect("frame/assembly exceeded original deadline");
+            assert!(result.is_err());
+            drop(writer);
+        }
+    }
+
     #[test]
     #[ignore = "finite captured producer decode timing; no network or load"]
     fn captured_producer_decode_timing() {

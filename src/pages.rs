@@ -124,28 +124,49 @@ impl AuthorityConnection for Connection {
         self.inner.send_frame_until(bytes, deadline)
     }
     fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
-        loop {
+        for _ in 0..129 {
+            if Instant::now() >= deadline {
+                return Err("snapshot read deadline".into());
+            }
             self.assembly.check_deadline(Instant::now())?;
             let Some(frame) = self.inner.receive_until(deadline)? else {
                 return Ok(None);
             };
-            if let Some(document) = self.assembly.offer(frame, Instant::now())? {
-                return Ok(Some(document));
-            }
             if Instant::now() >= deadline {
-                return Ok(None);
+                return Err("snapshot read deadline".into());
+            }
+            let document = self.assembly.offer(frame, Instant::now())?;
+            if Instant::now() >= deadline {
+                return Err("snapshot read deadline".into());
+            }
+            if document.is_some() {
+                return Ok(document);
             }
         }
+        Err("snapshot page drain capacity".into())
     }
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
-        self.assembly.check_deadline(Instant::now())?;
-        // Drain only the admitted maximum number of segments; no unbounded polling.
+        self.receive_available_until(Instant::now() + Duration::from_millis(200))
+    }
+    fn receive_available_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        // Keep the caller's absolute budget through every layer and segment.
         for _ in 0..129 {
-            let Some(frame) = self.inner.receive_available()? else {
+            if Instant::now() >= deadline {
+                return Err("snapshot read deadline".into());
+            }
+            self.assembly.check_deadline(Instant::now())?;
+            let Some(frame) = self.inner.receive_available_until(deadline)? else {
                 return Ok(None);
             };
-            if let Some(document) = self.assembly.offer(frame, Instant::now())? {
-                return Ok(Some(document));
+            if Instant::now() >= deadline {
+                return Err("snapshot read deadline".into());
+            }
+            let document = self.assembly.offer(frame, Instant::now())?;
+            if Instant::now() >= deadline {
+                return Err("snapshot read deadline".into());
+            }
+            if document.is_some() {
+                return Ok(document);
             }
         }
         Err("snapshot page drain capacity".into())

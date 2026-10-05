@@ -177,6 +177,12 @@ impl Transport {
         Ok(())
     }
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+        self.receive_available_until(Instant::now() + Duration::from_millis(200))
+    }
+    fn receive_available_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        if Instant::now() >= deadline {
+            return Err("frame deadline".into());
+        }
         let mut ready = PollFd {
             fd: self.socket.as_raw_fd(),
             events: 1,
@@ -189,7 +195,7 @@ impl Transport {
         if result == 0 {
             return Ok(None);
         }
-        self.receive()
+        self.receive_until(deadline)
     }
     pub fn receive(&mut self) -> Result<Option<Vec<u8>>, String> {
         // Frame deadline covers every byte, preventing drip-fed frames from extending idle time.
@@ -259,6 +265,18 @@ pub trait AuthorityConnection: Send {
     fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String>;
     fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String>;
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String>;
+    /// Complete-frame queue implementations may use this default. Stream-backed
+    /// implementations must override it so partial reads inherit the caller budget.
+    fn receive_available_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        if Instant::now() >= deadline {
+            return Err("frame deadline".into());
+        }
+        let result = self.receive_available()?;
+        if Instant::now() >= deadline {
+            return Err("frame deadline".into());
+        }
+        Ok(result)
+    }
     fn send(&mut self, request: &Request) -> Result<(), String> {
         self.send_frame_until(
             &request.encode()?,
@@ -278,6 +296,9 @@ impl AuthorityConnection for Transport {
     }
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
         Transport::receive_available(self)
+    }
+    fn receive_available_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        Transport::receive_available_until(self, deadline)
     }
 }
 pub struct Operator {
@@ -800,75 +821,109 @@ impl Operator {
         ))
     }
     pub(crate) fn refresh(&mut self) -> Result<(), String> {
-        // Coalesce a bounded raw telemetry batch before validating its newest
-        // observation. Discarded frames never update trusted/session state.
+        // One total budget covers queued replies, a final's required readback,
+        // solicited frames and decoding. Never replay a mutation here.
         let deadline = Instant::now() + Duration::from_millis(250);
-        let mut frames = Vec::new();
-        if let Some(bytes) = self.transport.receive_available()? {
-            frames.push(bytes);
-        } else if self.session.fresh(self.now()) {
-            return Ok(());
-        } else {
-            // Solicited and unsolicited GP03 snapshots have the same null context.
-            // Request only after quiet + stale; never request on every poll.
-            self.transport.send(&self.session.snapshot_request())?;
-            while frames.is_empty() && Instant::now() < deadline {
-                if let Some(bytes) = self.transport.receive()? {
-                    frames.push(bytes);
-                }
+        let mut remaining = 64usize;
+        let mut requested = None;
+        let mut next_frame = None;
+        let mut continuation = false;
+        let mut first_batch = true;
+        loop {
+            self.check_guard()?;
+            if Instant::now() >= deadline {
+                return Err("snapshot deadline/queue bound".into());
             }
-        }
-        let mut drained = false;
-        while frames.len() < 64 && Instant::now() < deadline {
-            if let Some(bytes) = self.transport.receive_available()? {
+            let mut frames = Vec::new();
+            if let Some(bytes) = next_frame.take() {
                 frames.push(bytes);
-            } else {
-                drained = true;
-                break;
             }
-        }
-        if !drained {
-            return Err("snapshot backlog saturated; freshness not admitted".into());
-        }
-        // Contract replies are state transitions, not coalescible telemetry:
-        // pending must precede final, including the independent priority-close lane.
-        // Dispatch them before raw ingestion so a final's needs_snapshot flag is
-        // cleared only by a subsequently validated raw observation. In particular,
-        // do not admit the newest raw revision first and suppress older contract
-        // observations that still belong to this wire-ordered transaction batch.
-        let mut raw_frames = Vec::new();
-        for bytes in frames {
-            if Instant::now() >= deadline {
-                return Err("snapshot deadline/queue bound".into());
-            }
-            if !self.processing_frame(&bytes)? {
-                raw_frames.push(bytes);
-            }
-        }
-        // Preserve newest-first raw coalescing, including fallback past regressive
-        // observations. Discarded raw frames never touch trusted/session state.
-        for bytes in raw_frames.into_iter().rev() {
-            if Instant::now() >= deadline {
-                return Err("snapshot deadline/queue bound".into());
-            }
-            let r = audio::decode_reply(&bytes)?;
-            if Instant::now() >= deadline {
-                return Err("snapshot deadline/queue bound".into());
-            }
-            if r.context == self.session.snapshot_request().context {
-                if self.telemetry(&r)? {
+            let mut drained = false;
+            while frames.len() < remaining && Instant::now() < deadline {
+                if let Some(bytes) = self.transport.receive_available_until(deadline)? {
+                    frames.push(bytes);
+                } else {
+                    drained = true;
                     break;
                 }
-            } else if r.context.show_id != self.session.snapshot_request().context.show_id
-                || r.context.epoch != self.session.snapshot_request().context.epoch
-            {
-                return Err("unrelated snapshot session".into());
             }
-        }
-        if Instant::now() < deadline && self.session.fresh(self.now()) {
-            Ok(())
-        } else {
-            Err("snapshot deadline/queue bound".into())
+            // Prove the queue drained before admitting any state from this batch.
+            if !drained {
+                return Err("snapshot backlog saturated; freshness not admitted".into());
+            }
+            // Legacy unsolicited raw-only batches must not trigger a query when
+            // all their observations are stale/regressive. Initial quiet stale
+            // attachment and actual contract readback may wait for a new frame.
+            if first_batch && frames.is_empty() {
+                continuation = true;
+            }
+            first_batch = false;
+            remaining -= frames.len();
+            let mut raw_frames = Vec::new();
+            for bytes in frames {
+                if Instant::now() >= deadline {
+                    return Err("snapshot deadline/queue bound".into());
+                }
+                // Stateful replies retain wire order, including priority close.
+                if self.processing_frame(&bytes)? {
+                    continuation = true;
+                } else {
+                    raw_frames.push(bytes);
+                }
+            }
+            for bytes in raw_frames.into_iter().rev() {
+                if Instant::now() >= deadline {
+                    return Err("snapshot deadline/queue bound".into());
+                }
+                let r = audio::decode_reply(&bytes)?;
+                if Instant::now() >= deadline {
+                    return Err("snapshot deadline/queue bound".into());
+                }
+                if r.context == self.session.snapshot_request().context {
+                    if self.telemetry(&r)? {
+                        break;
+                    }
+                } else if r.context.show_id != self.session.snapshot_request().context.show_id
+                    || r.context.epoch != self.session.snapshot_request().context.epoch
+                {
+                    return Err("unrelated snapshot session".into());
+                }
+            }
+            let brain_observed = self.session.brain_age(self.now()).is_some();
+            if Instant::now() < deadline
+                && self.session.fresh(self.now())
+                && (!brain_observed || self.session.brain_fresh(self.now()))
+            {
+                return Ok(());
+            }
+            if (!continuation && !brain_observed) || remaining == 0 || Instant::now() >= deadline {
+                return Err("snapshot deadline/queue bound".into());
+            }
+            // A valid final can arrive before its raw observation. Request the
+            // missing pair once per observed revision, inside the original budget.
+            let revisions = (
+                self.session
+                    .snapshot
+                    .as_ref()
+                    .map(|s| s.authority.revision.clone()),
+                self.session.brain.as_ref().map(|s| s.revision.clone()),
+            );
+            if requested.as_ref() != Some(&revisions) {
+                self.transport
+                    .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+                if brain_observed {
+                    self.transport
+                        .send_frame_until(&self.session.brain_request().encode()?, deadline)?;
+                }
+                requested = Some(revisions);
+            }
+            self.check_guard()?;
+            if Instant::now() >= deadline {
+                return Err("snapshot deadline/queue bound".into());
+            }
+            // Include the delayed frame with the next drained FIFO batch, so
+            // contract ordering and newest-first raw coalescing stay identical.
+            next_frame = self.transport.receive_until(deadline)?;
         }
     }
     pub(crate) fn mutate(&mut self, kind: &str, body: Value) -> Result<(), String> {
@@ -887,7 +942,7 @@ impl Operator {
         loop {
             self.check_guard()?;
             let mut idle = false;
-            match self.transport.receive() {
+            match self.transport.receive_until(deadline) {
                 Ok(Some(b)) => {
                     if self.processing_frame(&b)? {
                         if self.session.pending.is_none() {
@@ -952,7 +1007,8 @@ impl Operator {
             }
             if let Some(retry) = self.session.retry(self.now()) {
                 self.check_guard()?;
-                self.transport.send(&retry)?;
+                self.transport
+                    .send_frame_until(&retry.encode()?, deadline)?;
             }
             if Instant::now() >= deadline {
                 return Err("pending/uncertain deadline; no applied claim".into());
@@ -1247,6 +1303,28 @@ mod refresh_tests {
         sync::mpsc,
         thread,
     };
+
+    #[test]
+    fn available_partial_unix_frame_inherits_the_remaining_refresh_deadline() {
+        let (socket, mut peer) = UnixStream::pair().unwrap();
+        let observer = socket.try_clone().unwrap();
+        let transport = Transport { socket };
+        // Exercise the actual Operator wrapper stack, not only low-level framing.
+        let mut connection = crate::pages::Connection::new(Box::new(transport));
+        // Model a frame becoming readable late in the original 250ms operation.
+        // Only one prefix byte is available; completion must not get a new200ms.
+        let started = Instant::now() - Duration::from_millis(220);
+        let deadline = started + Duration::from_millis(250);
+        peer.write_all(&[0]).unwrap();
+        let result = AuthorityConnection::receive_available_until(&mut connection, deadline);
+        assert!(result.is_err(), "partial frame cannot be admitted");
+        // Verify the real kernel read budget, without imposing a scheduler-speed
+        // assertion on CI: allow kernel timeout rounding up to60ms; the old
+        // available path used a fresh100ms read timeout.
+        assert!(observer.read_timeout().unwrap().unwrap() <= Duration::from_millis(60));
+        assert!(Instant::now() >= deadline);
+        assert!(AuthorityConnection::receive_available_until(&mut connection, deadline).is_err());
+    }
 
     #[test]
     fn unsolicited_burst_is_coalesced_without_queries_and_old_frames_do_not_refresh() {
@@ -1812,6 +1890,55 @@ mod brain_fifo_tests {
             Ok(self.0.lock().unwrap().pop_front())
         }
     }
+    struct DelayedReadback {
+        queued: FakeAuthorityConnection,
+        delayed: Option<Value>,
+        enqueue_after_wait: Vec<Value>,
+        deadlines: Arc<Mutex<Vec<Instant>>>,
+    }
+    impl AuthorityConnection for DelayedReadback {
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            assert!(
+                request["writer"].is_null(),
+                "refresh must never replay a mutation"
+            );
+            assert!(request["kind"].as_str().unwrap().contains("snapshot"));
+            self.deadlines.lock().unwrap().push(deadline);
+            Ok(())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            self.queued.receive_available()
+        }
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            self.deadlines.lock().unwrap().push(deadline);
+            for value in self.enqueue_after_wait.drain(..) {
+                self.queued.push(value);
+            }
+            if let Some(value) = self.delayed.take() {
+                Ok(Some(serde_json::to_vec(&value).unwrap()))
+            } else {
+                // Honor the same real deadline without inventing a fresh timeout.
+                std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                Ok(None)
+            }
+        }
+    }
+    fn delayed_transport(
+        op: &mut Operator,
+        peer: FakeAuthorityConnection,
+        delayed: Option<Value>,
+        tail: Vec<Value>,
+    ) -> Arc<Mutex<Vec<Instant>>> {
+        let deadlines = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(DelayedReadback {
+            queued: peer,
+            delayed,
+            enqueue_after_wait: tail,
+            deadlines: deadlines.clone(),
+        });
+        deadlines
+    }
     fn setup() -> (Operator, FakeAuthorityConnection, Value) {
         let raw = audio::decode_snapshot(include_bytes!(
             "../tests/fixtures/gp15/v1/raw-snapshot-16-1.json"
@@ -1996,7 +2123,71 @@ mod brain_fifo_tests {
         );
     }
     #[test]
-    fn differing_raw_and_brain_revisions_require_a_matching_raw_observation() {
+    fn delayed_raw_after_hold_and_heartbeat_finals_uses_one_budget_and_keeps_brain_fresh() {
+        let (mut op, peer, raw) = setup();
+        for index in 0..3 {
+            let kind = if index == 0 {
+                "brain_hold"
+            } else {
+                "brain_heartbeat"
+            };
+            let body = if index == 0 {
+                json!({"generation":"1"})
+            } else {
+                json!({"generation":"1","observed_frame":op.session.brain.as_ref().unwrap().frame})
+            };
+            let request = op.session.begin(kind, body, op.now()).unwrap();
+            let (pending, final_reply) = replies(&op, &request, true);
+            peer.push(pending);
+            peer.push(final_reply.clone());
+            // An equal old raw observation cannot make this new Brain state fresh.
+            peer.push(raw.clone());
+            let delayed = raw_at(
+                &raw,
+                final_reply["revision"].as_str().unwrap(),
+                final_reply["applied_frame"].as_str().unwrap(),
+            );
+            let deadlines = delayed_transport(&mut op, peer.clone(), Some(delayed), vec![]);
+            op.refresh().unwrap();
+            assert!(op.session.pending.is_none());
+            assert!(op.session.brain_fresh(op.now()));
+            assert_eq!(
+                op.session
+                    .brain
+                    .as_ref()
+                    .unwrap()
+                    .held_generation
+                    .as_deref(),
+                Some("1")
+            );
+            let deadlines = deadlines.lock().unwrap();
+            assert!(deadlines.len() >= 2);
+            assert!(deadlines.iter().all(|d| *d == deadlines[0]));
+        }
+    }
+    #[test]
+    fn final_without_raw_times_out_without_admitting_stale_brain_or_resetting_deadline() {
+        let (mut op, peer, _) = setup();
+        let request = op
+            .session
+            .begin("brain_hold", json!({"generation":"1"}), op.now())
+            .unwrap();
+        let (pending, final_reply) = replies(&op, &request, true);
+        peer.push(pending);
+        peer.push(final_reply);
+        let deadlines = delayed_transport(&mut op, peer, None, vec![]);
+        assert!(op.refresh().unwrap_err().contains("deadline/queue bound"));
+        assert!(!op.session.brain_fresh(op.now()));
+        assert!(
+            op.session.pending.is_none(),
+            "valid final remains applied, never replayed"
+        );
+        let deadlines = deadlines.lock().unwrap();
+        assert!(deadlines.len() >= 2);
+        assert!(deadlines.iter().all(|d| *d == deadlines[0]));
+    }
+    #[test]
+    fn delayed_readback_cannot_reset_the_total_frame_budget() {
         let (mut op, peer, raw) = setup();
         let request = op
             .session
@@ -2005,18 +2196,10 @@ mod brain_fifo_tests {
         let (pending, final_reply) = replies(&op, &request, true);
         peer.push(pending);
         peer.push(final_reply.clone());
-        peer.push(raw.clone());
-        op.refresh().unwrap();
-        assert!(op.session.fresh(op.now()));
+        let delayed = raw_at(&raw, "1", final_reply["applied_frame"].as_str().unwrap());
+        delayed_transport(&mut op, peer, Some(delayed.clone()), vec![delayed; 61]);
+        assert!(op.refresh().unwrap_err().contains("backlog saturated"));
         assert!(!op.session.brain_fresh(op.now()));
-        assert!(op.session.pending.is_none());
-        peer.push(raw_at(
-            &raw,
-            "1",
-            final_reply["applied_frame"].as_str().unwrap(),
-        ));
-        op.refresh().unwrap();
-        assert!(op.session.brain_fresh(op.now()));
     }
     #[test]
     fn unknown_reply_still_fails_and_saturated_batch_dispatches_nothing() {
