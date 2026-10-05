@@ -233,7 +233,7 @@ HDMI/MIDI/LED behavior, audio/acoustic safety, remote production control and
 shared-load/timing acceptance remain unverified. Historical/media/exhaustive/long
 and hardware classes were intentionally skipped.
 
-## Task0012 GP07 processing — accepted software chain, build handoff
+## Task0012 GP07 processing — software acceptance, 2026-10-05
 
 Implemented on the real frontend: strict GP07 processing readback and complete
 Channel EQ/compressor editing, explicit Apply/displayed review/confirm/Cancel,
@@ -243,14 +243,14 @@ request IDs and pending correlation. Explicit probing preserves legacy GP03 defa
 Selection, revision, role and reconnect fences discard local intent without replay.
 
 All eight accepted producer fixtures were hash-verified before consumption;
-provenance is in `tests/fixtures/gp07/v1/ACCEPTED.json`. Final Pi4 default normal
-validation passes **111 tests** (five explicit integrations ignored), formatting
-and warning-denied Clippy for both feature sets. The prior candidate passed 111
-native normal tests before two paired-refresh regressions were added. The final
-113-test native normal rerun and both release builds transfer to the coordinator's
-warm Pi5 build slot under the bounded worker handoff; they are not claimed complete
-by this checkpoint. The two added regressions pass, covering an aged observation
-refresh and refusal to rebase a queued review or confirm a changed revision.
+provenance is in `tests/fixtures/gp07/v1/ACCEPTED.json`. Final normal validation
+passes **111 default tests** on Pi4 and **113 native-feature tests** on Pi5 (five
+explicit integrations ignored in each suite). Formatting and warnings-denied
+Clippy pass for both feature sets. Paired-refresh regressions cover an aged
+observation refresh and refusal to rebase a queued review or confirm a changed
+revision. Both default and native release builds and all nine publication-guard
+tests pass. The actual legacy GP03 frontend/GP09 role integration also passes
+against the published provider, preserving opt-in compatibility.
 
 The actual release-provider workflow passed in 3.34 seconds, including positive GR,
 two channel edits through keyboard/injected semantic actions, complete displayed
@@ -270,8 +270,8 @@ wet+dry followed by PA matched; raw analysis retained 3/55/111 windows; eight PC
 stems of 80,976 frames covered the complete driver interval without gaps, drops or
 faults. Revision 2/settings persisted after reconnect and lease expiry. The final
 rebuilt driver and published provider passed the coordinator's exact-artifact rerun
-in 8.64 seconds, including positive GR and stable post-exit revision 2. These are synthetic
-software signal/authority observations, not physical or listening acceptance.
+in 8.64 seconds, including positive GR and stable post-exit revision 2. These are
+synthetic software signal/authority observations, not physical or listening acceptance.
 
 Runtime fixes preserve raw GP03 telemetry coalescing while awaiting GP07 replies;
 obsolete observations had otherwise consumed the 250 ms readback budget. A missed
@@ -279,5 +279,6 @@ read-only observation can recover through later polls without replaying a mutati
 Review and confirmation obtain fresh paired observations, retaining the original
 revision/generation through every refresh and renewal. Strict decoder and bounded
 driver review findings were repaired; exact producer fixtures remain unchanged.
-The coordinator owns final validation and source publication. No worker source push,
-public binary release, window, physical endpoint or host service change occurred.
+Final validation and independent review are complete. Source publication is
+coordinator-owned; no public binary release, window, physical endpoint or host
+service change accompanies this software acceptance.

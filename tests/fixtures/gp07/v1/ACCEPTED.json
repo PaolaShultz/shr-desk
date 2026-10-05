@@ -2,7 +2,7 @@
   "contract_sha256": "939ea90ec38924c750b0d7f70624ed540c412f8859057479d6e206db3bf5f9b1",
   "provider_base": "b2442dd2fe76a1d652b9ccde8ed3ffdbdb0d6d34",
   "fixture_version": "gp07/v1",
-  "review": "coordinator plus independent Astra-low schema/value acceptance; producer replay passed; source candidate final validation pending",
+  "review": "Frozen schema and producer bytes independently accepted before consumer work; final provider production suites and actual operator/sample acceptance passed.",
   "files": {
     "backpressure.json": "0532ba70df566f1f8c87faa769e19c7fddbcab4ecebfbd4807971e311ca0c8d2",
     "ready-reply.json": "978fa21b4f695973a7cd6367dc55fff2dad25c80e14a8bfc125365f1890b1ccd",
@@ -12,5 +12,7 @@
     "snapshot-reply.json": "8b293485551077599f9365e6ec267f5a2c4c4bd45d4c698da938b667414a1c64",
     "snapshot-request.json": "7f72014d45e0044adf3452fd8f1a483bedd35ab153357404ba96f602c4398c93",
     "stale-revision.json": "1fc782fe1775eba9176d9baddeaea98049070e38a86c3b23d1e4d94a3f6aa97d"
-  }
+  },
+  "accepted_provider_commit": "874cff2dede9ae19bc0b19dc4431d412e490e6b4",
+  "producer_provenance": "https://github.com/PaolaShultz/gigpies/blob/874cff2dede9ae19bc0b19dc4431d412e490e6b4/tests/fixtures/gp07/v1/providers.json"
 }
