@@ -23,7 +23,8 @@
     ".githooks/pre-commit",
     ".githooks/pre-push",
     "scripts/check_publication.py",
-    "scripts/test_publication.py"
+    "scripts/test_publication.py",
+    ".github/workflows/ci.yml"
   ],
   "binary_artwork": [],
   "binary_assets": {

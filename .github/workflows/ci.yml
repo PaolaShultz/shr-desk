@@ -1,0 +1,38 @@
+name: Rust
+on: [push, pull_request]
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 1
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: [default, native]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check publication boundaries
+        run: python3 scripts/check_publication.py
+      - name: Install pinned toolchain and prepare build lock
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
+          sudo install -d -m 0755 -o "$(id -un)" -g "$(id -gn)" /home/shome/p
+      - name: Format
+        run: flock -xn /home/shome/p/.gigpies-build.lock cargo +1.97.1 fmt --all -- --check
+      - name: Check, lint, test and release-build
+        env:
+          DESK_FEATURE: ${{ matrix.feature }}
+        run: |
+          feature_args=()
+          if [ "$DESK_FEATURE" = native ]; then feature_args=(--features native); fi
+          unset DISPLAY WAYLAND_DISPLAY VK_DRIVER_FILES VK_ICD_FILENAMES VK_ADD_DRIVER_FILES
+          flock -xn /home/shome/p/.gigpies-build.lock cargo +1.97.1 check --locked -j1 --all-targets "${feature_args[@]}"
+          flock -xn /home/shome/p/.gigpies-build.lock cargo +1.97.1 clippy --locked -j1 --all-targets "${feature_args[@]}" -- -D warnings
+          flock -xn /home/shome/p/.gigpies-build.lock cargo +1.97.1 test --locked -j1 --all-targets "${feature_args[@]}" -- --test-threads=1
+          flock -xn /home/shome/p/.gigpies-build.lock cargo +1.97.1 build --release --locked -j1 "${feature_args[@]}"
+      - name: Publication guard regressions
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'

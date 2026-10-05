@@ -112,3 +112,18 @@ complete-index and outgoing-history guards. Actual provider drivers remain expli
 opt-ins under the coordinator's finite private-network reservation, with frozen
 source/executable hashes, bounded stage diagnostics and separate sample witnesses.
 Driver success alone does not prove physical mapping, ADAT lock or audio safety.
+
+
+## Continuous integration
+
+The source workflow checks both default and native feature sets with the pinned
+Rust toolchain, committed lockfile, warnings-denied Clippy, complete normal tests,
+release compilation and publication guard regressions. Each isolated CI runner
+uses the same parent-held nonblocking build lock and single-job/no-incremental
+settings as the lab. No binaries or generated evidence are published.
+
+CI unsets display and Vulkan-driver selection variables. Native tests therefore
+exercise their guarded device-free path; the explicit CPU-lavapipe rendering
+acceptance remains separately recorded on the inspected lab backend. Actual
+provider/network drivers stay opt-in and cannot discover credentials, audio
+hardware or an operator display in CI.
