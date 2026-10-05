@@ -442,7 +442,11 @@ Device configuration never implicitly arms the listen path.
 
 The device pane presents provider ratio/skew in parts per billion, queue occupancy
 and target in frames, queue/filter nominal latency in microseconds, error counters,
-and nullable physical mapping uncertainty in milliframes. These are software
+and nullable physical mapping uncertainty in milliframes. Capture drops count
+48-sample microphone blocks refused by the bounded capture queue, as reported by
+`status.capture_queue_dropped` (u64). Older v1 status may omit this additive field;
+the pane shows `--`, never an invented zero. Unknown status keys and malformed
+counters remain rejected. These are software
 observations; clock lock and physical mapping stay explicitly unverified unless
 supplied as actual producer observations.
 

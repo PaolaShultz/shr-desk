@@ -20,3 +20,9 @@ normalized full-scale billionths (`*_peak_nano`); ratio and signed oscillator
 estimate use parts per billion (`ratio_ppb`, `skew_ppb`). Queue/filter delays use
 nominal microseconds. Unknown physical mapping uncertainty is null, and physical
 clock lock is never inferred from the software estimate.
+
+Device status includes `capture_queue_dropped`, an unsigned64-bit cumulative
+count of microphone blocks refused by the bounded capture queue. The runtime and
+fixture producer call the same telemetry helper; consumers must explicitly admit
+this integer field while preserving strict rejection of unknown fields. It changes
+health observation only, not authority, device configuration or readiness.

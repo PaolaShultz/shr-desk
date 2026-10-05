@@ -52,6 +52,7 @@
         "shared_duplex_clock": true
       },
       "capture_frame": 0,
+      "capture_queue_dropped": 0,
       "capture_stalls": 0,
       "captured_peak_nano": 0,
       "fault": null,

@@ -2403,12 +2403,15 @@ impl Frontend {
                         line(
                             744,
                             format!(
-                                "Fault {} / underruns {} / overflows {} / rejected {} / physical lock {}",
+                                "Fault {} / underruns {} / overflows {} / rejected {} / physical lock {} / capture drops {} blocks",
                                 b["fault"],
                                 b["underruns"],
                                 b["overflows"],
                                 b["rejected"],
-                                b["physical_clock_lock_verified"]
+                                b["physical_clock_lock_verified"],
+                                o.status["capture_queue_dropped"]
+                                    .as_u64()
+                                    .map_or_else(|| "--".into(), |n| n.to_string())
                             ),
                             "#e4e8e9",
                         );
@@ -3373,17 +3376,37 @@ mod processing_tests {
     #[test]
     fn brain_actual_snapshot_scene_and_device_draft_are_truthful_and_fit() {
         let (mut f, rx) = brain_surface();
-        let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
+        let crate::brain_device::Message::Snapshot(mut d) = crate::brain_device::decode(
             include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
         )
         .unwrap() else {
             panic!()
         };
+        d.observation.as_mut().unwrap().status["capture_queue_dropped"] = serde_json::json!(17);
         let u = f.state.as_mut().unwrap();
         u.device = Some(d);
         u.device_fresh = true;
         let scene = f.scene();
         assert!(scene.primitives.iter().any(|p|matches!(p,Primitive::Text{value,..}if value.contains("ratio")&&value.contains("ppb"))));
+        assert!(scene.primitives.iter().any(
+            |p| matches!(p, Primitive::Text { value, .. } if value.contains("capture drops 17"))
+        ));
+        f.state
+            .as_mut()
+            .unwrap()
+            .device
+            .as_mut()
+            .unwrap()
+            .observation
+            .as_mut()
+            .unwrap()
+            .status
+            .as_object_mut()
+            .unwrap()
+            .remove("capture_queue_dropped");
+        assert!(f.scene().primitives.iter().any(
+            |p| matches!(p, Primitive::Text { value, .. } if value.contains("capture drops --"))
+        ));
         f.action(Action::DeviceEdit).unwrap();
         assert_eq!(f.device_draft.as_ref().unwrap().endpoint, "fake:brain");
         assert!(rx.try_recv().is_err());

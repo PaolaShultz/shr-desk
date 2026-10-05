@@ -356,25 +356,26 @@ fn validate_bridge(v: &serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 fn validate_status(v: &serde_json::Value) -> Result<(), String> {
-    crate::provider::keys(
-        v,
-        &[
-            "armed",
-            "capabilities",
-            "capture_frame",
-            "capture_stalls",
-            "captured_peak_nano",
-            "fault",
-            "faults",
-            "monitor_bridge",
-            "outgoing_peak_nano",
-            "physical_mapping_verified",
-            "playback_frame",
-            "playback_peak_nano",
-            "playback_stalls",
-            "readback",
-        ],
-    )?;
+    let mut fields = vec![
+        "armed",
+        "capabilities",
+        "capture_frame",
+        "capture_stalls",
+        "captured_peak_nano",
+        "fault",
+        "faults",
+        "monitor_bridge",
+        "outgoing_peak_nano",
+        "physical_mapping_verified",
+        "playback_frame",
+        "playback_peak_nano",
+        "playback_stalls",
+        "readback",
+    ];
+    if v.get("capture_queue_dropped").is_some() {
+        fields.push("capture_queue_dropped");
+    }
+    crate::provider::keys(v, &fields)?;
     boolean(v, &["armed", "physical_mapping_verified"])?;
     unsigned(
         v,
@@ -389,6 +390,11 @@ fn validate_status(v: &serde_json::Value) -> Result<(), String> {
             "playback_stalls",
         ],
     )?;
+    // Additive v1 telemetry: older producers omit this counter, but present values
+    // must be unsigned integers (including zero), never null or coerced numbers.
+    if v.get("capture_queue_dropped").is_some() {
+        unsigned(v, &["capture_queue_dropped"])?;
+    }
     fault(&v["fault"])?;
     validate_bridge(&v["monitor_bridge"])?;
     let c = &v["capabilities"];

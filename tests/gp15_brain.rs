@@ -351,3 +351,58 @@ fn device_session_refuses_old_pin_before_admission_and_retry_after_restart() {
     assert!(s.retry(104).is_none());
     assert_eq!(s.pending.as_ref().unwrap().state, PendingState::Uncertain);
 }
+
+#[test]
+fn device_capture_queue_counter_is_additive_but_strictly_unsigned() {
+    use shr_desk::brain_device::{self, Message};
+    let original: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/gp15/device-v1/snapshot-unarmed.json"
+    ))
+    .unwrap();
+    for counter in [0, 17, u64::MAX] {
+        let mut v = original.clone();
+        v["observation"]["status"]["capture_queue_dropped"] = json!(counter);
+        let bytes = serde_json::to_vec(&v).unwrap();
+        let Message::Snapshot(snapshot) = brain_device::decode(&bytes).unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            snapshot.observation.unwrap().status["capture_queue_dropped"].as_u64(),
+            Some(counter)
+        );
+        let mut session = shr_desk::audio::Session::new_version(
+            "11111111-1111-4111-8111-111111111111",
+            1,
+            "desk",
+            "local_operator_monitor",
+            2,
+        )
+        .unwrap();
+        session.dispatch_device(&bytes, 2).unwrap();
+        assert!(
+            session.device.is_some(),
+            "actual status must replace initial absence"
+        );
+    }
+    for bad in [
+        json!(0.5),
+        json!(1.0),
+        json!(-1),
+        json!("17"),
+        json!(null),
+        json!(true),
+        json!(18446744073709551616.0),
+    ] {
+        let mut v = original.clone();
+        v["observation"]["status"]["capture_queue_dropped"] = bad;
+        assert!(brain_device::decode(&serde_json::to_vec(&v).unwrap()).is_err());
+    }
+    let mut legacy = original;
+    legacy["observation"]["status"]
+        .as_object_mut()
+        .unwrap()
+        .remove("capture_queue_dropped");
+    brain_device::decode(&serde_json::to_vec(&legacy).unwrap()).unwrap();
+    legacy["observation"]["status"]["unknown_counter"] = json!(1);
+    assert!(brain_device::decode(&serde_json::to_vec(&legacy).unwrap()).is_err());
+}
