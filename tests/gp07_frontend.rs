@@ -38,9 +38,11 @@ fn wait(f: &mut Frontend, deadline: Instant, label: &str, predicate: impl Fn(&Fr
     loop {
         f.pump();
         let diagnostic = format!(
-            "message={} status={} fresh={} structural={} processing={}",
+            "message={} status={} operation={:?} lease_ms={:?} fresh={} structural={} processing={}",
             f.message,
             f.state.as_ref().map_or("no update", |u| u.status.as_str()),
+            f.state.as_ref().and_then(|u| u.last_operation.as_ref()),
+            f.state.as_ref().and_then(|u| u.writer_lease_remaining_ms),
             f.fresh(),
             f.state.as_ref().is_some_and(|u| u.structural_fresh),
             f.processing_ready()
@@ -230,9 +232,12 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     let initial = snapshot(&f).clone();
     tap(&mut f, "G");
     wait(&mut f, deadline, "explicit FOH grant", |f| {
-        f.state
-            .as_ref()
-            .is_some_and(|u| u.status.starts_with("grant applied"))
+        f.state.as_ref().is_some_and(|u| {
+            u.writer_granted()
+                && u.last_operation
+                    .as_ref()
+                    .is_some_and(|r| r.starts_with("grant applied"))
+        })
     });
     tap(&mut f, "F2");
     wait(
@@ -609,9 +614,12 @@ fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
     );
     tap(&mut f, "G");
     wait(&mut f, deadline, "legacy GP03 grant", |f| {
-        f.state
-            .as_ref()
-            .is_some_and(|s| s.status.starts_with("grant applied"))
+        f.state.as_ref().is_some_and(|s| {
+            s.writer_granted()
+                && s.last_operation
+                    .as_ref()
+                    .is_some_and(|r| r.starts_with("grant applied"))
+        })
     });
     tap(&mut f, "M");
     wait(&mut f, deadline, "legacy GP03 protected review", |f| {
@@ -621,9 +629,11 @@ fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
     f.mark_presented();
     tap(&mut f, "Enter");
     wait(&mut f, deadline, "legacy GP03 confirmation", |f| {
-        f.state
-            .as_ref()
-            .is_some_and(|s| s.status.starts_with("set applied"))
+        f.state.as_ref().is_some_and(|s| {
+            s.last_operation
+                .as_ref()
+                .is_some_and(|result| result.starts_with("set applied"))
+        })
     });
     assert!(f.state.as_ref().unwrap().processing.is_none());
     drop(f);
@@ -657,9 +667,12 @@ fn gp14_high_channel_external_driver() {
     assert!(snapshot(&f).channels.len() >= 48);
     tap(&mut f, "G");
     wait(&mut f, deadline, "dynamic FOH grant", |f| {
-        f.state
-            .as_ref()
-            .is_some_and(|u| u.status.starts_with("grant applied"))
+        f.state.as_ref().is_some_and(|u| {
+            u.writer_granted()
+                && u.last_operation
+                    .as_ref()
+                    .is_some_and(|r| r.starts_with("grant applied"))
+        })
     });
     tap(&mut f, "F2");
     wait(
@@ -819,6 +832,31 @@ fn gp14_structural_external_driver() {
         })
     };
     let ready = |f: &Frontend| f.fresh() && f.state.as_ref().is_some_and(|u| u.structural_fresh);
+    let ready_at = |f: &Frontend, applied: &shr_desk::structure::Reply| {
+        ready(f)
+            && f.state
+                .as_ref()
+                .and_then(|u| u.structural.as_ref())
+                .is_some_and(|s| s.revision == applied.revision)
+    };
+    let rearmed_at = |f: &Frontend, applied: &shr_desk::structure::Reply| {
+        ready_at(f, applied)
+            && f.state
+                .as_ref()
+                .and_then(|u| u.structural.as_ref())
+                .is_some_and(|s| {
+                    !s.outputs_quiesced
+                        && s.frame.parse::<u64>().unwrap()
+                            >= applied
+                                .effective_frame
+                                .as_ref()
+                                .unwrap()
+                                .parse::<u64>()
+                                .unwrap()
+                                .checked_add(240)
+                                .unwrap()
+                })
+    };
     let confirm = |f: &mut Frontend| {
         wait(f, deadline, "structural review", |f| {
             ready(f) && f.state.as_ref().is_some_and(|u| u.review.is_some())
@@ -841,37 +879,70 @@ fn gp14_structural_external_driver() {
             .authority
             .revision
             .clone();
+        let previous_final = f
+            .state
+            .as_ref()
+            .and_then(|u| u.structural_final.as_ref())
+            .map(|r| r.context.clone());
+        let expected_revision = revision
+            .parse::<u64>()
+            .unwrap()
+            .checked_add(1)
+            .unwrap()
+            .to_string();
+        assert!(
+            f.state.as_ref().unwrap().writer_granted(),
+            "review requires a live confirmed lease; worker revalidates at send"
+        );
         tap(f, "Enter");
         wait(f, deadline, "structural final", |f| {
             f.state
                 .as_ref()
                 .and_then(|u| u.structural_final.as_ref())
-                .is_some_and(|r| r.reason.is_none() && r.revision != revision)
+                .is_some_and(|r| {
+                    r.state == "final"
+                        && r.reason.is_none()
+                        && r.effective_frame.is_some()
+                        && r.context.expected_revision.as_ref() == Some(&revision)
+                        && previous_final.as_ref() != Some(&r.context)
+                        && r.revision == expected_revision
+                })
         });
+        f.state.as_ref().unwrap().structural_final.clone().unwrap()
     };
     let grant = |f: &mut Frontend| {
         wait(f, deadline, "structural attach", ready);
         tap(f, "G");
         wait(f, deadline, "separate structural grant", |f| {
             ready(f)
-                && f.state
-                    .as_ref()
-                    .is_some_and(|u| u.status.starts_with("grant applied"))
+                && f.state.as_ref().is_some_and(|u| {
+                    u.writer_granted()
+                        && u.last_operation
+                            .as_ref()
+                            .is_some_and(|r| r.starts_with("grant applied"))
+                })
         });
     };
     let mut actions = Vec::new();
     let mut pa = make("pa_configuration");
     grant(&mut pa);
     tap(&mut pa, "X");
-    confirm(&mut pa);
-    actions
-        .push(json!({"kind":"baseline_rearm","final":pa.state.as_ref().unwrap().structural_final}));
+    let baseline_final = confirm(&mut pa);
+    actions.push(json!({"kind":"baseline_rearm","final":baseline_final}));
     thread::sleep(Duration::from_millis(150));
-    wait(&mut pa, deadline, "baseline rearm readback", ready);
+    wait(&mut pa, deadline, "baseline rearm readback", |f| {
+        rearmed_at(f, &baseline_final)
+    });
     tap(&mut pa, "Z");
-    confirm(&mut pa);
-    actions.push(json!({"kind":"quiesce","final":pa.state.as_ref().unwrap().structural_final}));
-    wait(&mut pa, deadline, "quiesced readback", ready);
+    let mute_final = confirm(&mut pa);
+    actions.push(json!({"kind":"quiesce","final":mute_final}));
+    wait(&mut pa, deadline, "quiesced readback", |f| {
+        ready_at(f, &mute_final)
+            && f.state
+                .as_ref()
+                .and_then(|u| u.structural.as_ref())
+                .is_some_and(|s| s.outputs_quiesced)
+    });
     assert!(
         pa.state
             .as_ref()
@@ -901,9 +972,22 @@ fn gp14_structural_external_driver() {
     let imported = serde_json::to_string(&imported).unwrap();
     controller(&mut pa, Action::StructureImport(imported));
     controller(&mut pa, Action::StructureApply);
-    confirm(&mut pa);
-    actions.push(json!({"kind":"pa_set","final":pa.state.as_ref().unwrap().structural_final}));
-    wait(&mut pa, deadline, "PA replacement readback", ready);
+    let pa_final = confirm(&mut pa);
+    actions.push(json!({"kind":"pa_set","final":pa_final}));
+    wait(&mut pa, deadline, "PA replacement readback", |f| {
+        ready_at(f, &pa_final)
+            && f.state
+                .as_ref()
+                .and_then(|u| u.structural.as_ref())
+                .is_some_and(|s| {
+                    s.outputs_quiesced
+                        && s.pa_program_buses == [0, 1]
+                        && s.pa_configuration_json.as_ref().is_some_and(|config| {
+                            serde_json::from_str::<serde_json::Value>(config).unwrap()
+                                == desired_owner
+                        })
+                })
+    });
     let pa_readback = pa.state.as_ref().unwrap().structural.clone().unwrap();
     let confirmed_owner: serde_json::Value =
         serde_json::from_str(pa_readback.pa_configuration_json.as_ref().unwrap()).unwrap();
@@ -914,9 +998,12 @@ fn gp14_structural_external_driver() {
     assert_eq!(pa_readback.pa_program_buses, vec![0, 1]);
     tap(&mut pa, "Q");
     wait(&mut pa, deadline, "PA lease released", |f| {
-        f.state
-            .as_ref()
-            .is_some_and(|u| u.status.starts_with("release applied"))
+        f.state.as_ref().is_some_and(|u| {
+            !u.writer_granted()
+                && u.last_operation
+                    .as_ref()
+                    .is_some_and(|result| result.starts_with("release applied"))
+        })
     });
     drop(pa);
     let mut patch = make("output_routes");
@@ -933,6 +1020,17 @@ fn gp14_structural_external_driver() {
             .pa_outputs
             > 0
     );
+    let expected_map_revision = patch
+        .state
+        .as_ref()
+        .unwrap()
+        .structural
+        .as_ref()
+        .unwrap()
+        .topology
+        .map_revision
+        .checked_add(1)
+        .unwrap();
     let outputs = &patch
         .state
         .as_ref()
@@ -945,7 +1043,7 @@ fn gp14_structural_external_driver() {
     let (patch_index, chosen) = outputs
         .iter()
         .enumerate()
-        .skip(1)
+        .skip(2)
         .find(|(_, output)| {
             output.source != Some(shr_desk::topology::OutputSource::Pa { index: 0 })
         })
@@ -960,25 +1058,31 @@ fn gp14_structural_external_driver() {
         Action::StructureText(json!({"kind":"pa","index":target_index}).to_string()),
     );
     tap(&mut patch, "F4");
-    confirm(&mut patch);
+    let patch_final = confirm(&mut patch);
     actions.push(
-        json!({"kind":"output_patch","port_index":patch_index,"port_id":patch_port,"before_source":before_source,"after_source":{"kind":"pa","index":target_index},"final":patch.state.as_ref().unwrap().structural_final}),
+        json!({"kind":"output_patch","port_index":patch_index,"port_id":patch_port,"before_source":before_source,"after_source":{"kind":"pa","index":target_index},"final":patch_final}),
     );
-    let patch_revision = patch
-        .state
-        .as_ref()
-        .unwrap()
-        .structural_final
-        .as_ref()
-        .unwrap()
-        .revision
-        .clone();
+    let patch_revision = patch_final.revision.clone();
     tap(&mut patch, "F5");
     wait(
         &mut patch,
         deadline,
         "fresh map readback without replay",
-        ready,
+        |f| {
+            ready_at(f, &patch_final)
+                && f.state.as_ref().is_some_and(|u| {
+                    !u.writer_granted()
+                        && u.structural.as_ref().is_some_and(|s| {
+                            s.outputs_quiesced
+                                && s.topology.map_revision == expected_map_revision
+                                && s.topology.outputs[patch_index].id == patch_port
+                                && s.topology.outputs[patch_index].source
+                                    == Some(shr_desk::topology::OutputSource::Pa {
+                                        index: target_index,
+                                    })
+                        })
+                })
+        },
     );
     let patch_readback = patch.state.as_ref().unwrap().structural.clone().unwrap();
     assert_eq!(patch_readback.revision, patch_revision);
@@ -997,11 +1101,12 @@ fn gp14_structural_external_driver() {
     let mut rearm = make("pa_configuration");
     grant(&mut rearm);
     tap(&mut rearm, "X");
-    confirm(&mut rearm);
-    actions
-        .push(json!({"kind":"final_rearm","final":rearm.state.as_ref().unwrap().structural_final}));
+    let rearm_final = confirm(&mut rearm);
+    actions.push(json!({"kind":"final_rearm","final":rearm_final}));
     thread::sleep(Duration::from_millis(150));
-    wait(&mut rearm, deadline, "final rearm source advance", ready);
+    wait(&mut rearm, deadline, "final rearm source advance", |f| {
+        rearmed_at(f, &rearm_final)
+    });
     let final_readback = rearm.state.as_ref().unwrap().structural.clone().unwrap();
     assert!(!final_readback.outputs_quiesced);
     if let Some(path) = std::env::var_os("GP14_STRUCTURE_EVIDENCE") {

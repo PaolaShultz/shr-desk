@@ -357,3 +357,29 @@ The structural wire query uses `state: "snapshot"`. Boundary finals may omit the
 snapshot; Desk retains the correlated outcome while treating readback as stale.
 After a map change retires the connection, F5 obtains a fresh map before further
 review or rearm. A final is not a configuration snapshot.
+
+
+For the dynamic 48-input remote acceptance driver on Pi4, use the optimized release
+profile. A finite three-pass diagnostic over actual captured producer pages found
+that the unoptimized strict decode pipeline alone exceeded the unchanged 250 ms
+paired-observation budget (297–307 ms debug; 34–40 ms release for the same captured
+48-input pipeline). This is a software decode measurement, not network or
+hardware throughput qualification. The explicit ignored library test
+`remote::envelope_tests::captured_producer_decode_timing` reports separate assembly,
+outer-envelope, raw decode/validation and structural decode/validation costs without
+opening a network endpoint. `GP14_TIMING=1` enables paired-request stage timings,
+observation flags and admitted revision/frame diagnostics in an authorized driver
+run. It changes no limits or validation.
+
+The operator line retains the last explicit operation alongside subsequent health
+status. Actual acceptance waits for that grant confirmation and the confirmed scoped
+lease's remaining lifetime; generic freshness cannot satisfy a grant. Detached
+review creation is labelled review-ready, never as a newly applied command.
+
+The actual structural acceptance driver pins every readback to the correlated final
+revision. Mute waits for observed quiescence, PA replacement waits for the exact
+owner document/bus map, and patch reconnect waits for the changed map/source with
+no writer lease. Rearm requires an unquiesced observation at least 240 source frames
+past the final's effective frame. A final boundary acknowledgment alone does not
+prove that a ramp has completed. The separate 48-input driver covers all 24 fields
+at inputs 16/17/32/33/48; the 16/32 profile runs use structural and media witnesses.

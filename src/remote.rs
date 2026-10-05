@@ -394,6 +394,63 @@ async fn read_frame(
 mod envelope_tests {
     use super::*;
     #[test]
+    #[ignore = "finite captured producer decode timing; no network or load"]
+    fn captured_producer_decode_timing() {
+        let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-pages.json"
+        ))
+        .unwrap();
+        let corpus: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/final/structure-replies-48.json"
+        ))
+        .unwrap();
+        let structure = serde_json::to_vec(&corpus["exchanges"][0]["reply"]).unwrap();
+        for pass in 0..3 {
+            let start = Instant::now();
+            let mut assembly = crate::pages::Assembly::default();
+            let mut whole = None;
+            for page in &pages {
+                whole = assembly
+                    .offer(page.as_bytes().to_vec(), Instant::now())
+                    .unwrap();
+            }
+            let assembled = start.elapsed();
+            let Response::Reply { payload, .. } = decode_response(&whole.unwrap()).unwrap() else {
+                panic!("reply")
+            };
+            let bytes = serde_json::to_vec(&payload).unwrap();
+            let envelope = start.elapsed();
+            let reply = crate::audio::decode_reply(&bytes).unwrap();
+            let snapshot = reply.snapshot.unwrap();
+            let mut session = crate::audio::Session::new_version(
+                &snapshot.authority.show_id,
+                snapshot.authority.epoch.parse().unwrap(),
+                "decode-timing",
+                "foh",
+                2,
+            )
+            .unwrap();
+            session.ingest_snapshot(snapshot, 0).unwrap();
+            let raw = start.elapsed();
+            crate::structure::decode_reply(&structure)
+                .unwrap()
+                .snapshot
+                .unwrap()
+                .validate()
+                .unwrap();
+            eprintln!(
+                "captured48 pass={pass} debug={} raw_bytes={} assembly_ms={} envelope_ms={} raw_decode_validate_ms={} structural_decode_validate_ms={} total_ms={}",
+                cfg!(debug_assertions),
+                bytes.len(),
+                assembled.as_millis(),
+                (envelope - assembled).as_millis(),
+                (raw - envelope).as_millis(),
+                (start.elapsed() - raw).as_millis(),
+                start.elapsed().as_millis()
+            );
+        }
+    }
+    #[test]
     fn large_actual_producer_reply_decodes_only_after_outer_envelope_reassembly() {
         let pages: Vec<String> = serde_json::from_slice(include_bytes!(
             "../tests/fixtures/gp14/v1/remote-response-pages.json"

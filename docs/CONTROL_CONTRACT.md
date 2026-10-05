@@ -133,3 +133,20 @@ scoped grants and confirmed quiescence; rearm is a separate reviewed command.
 Map-generation changes retire the old connection after final delivery, so the
 operator explicitly reconnects for fresh readback and reacquires authority.
 Physical socket/USB assignments and ADAT lock remain unverified observations.
+
+
+The frontend retains the result of the last explicit operation independently of
+periodic health polling. A pending command remains unconfirmed; a review-ready
+result still requires protected confirmation. Grant availability derives only from
+the Session's correlated scoped grant/renewal and its conservative expiry, never
+from snapshot freshness. A retained historical success does not extend a lease or
+survive as write authority after disconnect. Frontend updates expose both the
+operation result and health/freshness, and reconnect clears the operation report.
+
+Paired raw/structural refresh uses one absolute 250 ms deadline established before
+both sends and checked again after decoding, plus the existing 64-document bound.
+A complete late decode cannot make that refresh successful. Any failed pair clears
+the structural receipt, so a later raw-only poll cannot restore structural freshness.
+Immutable page assembly, identity/context checks, revision/topology coherence and
+query receipts remain
+required; cached mutation replies cannot refresh observations.

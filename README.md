@@ -14,7 +14,9 @@ checks and both release builds pass; [status](docs/STATUS.md) records the eviden
 and limits. Physical HDMI/controller/audio acceptance
 remains separate. The GP03 raw mixer remains offline and unprotected; meters and analysis remain
 unavailable. Optional GP05 read-only health is separate from the raw mixer;
-REC/PA/FX writable controls remain unavailable. Attaching is read-only, grants are explicit,
+REC/FX writable controls remain unavailable. The explicit dynamic session adds
+scoped PA configuration and output-route controls, with task0014 acceptance tracked
+in [status](docs/STATUS.md). Attaching is read-only, grants are explicit,
 and reconnect discards local intents without recalling a mix.
 
 The task0013 four-band channel-processing extension uses `GP07-processing:2`,

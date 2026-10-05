@@ -372,7 +372,7 @@ operator and independent sample acceptance also remain pending with the coordina
 The current local continuation is a partial handoff, not task0014 completion.
 
 
-| Requirement | Consumer location | Remaining acceptance |
+| Requirement at the preceding partial checkpoint | Consumer location | Then-remaining acceptance |
 |---|---|---|
 | Dynamic strips/banking and stable identity | frontend/provider/audio | Actual high-channel driver (final profiles decoded) |
 | Four-band16/17/32/33/48 edits | processing/audio/frontend | Actual operator/sample chain and native review |
@@ -387,3 +387,65 @@ and publication. This checkpoint does not mark task0014 complete. Physical devic
 USB-slot/socket mapping, ADAT lock, hardware throughput, windows and physical GPU
 acceptance remain separate and unverified. Current commands/results and exact local
 handoff source identities are recorded by the bounded worker before handback.
+
+
+### Task0014 third continuation: deadline diagnosis
+
+The fourth reserved actual-provider run also failed; it is not acceptance. A finite
+three-pass diagnostic using the exact captured 48-input producer pages measured
+297–307 ms for unoptimized assembly/envelope/raw/structural decoding on Pi4, before
+network overhead. The same optimized release pipeline measured 34–40 ms. The
+250 ms freshness and paired-refresh deadline remain unchanged; this does not
+qualify hardware throughput or network latency.
+
+The consumer now checks the deadline before admitting each decoded observation and
+again before successful completion. A failed pair invalidates its structural receipt;
+a later raw-only poll cannot make that failed structural observation fresh. Last
+explicit operation results survive health-update coalescing, and writer availability
+uses an actually confirmed scoped lease with conservative expiry. Review-ready is
+separate from applied. The current runtime passes **138 default** and **140 native**
+normal tests, each with nine opt-ins ignored (eight actual integrations and the
+finite decode diagnostic). Python publication tests pass nine cases. Native runs
+use only the inspected CPU lavapipe backend with display variables unset.
+
+Reserved run5 demonstrated 16 complete pairs at 58.8–60.4 ms with actual configured
+raw documents around 131 KB, then exposed an acceptance-driver readback race after
+mute. The driver now requires the exact correlated final and matching intended
+readback at its confirmed revision. Rearm checks observed source-frame advancement
+past the ramp; release/reconnect check absent write authority. No timeout changed.
+
+Reserved run6 passed the actual 48-input structural operator path in 3.59 s:
+explicit baseline rearm, quiescence, complete weighted PA/gain import, a changed
+physical output source, fresh-map reconnect and explicit rearm. Confirmed revisions
+advanced 1–5, with full readback and effective-frame evidence. The high-channel
+operator path passed in 1.69 s, editing all 24 fields on inputs 16/17/32/33/48 through
+keyboard and injected actions, checking other channels and read-only reconnect.
+These are actual remote operator results, separate from independent sample proof.
+Run6's second Brain negotiation was refused during a 500 ms restart gap. Source
+and trace review showed the old media owner retained until the existing two-second
+I/O timeout after finite process loss; run7 used a 2.5 s recovery gap without a
+protocol or timeout change. Both fresh Brain episodes and actual dry/protected
+output through loss and final stop then passed.
+
+Final root-owned actual-provider acceptance used the same frozen Desk artifact:
+reference **16 inputs / 18 analog outputs: 94 independent checks** (run8),
+**32 inputs: 125 checks** (run9), and **48 inputs: 157 checks** (run7). Each includes
+actual structural operations, both Brain episodes, exact raw REC/analysis channels,
+patch/readback and loss continuity. The 16/18 reference begins unpatched and proves
+unused/S/PDIF playback slots remain zero; the 32/48 companions additionally prove
+the weighted PA gain/phase relation and duplicate physical patch samples. The
+five-target high-channel evidence remains the successful run6 result. These are
+finite synthetic software runs, not physical audio or throughput qualification.
+
+Both warnings-denied Clippy feature sets, formatting, both application release
+builds, Python publication checks and focused document-link checks pass. Build/source
+manifests and all diagnostic failures remain private. Normal tests were serialized
+on Pi4 without changing production deadlines. Explicit historical/audition,
+exhaustive/long benchmarks, physical audio/MIDI/DMX, windows/GPU, socket/USB/ADAT
+verification and hardware throughput classes were not run. The finite actual
+operator/media runs above are separately accepted software evidence.
+
+The coordinator owns final exact-source review, publication/CI and canonical
+synchronization. No source push, binary release, deployment or physical activation
+is performed by this worker. The earlier local handoff commits and normal cache
+remain preserved.

@@ -849,6 +849,9 @@ impl Session {
         self.structural_receipt = Some(now);
         Ok(true)
     }
+    pub(crate) fn invalidate_structural_observation(&mut self) {
+        self.structural_receipt = None;
+    }
     pub fn structural_fresh(&self, now: u64) -> bool {
         self.fresh(now)
             && self

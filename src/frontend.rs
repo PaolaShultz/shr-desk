@@ -81,8 +81,18 @@ pub struct Update {
     pub processing_final: Option<crate::processing::Reply>,
     pub fresh: bool,
     pub status: String,
+    /// Result of the last explicit operation; health polls cannot replace it.
+    pub last_operation: Option<String>,
+    /// Remaining lifetime of an actually confirmed scoped lease, never inferred from freshness.
+    pub writer_lease_remaining_ms: Option<u64>,
     pub review: Option<(u64, String)>,
     pub received: Instant,
+}
+impl Update {
+    pub fn writer_granted(&self) -> bool {
+        self.writer_lease_remaining_ms
+            .is_some_and(|remaining| self.received.elapsed().as_millis() < u128::from(remaining))
+    }
 }
 /// One coalesced provider-state slot, independent of input and desired LED state.
 #[derive(Default)]
@@ -164,6 +174,7 @@ fn worker(
     let mut review: Option<(u64, String)> = None;
     let mut status = "provider unavailable; read-only attach".to_string();
     let mut operation_error: Option<String> = None;
+    let mut last_operation: Option<String> = None;
     let mut processing_requested = false;
     let mut processing_enabled = false;
     let mut processing_status = "unavailable; GP07 probe not enabled".to_string();
@@ -244,6 +255,7 @@ fn worker(
             }
             if !matches!(r.operation, Operation::InputReleased) {
                 operation_error = None;
+                last_operation = None;
             }
             if matches!(r.operation, Operation::EnableProcessing) {
                 processing_requested = true;
@@ -267,8 +279,11 @@ fn worker(
                 let affects_status = !matches!(r.operation, Operation::InputReleased);
                 o.guard(generation.clone(), g);
                 if affects_status {
+                    last_operation = Some("PENDING; awaiting provider confirmation".into());
                     *latest.update.lock().unwrap() = Some(Update {
                         generation: g,
+                        last_operation: last_operation.clone(),
+                        writer_lease_remaining_ms: confirmed_lease_remaining(o),
                         snapshot: o.session.snapshot.clone(),
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
@@ -300,6 +315,17 @@ fn worker(
                         received: Instant::now(),
                     });
                 }
+                let local_result = match &r.operation {
+                    Operation::ReviewStructure { .. }
+                    | Operation::ReviewProcessing { .. }
+                    | Operation::ReviewSet { .. }
+                    | Operation::Preview(_)
+                    | Operation::Mode { .. } => {
+                        Some("REVIEW READY; explicit confirmation required")
+                    }
+                    Operation::Cancel => Some("CANCELLED; unsent review discarded"),
+                    _ => None,
+                };
                 let result = (|| {
                     if let Some(revision) = &r.revision {
                         o.refresh()?;
@@ -400,11 +426,16 @@ fn worker(
                     }
                 })();
                 match result {
-                    Ok(()) if affects_status => status = o.session.last_result.clone(),
+                    Ok(()) if affects_status => {
+                        status = local_result
+                            .map_or_else(|| o.session.last_result.clone(), str::to_string);
+                        last_operation = Some(status.clone());
+                    }
                     Ok(()) => {}
                     Err(e) => {
                         status = format!("REFUSED/UNCERTAIN: {e}");
                         operation_error = Some(status.clone());
+                        last_operation = Some(status.clone());
                         review = None;
                         o.cancel();
                     }
@@ -422,6 +453,8 @@ fn worker(
             {
                 *latest.update.lock().unwrap() = Some(Update {
                     generation: g,
+                    last_operation: last_operation.clone(),
+                    writer_lease_remaining_ms: confirmed_lease_remaining(o),
                     snapshot: o.session.snapshot.clone(),
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
@@ -483,6 +516,8 @@ fn worker(
         }
         let update = Update {
             generation: g,
+            last_operation: last_operation.clone(),
+            writer_lease_remaining_ms: op.as_ref().and_then(confirmed_lease_remaining),
             snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
@@ -504,6 +539,14 @@ fn worker(
         publish_provider_update(&latest, update, operation_error.as_deref());
     }
     // No release/recall is sent on UI exit. Engine owns persistent held state.
+}
+
+fn confirmed_lease_remaining(operator: &Operator) -> Option<u64> {
+    operator
+        .session
+        .lease_deadline()?
+        .checked_sub(operator.now())
+        .filter(|remaining| *remaining > 0)
 }
 
 fn publish_provider_update(latest: &Latest, mut update: Update, operation_error: Option<&str>) {
@@ -1828,17 +1871,16 @@ impl Frontend {
         if let Some(u) = &self.state {
             line(
                 84,
-                if self.page == Page::Analysis {
-                    u.status.clone()
-                } else if u.status.starts_with("grant applied") {
-                    "Writer granted / controls available after input release".into()
-                } else if u.status.starts_with("renew applied") {
-                    "Writer lease renewed".into()
-                } else if u.status.contains(" applied revision ") {
-                    "Change confirmed by provider".into()
-                } else {
-                    u.status.clone()
-                },
+                u.last_operation.as_ref().map_or_else(
+                    || u.status.clone(),
+                    |operation| {
+                        if operation == &u.status {
+                            operation.clone()
+                        } else {
+                            format!("{operation} / health: {}", u.status)
+                        }
+                    },
+                ),
                 "#e4e8e9",
             );
             if let Some(s) = &u.snapshot {
@@ -2268,6 +2310,8 @@ mod tests {
         let review=(0..80).map(|i|format!("target input-{i:02} current -6000 target -3000 delta3000 show/epoch/revision/scope ")).collect::<String>();
         f.state = Some(Update {
             generation: 1,
+            last_operation: None,
+            writer_lease_remaining_ms: None,
             snapshot: Some(
                 crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
                     .unwrap(),
@@ -2328,6 +2372,8 @@ mod tests {
         snapshot.authority.inputs = (1..=36).map(|n| format!("input-{n:02}")).collect();
         f.state = Some(Update {
             generation: 1,
+            last_operation: None,
+            writer_lease_remaining_ms: None,
             snapshot: Some(snapshot),
             processing: None,
             processing_age_ms: None,
@@ -2398,6 +2444,8 @@ mod processing_tests {
         .snapshot;
         f.state = Some(Update {
             generation: 1,
+            last_operation: None,
+            writer_lease_remaining_ms: None,
             snapshot: Some(raw),
             processing,
             processing_age_ms: Some(0),
@@ -2413,6 +2461,76 @@ mod processing_tests {
         });
         f.page = Page::Channel;
         f
+    }
+    #[test]
+    fn confirmed_grant_survives_health_coalescing_but_expiry_and_disconnect_revoke_it() {
+        struct NoIo;
+        impl crate::local_audio::AuthorityConnection for NoIo {
+            fn send_frame_until(&mut self, _: &[u8], _: Instant) -> Result<(), String> {
+                panic!("no I/O")
+            }
+            fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+                panic!("no I/O")
+            }
+            fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+                panic!("no I/O")
+            }
+        }
+        let corpus: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/gp03/v1/e03-rendered.json"))
+                .unwrap();
+        let mut operator = Operator::from_connection(
+            Box::new(NoIo),
+            "11111111-1111-4111-8111-111111111111",
+            9,
+            "desk-corpus",
+            "foh",
+        )
+        .unwrap();
+        operator
+            .session
+            .ingest_snapshot(
+                crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
+                    .unwrap(),
+                0,
+            )
+            .unwrap();
+        assert!(confirmed_lease_remaining(&operator).is_none());
+        operator
+            .session
+            .begin("grant", json!({"scope":"foh"}), 0)
+            .unwrap();
+        assert!(confirmed_lease_remaining(&operator).is_none());
+        operator
+            .session
+            .accept(
+                crate::audio::decode_reply(&serde_json::to_vec(&corpus["grant_response"]).unwrap())
+                    .unwrap(),
+                1,
+            )
+            .unwrap();
+        let mut update = surface().state.take().unwrap();
+        update.last_operation = Some(operator.session.last_result.clone());
+        update.writer_lease_remaining_ms = confirmed_lease_remaining(&operator);
+        update.status = "Structural state unavailable: bounded poll failed".into();
+        update.fresh = false;
+        let latest = Latest::default();
+        publish_provider_update(&latest, update, None);
+        let mut final_update = latest.update.lock().unwrap().take().unwrap();
+        assert!(
+            final_update
+                .last_operation
+                .as_ref()
+                .unwrap()
+                .starts_with("grant applied")
+        );
+        assert!(final_update.status.contains("poll failed"));
+        assert!(!final_update.fresh);
+        assert!(final_update.writer_granted());
+        final_update.received = Instant::now() - Duration::from_secs(2);
+        assert!(!final_update.writer_granted());
+        operator.session.disconnect();
+        assert!(confirmed_lease_remaining(&operator).is_none());
     }
     #[test]
     fn final_worker_update_keeps_stage_error_after_failed_health_poll() {

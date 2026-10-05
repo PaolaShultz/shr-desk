@@ -504,20 +504,40 @@ impl Operator {
         Ok(true)
     }
     pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
+        let result = self.refresh_structural_inner();
+        if result.is_err() {
+            // A later raw-only poll cannot turn a failed pair into fresh structure.
+            self.session.invalidate_structural_observation();
+        }
+        result
+    }
+    fn refresh_structural_inner(&mut self) -> Result<(), String> {
         self.check_guard()?;
-        let deadline = Instant::now() + Duration::from_millis(250);
+        let started = Instant::now();
+        let deadline = started + Duration::from_millis(250);
+        let trace = std::env::var_os("GP14_TIMING").is_some();
         // Raw state can expire while the structural response is in flight. Request
         // both observations within one budget; never wait for an unrequested raw reply.
         self.transport
             .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        if trace {
+            eprintln!("GP14 pair raw_sent_us={}", started.elapsed().as_micros());
+        }
         self.transport
             .send_frame_until(&self.session.structural_request().encode()?, deadline)?;
+        if trace {
+            eprintln!(
+                "GP14 pair sent elapsed_us={}",
+                started.elapsed().as_micros()
+            );
+        }
         let (mut raw, mut structural) = (false, false);
         let mut count = 0;
         while Instant::now() < deadline && count < 64 {
             self.check_guard()?;
             if let Some(bytes) = self.transport.receive_until(deadline)? {
                 count += 1;
+                let received = started.elapsed();
                 #[derive(serde::Deserialize)]
                 struct Tag {
                     contract: Option<String>,
@@ -531,19 +551,76 @@ impl Operator {
                     if reply.context != self.session.structural_request().context {
                         return Err("structural query context".into());
                     }
+                    if trace {
+                        eprintln!(
+                            "GP14 structural decoded_us={} incoming_revision={} incoming_frame={:?}",
+                            started.elapsed().as_micros(),
+                            reply.revision,
+                            reply.snapshot.as_ref().map(|s| &s.frame)
+                        );
+                    }
+                    if Instant::now() >= deadline {
+                        break;
+                    }
                     structural |= self.session.ingest_structural(
                         reply.snapshot.ok_or("structural readback missing")?,
                         self.now(),
                     )?;
                 } else if !self.processing_frame(&bytes)? {
-                    raw |= self.telemetry(&audio::decode_reply(&bytes)?)?;
+                    let reply = audio::decode_reply(&bytes)?;
+                    if trace {
+                        eprintln!(
+                            "GP14 raw decoded_us={} incoming={:?}",
+                            started.elapsed().as_micros(),
+                            reply.snapshot.as_ref().map(|s| (
+                                &s.authority.sequence,
+                                &s.authority.revision,
+                                &s.frame
+                            ))
+                        );
+                    }
+                    if Instant::now() >= deadline {
+                        break;
+                    }
+                    raw |= self.telemetry(&reply)?;
                 }
-                if raw && structural && self.session.structural_fresh(self.now()) {
+                if trace {
+                    eprintln!(
+                        "GP14 pair frame={count} bytes={} contract={:?} received_us={} decoded_us={} total_us={} raw={raw} structural={structural} coherent_fresh={}",
+                        bytes.len(),
+                        tag.contract,
+                        received.as_micros(),
+                        (started.elapsed() - received).as_micros(),
+                        started.elapsed().as_micros(),
+                        self.session.structural_fresh(self.now())
+                    );
+                    eprintln!(
+                        "GP14 admitted raw={:?} structural={:?}",
+                        self.session.snapshot.as_ref().map(|s| (
+                            &s.authority.sequence,
+                            &s.authority.revision,
+                            &s.frame
+                        )),
+                        self.session
+                            .structural
+                            .as_ref()
+                            .map(|s| (&s.revision, &s.frame))
+                    );
+                }
+                if raw
+                    && structural
+                    && Instant::now() < deadline
+                    && self.session.structural_fresh(self.now())
+                {
                     return Ok(());
                 }
             }
         }
-        Err("structural snapshot deadline/queue bound".into())
+        Err(format!(
+            "structural snapshot deadline/queue bound (frames={count} elapsed_ms={} raw={raw} structural={structural} coherent_fresh={})",
+            started.elapsed().as_millis(),
+            self.session.structural_fresh(self.now())
+        ))
     }
     pub(crate) fn refresh_processing(&mut self) -> Result<(), String> {
         self.check_guard()?;
@@ -1271,6 +1348,7 @@ mod structural_pair_tests {
         structural: Vec<u8>,
         replies: VecDeque<Vec<u8>>,
         delayed: bool,
+        delay_ms: u64,
     }
     impl AuthorityConnection for Staggered {
         fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
@@ -1283,8 +1361,8 @@ mod structural_pair_tests {
             Ok(())
         }
         fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
-            if !self.delayed {
-                std::thread::sleep(Duration::from_millis(5));
+            if !self.delayed && self.replies.len() == 1 {
+                std::thread::sleep(Duration::from_millis(self.delay_ms));
                 self.delayed = true;
             }
             Ok(self.replies.pop_front())
@@ -1316,24 +1394,41 @@ mod structural_pair_tests {
             .unwrap();
         raw["snapshot"]["frame"] = "48".into();
         raw["snapshot"]["clock"]["next_frame"] = 48.into();
-        let mut operator = Operator::from_document_connection(
-            Box::new(Staggered {
-                raw: serde_json::to_vec(&raw).unwrap(),
-                structural: serde_json::to_vec(&structural).unwrap(),
-                replies: VecDeque::new(),
-                delayed: false,
-            }),
-            &initial.authority.show_id,
-            1,
-            "paired-structure",
-            "pa_configuration",
-            2,
-        )
-        .unwrap();
-        operator.session.ingest_snapshot(initial, 0).unwrap();
-        operator.start = Instant::now() - Duration::from_millis(249);
-        operator.refresh_structural().unwrap();
-        assert!(operator.session.structural_fresh(operator.now()));
-        assert_eq!(operator.session.snapshot.as_ref().unwrap().frame, "48");
+        for delay_ms in [5, 260] {
+            let mut operator = Operator::from_document_connection(
+                Box::new(Staggered {
+                    raw: serde_json::to_vec(&raw).unwrap(),
+                    structural: serde_json::to_vec(&structural).unwrap(),
+                    replies: VecDeque::new(),
+                    delayed: false,
+                    delay_ms,
+                }),
+                &initial.authority.show_id,
+                1,
+                "paired-structure",
+                "pa_configuration",
+                2,
+            )
+            .unwrap();
+            operator
+                .session
+                .ingest_snapshot(initial.clone(), 0)
+                .unwrap();
+            operator.start = Instant::now() - Duration::from_millis(249);
+            let result = operator.refresh_structural();
+            if delay_ms == 5 {
+                result.unwrap();
+                assert!(operator.session.structural_fresh(operator.now()));
+                assert_eq!(operator.session.snapshot.as_ref().unwrap().frame, "48");
+            } else {
+                assert!(result.unwrap_err().contains("deadline/queue bound"));
+                assert!(!operator.session.structural_fresh(operator.now()));
+                operator
+                    .session
+                    .ingest_snapshot(initial.clone(), operator.now())
+                    .unwrap();
+                assert!(!operator.session.structural_fresh(operator.now()));
+            }
+        }
     }
 }
