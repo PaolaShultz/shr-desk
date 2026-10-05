@@ -404,7 +404,7 @@ impl ApplicationHandler for App {
 }
 fn key_name(key: &Key) -> Option<String> {
     Some(match key {
-        Key::Character(s) => s.to_uppercase(),
+        Key::Character(s) => s.to_string(),
         Key::Named(k) => match k {
             NamedKey::ArrowLeft => "Left",
             NamedKey::ArrowRight => "Right",
@@ -418,6 +418,7 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::Escape => "Esc",
             NamedKey::F1 => "F1",
             NamedKey::F2 => "F2",
+            NamedKey::F3 => "F3",
             NamedKey::F4 => "F4",
             NamedKey::F5 => "F5",
             NamedKey::F8 => "F8",

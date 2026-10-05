@@ -641,6 +641,8 @@ pub struct Session {
     pub structural: Option<crate::structure::Snapshot>,
     pub structural_final: Option<crate::structure::Reply>,
     structural_receipt: Option<u64>,
+    // Bounded fingerprints of strictly validated replies in this connection only.
+    structural_replies: std::collections::VecDeque<[u8; 32]>,
     /// Last correlated successful final, retained independently of polling snapshots.
     pub processing_final: Option<crate::processing::Reply>,
     lease: Option<Lease>,
@@ -685,6 +687,7 @@ impl Session {
             structural: None,
             structural_final: None,
             structural_receipt: None,
+            structural_replies: std::collections::VecDeque::new(),
             processing_final: None,
             lease: None,
             pending: None,
@@ -772,6 +775,7 @@ impl Session {
         self.receipt = None;
         self.processing_receipt = None;
         self.structural_receipt = None;
+        self.structural_replies.clear();
         self.processing_final = None;
         self.needs_snapshot = true;
         self.context_changed();
@@ -857,6 +861,35 @@ impl Session {
                 })
             })
     }
+    /// Dispatch only the current transaction or an exact previously validated reply.
+    /// Cached replies are not observations and cannot renew any receipt timestamp.
+    pub fn dispatch_structural(
+        &mut self,
+        reply: crate::structure::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&reply).map_err(|e| e.to_string())?;
+        let reply = crate::structure::decode_reply(&bytes)?;
+        let fingerprint: [u8; 32] = Sha256::digest(&bytes).into();
+        if self.pending.as_ref().is_some_and(|p| {
+            crate::structure::is_kind(&p.request.kind) && p.request.context == reply.context
+        }) {
+            self.accept_structural(reply, now)?;
+            if !self.structural_replies.contains(&fingerprint) {
+                // Two replies per transaction, matching the producer's 64-request history.
+                if self.structural_replies.len() == 128 {
+                    self.structural_replies.pop_front();
+                }
+                self.structural_replies.push_back(fingerprint);
+            }
+            Ok(())
+        } else if self.structural_replies.contains(&fingerprint) {
+            Ok(())
+        } else {
+            fail("unknown or mismatched structural reply")
+        }
+    }
     pub fn accept_structural(
         &mut self,
         reply: crate::structure::Reply,
@@ -898,6 +931,9 @@ impl Session {
         }
         if let Some(snapshot) = reply.snapshot.clone() {
             self.ingest_structural(snapshot, now)?;
+        } else {
+            // Boundary completion confirms the transaction, not a fresh readback.
+            self.structural_receipt = None;
         }
         self.structural_final = Some(reply.clone());
         self.last_result = match reply.reason {
@@ -1546,5 +1582,199 @@ mod actual_refusal_test {
         assert!(s.retry(2102).is_none());
         s.ingest_snapshot(snapshot, 2102).unwrap();
         assert!(s.fresh(2102));
+    }
+}
+
+#[cfg(test)]
+mod structural_reply_tests {
+    use super::*;
+
+    #[test]
+    fn completed_structural_duplicates_do_not_refresh_or_complete_new_commands() {
+        let snapshot = crate::structure::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp14/v1/structure-16.json"
+        ))
+        .unwrap();
+        let mut session = Session::new_version(
+            &snapshot.show_id,
+            snapshot.epoch.parse().unwrap(),
+            "duplicate-test",
+            "pa_configuration",
+            2,
+        )
+        .unwrap();
+        let mut request = session.structural_request();
+        request.kind = "output_mute".into();
+        request.context.writer = Some("duplicate-test".into());
+        request.context.lease = Some("1".into());
+        request.context.request_id = Some("1".into());
+        request.context.expected_revision = Some(snapshot.revision.clone());
+        let pending = Pending {
+            request: request.clone(),
+            first_send: 0,
+            state: PendingState::Sent,
+            ticket: None,
+            timing: None,
+            observed_frame: 0,
+            retry: 0,
+        };
+        session.pending = Some(pending.clone());
+        let reply = crate::structure::Reply {
+            contract: "GP14-structure".into(),
+            version: 1,
+            context: request.context.clone(),
+            state: "pending".into(),
+            reason: None,
+            effective_frame: None,
+            revision: snapshot.revision.clone(),
+            snapshot: None,
+        };
+        session.dispatch_structural(reply.clone(), 1).unwrap();
+        let mut final_reply = reply.clone();
+        final_reply.state = "final".into();
+        final_reply.revision = (snapshot.revision.parse::<u64>().unwrap() + 1).to_string();
+        final_reply.effective_frame = Some("480".into());
+        let mut final_snapshot = snapshot;
+        final_snapshot.revision = final_reply.revision.clone();
+        final_reply.snapshot = Some(final_snapshot);
+        session.dispatch_structural(final_reply.clone(), 2).unwrap();
+        assert!(session.pending.is_none());
+        for now in [20, 300] {
+            session.dispatch_structural(reply.clone(), now).unwrap();
+            session
+                .dispatch_structural(final_reply.clone(), now)
+                .unwrap();
+            assert_eq!(session.structural_receipt, Some(2));
+        }
+        let mut next = pending;
+        next.request.context.request_id = Some("2".into());
+        session.pending = Some(next);
+        session.dispatch_structural(reply.clone(), 301).unwrap();
+        session
+            .dispatch_structural(final_reply.clone(), 302)
+            .unwrap();
+        assert_eq!(
+            session
+                .pending
+                .as_ref()
+                .unwrap()
+                .request
+                .context
+                .request_id
+                .as_deref(),
+            Some("2")
+        );
+        assert_eq!(session.structural_receipt, Some(2));
+        let mut wrong = final_reply.clone();
+        wrong.context.writer = Some("unknown-writer".into());
+        assert!(session.dispatch_structural(wrong, 303).is_err());
+        let mut fresh = final_reply.clone();
+        fresh.context.request_id = Some("3".into());
+        assert!(session.dispatch_structural(fresh, 304).is_err());
+        let mut changed = final_reply.clone();
+        changed.effective_frame = Some("528".into());
+        assert!(session.dispatch_structural(changed, 305).is_err());
+        session.disconnect();
+        assert!(session.dispatch_structural(final_reply, 306).is_err());
+    }
+}
+
+#[cfg(test)]
+mod actual_structural_exchange_tests {
+    use super::*;
+    #[test]
+    fn every_actual_structural_reply_correlates_without_invented_final_readback() {
+        for count in [16, 32, 48] {
+            let path = format!(
+                "{}/tests/fixtures/gp14/final/structure-replies-{count}.json",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let corpus: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            let mut session = None;
+            let mut old_final: Option<crate::structure::Reply> = None;
+            for exchange in corpus["exchanges"].as_array().unwrap() {
+                let reply = crate::structure::decode_reply(
+                    &serde_json::to_vec(&exchange["reply"]).unwrap(),
+                )
+                .unwrap();
+                let epoch = reply.context.epoch.parse::<u64>().unwrap();
+                if session.as_ref().is_none_or(|s: &Session| s.epoch != epoch) {
+                    session = Some(
+                        Session::new_version(
+                            &reply.context.show_id,
+                            epoch,
+                            "corpus-correlation",
+                            "pa_configuration",
+                            2,
+                        )
+                        .unwrap(),
+                    );
+                    old_final = None;
+                }
+                let session = session.as_mut().unwrap();
+                if reply.state == "snapshot" {
+                    session
+                        .ingest_structural(reply.snapshot.clone().unwrap(), 0)
+                        .unwrap();
+                    for field in ["writer", "lease", "request_id", "expected_revision"] {
+                        let mut bad = exchange["reply"].clone();
+                        bad["context"][field] = "1".into();
+                        assert!(
+                            crate::structure::decode_reply(&serde_json::to_vec(&bad).unwrap())
+                                .is_err()
+                        );
+                    }
+                    for (field, value) in [
+                        ("reason", json!("bad")),
+                        ("effective_frame", json!("48")),
+                        ("snapshot", Value::Null),
+                        ("state", json!("unknown")),
+                    ] {
+                        let mut bad = exchange["reply"].clone();
+                        bad[field] = value;
+                        assert!(
+                            crate::structure::decode_reply(&serde_json::to_vec(&bad).unwrap())
+                                .is_err()
+                        );
+                    }
+                    continue;
+                }
+                if session.pending.is_none() {
+                    session.pending = Some(Pending {
+                        request: Request {
+                            version: 2,
+                            context: reply.context.clone(),
+                            kind: exchange["request"]["kind"].as_str().unwrap().into(),
+                            body: exchange["request"]["body"].clone(),
+                        },
+                        first_send: 0,
+                        state: PendingState::Sent,
+                        ticket: None,
+                        timing: None,
+                        observed_frame: 0,
+                        retry: 0,
+                    });
+                }
+                if let Some(old) = &old_final {
+                    session.dispatch_structural(old.clone(), 300).unwrap();
+                    assert_eq!(
+                        session.pending.as_ref().unwrap().request.context,
+                        reply.context
+                    );
+                }
+                session.dispatch_structural(reply.clone(), 1).unwrap();
+                if reply.state == "final" {
+                    assert!(
+                        reply.snapshot.is_none(),
+                        "actual producer sends boundary metadata, followed by explicit readback"
+                    );
+                    assert!(session.structural_receipt.is_none());
+                    assert!(session.pending.is_none());
+                    session.dispatch_structural(reply.clone(), 400).unwrap();
+                    assert!(session.structural_receipt.is_none());
+                    old_final = Some(reply);
+                }
+            }
+        }
     }
 }

@@ -333,21 +333,44 @@ The existing real provider/session/frontend now has explicit successor version
 selection, dynamic input/coefficient/processing inventory, exact additional monitor
 scope serialization, stable-ID selection and complete partial-bank navigation.
 F7 presents paginated physical patch and common-clock/resource metadata; unknown
-physical lock/mapping stays unknown. F9 edits detached PA numeric/boolean owner
-fields or advertised output routes; Apply/review/confirm and separate mute/rearm
-use the same authority session with PA/route-specific grants. General PA topology
-and enum editing remains outside the numeric field editor.
+physical lock/mapping stays unknown. F9 edits detached PA owner JSON (including enums, route objects/arrays, null and
+program bus maps), full explicit document imports, or advertised output routes; Apply/review/confirm and separate mute/rearm
+use the same authority session with PA/route-specific grants. The actual owner remains responsible for topology/DSP admission; every replacement
+uses complete paged review and explicit confirmation.
 
 The authenticated QUIC connection and bounded immutable-document assembler are
 implemented in source. No peer grant, freshness or pending/retry authority is moved
 out of the existing Session. Old accepted corpora remain unchanged. Actual supplied
 16/17/32/48 final producer profiles and actual structural snapshots are retained
 with SHA256 provenance in tests/fixtures/gp14/v1 and pass normal decoder tests.
-The current focused codec/segmentation suite passes five tests; five real-provider
-drivers remain opt-in and unexecuted for this checkpoint. Full default/native
-suites passed before the final structural-close retention fix; both warnings-denied
-Clippy feature sets passed afterward. Final full-suite reruns, releases and actual
-integrated driver/sample acceptance remain required.
+The continuation corrects cached structural reply correlation and remote outer-
+envelope reassembly, including the complete-document handoff to the shared Operator.
+Regression coverage uses actual producer pages, preserves exact frame/whole-document
+hashes, and checks duplicate replies without freshness renewal. Reviewed PA imports
+refuse symlinks/FIFOs and preserve JSON case across batched native input events.
+The refreshed final reference corpus is retained separately in `gp14/final`; it
+preserves MAIN L/R versus LINE 3–10 labels and unassigned physical outputs.
+
+Before the final paired structural-refresh correction, the complete suites pass
+**135 default tests** and **137 native tests**, each with eight explicit integrations
+ignored. Native validation selects the inspected CPU lavapipe ICD without display
+variables. A first parallel run hit the unchanged 250 ms module-health deadline;
+the focused rerun and complete serial runs pass without relaxing that assertion.
+
+Three reserved provider runs exposed real integration failures: remote outer-page
+handling, the structural `snapshot` reply state, and an unrequested raw observation
+needed by structural freshness. They are retained failures, not acceptance. The
+consumer now requests raw and structural observations under one absolute 250 ms
+budget, requires both accepted observations and matching revision/topology, and
+retains operation errors separately from later health-poll status. Successful finals
+without readback require a fresh query; map changes require explicit reconnect.
+Actual complete snapshot/pending/final/refusal corpora cover 16/32/48 profiles.
+
+The latest correction still requires complete matching suite reruns, both Clippy
+feature sets and both release builds. Actual weighted-PA/physical-route/high-channel
+operator and independent sample acceptance also remain pending with the coordinator.
+The current local continuation is a partial handoff, not task0014 completion.
+
 
 | Requirement | Consumer location | Remaining acceptance |
 |---|---|---|

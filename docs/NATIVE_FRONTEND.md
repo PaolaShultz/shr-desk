@@ -299,16 +299,27 @@ and use the exact external enum object for additional monitors.
 
 For `pa_configuration` or `output_routes`, G requests the separate configured
 scope. F9 opens a detached editor from fresh structural readback. PA fields show
-owner JSON paths and values; U/I select numeric/boolean fields, J/K adjust one
-owner unit or toggle, and decimal entry plus Enter sets a local field. This does
+owner JSON paths and values; U/I select fields (including source objects, enum
+strings, arrays and null), J/K adjust one numeric owner unit or toggle, and decimal
+entry plus Enter sets a local field. F3 enters case-preserving JSON text for the
+selected field: for example `{"input":1}`, `null`, or an owner enum string in
+quotes. Enter accepts the local JSON; Esc cancels text entry. F3 also accepts
+`@/absolute/path.json` to import a complete detached PA document with exactly
+`configuration` (the owner JSON object) and `program_buses` (the ordered bus array).
+The file must be regular (final symlinks and FIFO/device paths are refused), is
+read only on this explicit action, and is bounded to the existing 48 KiB
+command budget. `Action::StructureImport` provides the same semantic controller
+path. Arrays and objects can be replaced to express weighted routes and topology;
+the actual PA owner validates supported enums, dimensions, sums, cycles and ranges. This does
 not perform DSP or advertise unavailable owner controls. Output-route fields cycle
 explicit advertised sources for each physical output with J/K, including unassigned
 silence. F4 opens the complete paged protected review; Enter confirms only after
 every page was presented. Esc discards. Z requests reviewed output mute; X requests
 reviewed explicit rearm under PA authority. Structural prepare requires confirmed
 quiescence; no automatic unmute follows patch/configuration/reconnect.
-General PA topology/enum editing is not yet provided by this numeric-field editor;
-full owner documents remain accepted only through the typed reviewed API.
+All imported fields remain unsent until F4 and complete paged review/confirmation.
+Preview rows abbreviate long values; the review contains the full replacement
+document and bus map. Import does not grant authority, prepare DSP or rearm outputs.
 
 `local_audio::AuthorityConnection` carries framed bytes while Operator/Session
 retain leases, freshness, one pending request, retries and no-replay recovery.
@@ -329,11 +340,20 @@ legacy Unix health observer. UI timing never advances the audio clock.
 
 The normal suite includes legacy compatibility, scope, bank/context and immutable
 framing regressions. `gp14_supplied_producer_documents` consumes root-supplied
-profile files through `GP14_CORPUS`; draft delivery is not frozen acceptance.
+profile files through `GP14_CORPUS`; the checked-in final corpus is hash-bound to actual producer execution; runtime
+operator/sample acceptance is recorded separately.
 `gp14_high_channel_external_driver` and `gp14_structural_external_driver` are
-explicit ignored actual-provider drivers in `tests/gp07_frontend.rs`, bounded55s.
+explicit ignored actual-provider drivers in `tests/gp07_frontend.rs`, bounded45s internally (use an external55s timeout to retain failure diagnostics).
 They require `GP14_EXTERNAL_ENDPOINT`, `GP14_EPOCH`, optionally
 `GP14_REMOTE_CONFIG`; evidence paths are `GP14_DRIVER_EVIDENCE` and
 `GP14_STRUCTURE_EVIDENCE`. The host owns actual sample/module assertions. These
 drivers are not proof of acceptance until executed against verified artifacts.
+Remote replies reassemble the producer's complete paged Response envelope before
+session-binding validation and payload dispatch; the already assembled payload
+does not pass through the Unix 64 KiB frame gate a second time.
 No normal run opens a physical endpoint/window; two-node runs require reservation.
+
+The structural wire query uses `state: "snapshot"`. Boundary finals may omit the
+snapshot; Desk retains the correlated outcome while treating readback as stale.
+After a map change retires the connection, F5 obtains a fresh map before further
+review or rearm. A final is not a configuration snapshot.

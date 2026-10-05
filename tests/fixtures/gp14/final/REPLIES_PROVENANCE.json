@@ -1,0 +1,20 @@
+{
+  "status": "complete actual LocalAudio structural request/reply exchanges; software only",
+  "files": {
+    "structure-replies-16.json": "fe233a9d03c8a0f98ca0426d1fb4ae32b3b9868350f089d5c4bab62b1410d3fc",
+    "structure-replies-32.json": "2fd408bc2664f684f822d8ddfc7816f8950e0377aeacb59a629f866a6cf88f25",
+    "structure-replies-48.json": "2dfbda0c57669a4915596da17c5d86969d267a3990bc96fd5e0c744ed8e44520"
+  },
+  "source_sha256": {
+    "src/host/pa_v2.rs": "bc16ac16d591929212724bdfd99c2870d5028f269d55ce5e5dcad130c3c1bfd4",
+    "src/local_audio.rs": "fd14acdbc83de46f17a17230c6a29a92c0ff3f76daede6584800d434a6a194bc",
+    "src/mixer.rs": "478423dfe0a1f9e6024ab8a5182e15d3c833a9eeb6c3041e7eacf76b06877b07",
+    "src/mixer_control.rs": "5c9f38e71d3c95c4d056cc8ccb9b73899619970fbd573f342476d7f74058483b",
+    "src/module_graph.rs": "61a38e6a24801aa63847e577253e4afa6d6f922a543280ef6b5dcbf3274296c1",
+    "src/structural_control.rs": "29a33dff49ccbc1197742a53f549fc5bab89b2ec3a53ad1268f84439d4639572",
+    "src/topology.rs": "ebc49db17bbe01bf22995f4b6c833cf8112c87f6092be5150f640fd14abc52b8",
+    "tests/structural_producer.rs": "c7be2d7547a4a2b34b4f41484f9c1bb1c8b78da0284c11551f83c6c63fa73bfb"
+  },
+  "owner_fixture_sha256": "5f46543ce6f0cfeec26e94966513f46dfd665bfc49040f853aace1b0927824e5",
+  "owner_manifest_sha256": "3d5591542ae7b85f622a9346fb143e170724d3f42fc4302b61a862f531fc11e8"
+}

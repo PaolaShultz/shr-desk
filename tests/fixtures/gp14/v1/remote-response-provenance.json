@@ -1,0 +1,10 @@
+{
+  "framed_bytes": 134947,
+  "framed_sha256": "86404b2c4ca603c73f1272c5d43683801e90f276c2941850d215643f0bc868cd",
+  "page_count": 15,
+  "session": "91",
+  "source": "actual EngineAuthority48 snapshot + typed Response::Reply + production snapshot_pages::encode",
+  "whole_bytes": 115459,
+  "whole_sha256": "0e49479181452bcaf80b1b165e2de3cf179545ab042c341a111f759ead13370b",
+  "storage": "Original length-prefixed frames retained privately; page strings preserve exact UTF8 bodies. Reconstruct each 4-byte big-endian length followed by the page bytes to verify framed_sha256."
+}

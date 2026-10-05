@@ -105,3 +105,31 @@ Task0009 [native frontend](NATIVE_FRONTEND.md) consumes that same provider rathe
 than the simulator, with explicit injected GP09 leases and offline software
 recovery checks. These checks do not establish physical audio continuity,
 protection, controller/display performance or remote production authentication.
+
+
+## Task0014 structural consumer correlation and reviewed configuration
+
+The explicit dynamic session consumes C-AUDIO:2 / GP03-rendered:2,
+GP07-processing:3 and GP14-structure:1. Structural mutations share the existing
+writer/lease/request sequence and one pending operation. A reply must match that
+pending context; otherwise only an exact fingerprint of a previously validated
+reply in this connection is ignored. The bounded cache holds 128 reply fingerprints
+(two per producer history entry), clears on disconnect and never renews freshness.
+Unknown, changed or wrong-context replies fail closed. Cached finals cannot finish
+a later command. Snapshot queries remain read-only and independently validated: their wire state is
+`snapshot`, with null mutation context and a required bound snapshot. Successful
+`final` replies may carry only revision/effective-frame metadata; they invalidate
+readback freshness until an explicit query confirms state. The final itself never
+substitutes for a missing configuration/map observation.
+
+PA owner JSON stays opaque to Desk DSP semantics. The detached editor supports
+numeric/boolean values, enum strings, null, source objects, route arrays, program
+bus maps and complete owner-document import. Apply reviews the entire replacement,
+including all weighted routes, before submitting through the actual provider.
+Owner admission remains authoritative; invalid topology does not become confirmed
+state. Output routes use independently advertised physical ports and sources,
+including explicit unassigned silence. Configuration and routes require their own
+scoped grants and confirmed quiescence; rearm is a separate reviewed command.
+Map-generation changes retire the old connection after final delivery, so the
+operator explicitly reconnects for fresh readback and reacquires authority.
+Physical socket/USB assignments and ADAT lock remain unverified observations.

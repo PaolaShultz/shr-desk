@@ -1,0 +1,24 @@
+{
+  "status": "actual final producer bytes; hardware mapping and lock unverified",
+  "files": {
+    "structure-16.json": "fe8226174f0b34678f144b4cd7134e648024a4423422e0b429c6f26b32981904",
+    "structure-32.json": "63e2a50a5511e9845b72fc4ed6854eb882226d40fe9efb16d568e4f66dafbcbd",
+    "structure-48.json": "9eac059a5b0f7ba281e64fe3ff5076b81b6aac6ae82b17f21358ad59e2b63981",
+    "reference-unpatched-6.json": "6eaa088780eb113739a80022159356ff90bf44d97f44b6242d51f80189365a72",
+    "reference-unpatched-8.json": "fbe1ec7e1589ec5a90a501d1feb367e972b928b78e6341be3b23ddaa93a30a15"
+  },
+  "structural_source_sha256": {
+    "src/host/pa_v2.rs": "bc16ac16d591929212724bdfd99c2870d5028f269d55ce5e5dcad130c3c1bfd4",
+    "src/local_audio.rs": "fd14acdbc83de46f17a17230c6a29a92c0ff3f76daede6584800d434a6a194bc",
+    "src/mixer.rs": "478423dfe0a1f9e6024ab8a5182e15d3c833a9eeb6c3041e7eacf76b06877b07",
+    "src/mixer_control.rs": "5c9f38e71d3c95c4d056cc8ccb9b73899619970fbd573f342476d7f74058483b",
+    "src/module_graph.rs": "61a38e6a24801aa63847e577253e4afa6d6f922a543280ef6b5dcbf3274296c1",
+    "src/structural_control.rs": "29a33dff49ccbc1197742a53f549fc5bab89b2ec3a53ad1268f84439d4639572",
+    "src/topology.rs": "ebc49db17bbe01bf22995f4b6c833cf8112c87f6092be5150f640fd14abc52b8",
+    "tests/structural_producer.rs": "8831133b9b7787dbca7d8d7b1821f7770303658f23b951db6222d3c1d86f2891"
+  },
+  "owner_fixture_sha256": "5f46543ce6f0cfeec26e94966513f46dfd665bfc49040f853aace1b0927824e5",
+  "owner_manifest_sha256": "3d5591542ae7b85f622a9346fb143e170724d3f42fc4302b61a862f531fc11e8",
+  "core_profiles": "16/17/32/48 byte-identical to ../v1 profiles; original provenance retained",
+  "generator_provenance": "Actual final hardware-host engine producer corpus generated 2026-10-05T10:09:59.498484+00:00 by freshly compiled modular_engine ignored producer test, passing alongside16normal regressions. All code changes including MAIN/LINE labels and independent bus/socket admission were compiled before execution. Actual authority/process/boundary/render profile16/17/32/48; separately emitted unpatched reference6/8PA topology with12/10monitor inventory. No physical I/O. SHA256SUMS binds exact executable, scoped source and artifacts.\n"
+}

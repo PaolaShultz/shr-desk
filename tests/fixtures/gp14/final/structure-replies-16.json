@@ -1,0 +1,1787 @@
+{
+  "exchanges": [
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP14-structure",
+        "effective_frame": null,
+        "reason": null,
+        "revision": "0",
+        "snapshot": {
+          "clock": {
+            "adat_lock": "unknown",
+            "domain": "single-interface",
+            "epoch": 1,
+            "fault": null,
+            "mapping_verified": false,
+            "next_frame": 0,
+            "sample_rate": 48000,
+            "state": "disarmed"
+          },
+          "epoch": "1",
+          "frame": "0",
+          "outputs_quiesced": true,
+          "pa_capabilities": {
+            "acoustic_protection_available": 0,
+            "max_block": 8192,
+            "max_delay_samples": 8388608,
+            "max_json_bytes": 1048576,
+            "max_nodes": 4096,
+            "max_operations": 65536,
+            "max_ports": 4096,
+            "max_rate": 192000,
+            "measurement_available": 0,
+            "min_block": 1,
+            "min_rate": 8000,
+            "physical_io_owned": 0,
+            "sample_format": 1,
+            "size": 64,
+            "true_peak_available": 0,
+            "version": 2
+          },
+          "pa_configuration_json": "{\n  \"version\": 2,\n  \"sample_rate\": 48000,\n  \"max_block\": 256,\n  \"inputs\": [\n    {\n      \"gain_db\": 0.0,\n      \"delay_ms\": 0.0,\n      \"eq_enabled\": true,\n      \"eq\": [\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        }\n      ],\n      \"geq_enabled\": false,\n      \"geq_db\": [\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0\n      ],\n      \"compressor\": {\n        \"enabled\": false,\n        \"threshold_db\": -18.0,\n        \"ratio\": 4.0,\n        \"knee_db\": 6.0,\n        \"makeup_db\": 0.0,\n        \"attack_ms\": 10.0,\n        \"release_ms\": 100.0\n      }\n    },\n    {\n      \"gain_db\": 0.0,\n      \"delay_ms\": 0.0,\n      \"eq_enabled\": true,\n      \"eq\": [\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        },\n        {\n          \"kind\": \"bell\",\n          \"slope\": 1.0,\n          \"hz\": 1000.0,\n          \"q\": 0.707,\n          \"db\": 0.0\n        }\n      ],\n      \"geq_enabled\": false,\n      \"geq_db\": [\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0,\n        0.0\n      ],\n      \"compressor\": {\n        \"enabled\": false,\n        \"threshold_db\": -18.0,\n        \"ratio\": 4.0,\n        \"knee_db\": 6.0,\n        \"makeup_db\": 0.0,\n        \"attack_ms\": 10.0,\n        \"release_ms\": 100.0\n      }\n    }\n  ],\n  \"nodes\": [],\n  \"outputs\": [\n    {\n      \"source\": {\n        \"input\": 0\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 3,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 1\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 3,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 0\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 2,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 1\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 2,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 0\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 1,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 1\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 1,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 0\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 0,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    },\n    {\n      \"source\": {\n        \"input\": 1\n      },\n      \"splits_hz\": [\n        100.0,\n        600.0,\n        3000.0\n      ],\n      \"band\": 0,\n      \"processing\": {\n        \"eq_enabled\": true,\n        \"gain_db\": 0.0,\n        \"inverted\": false,\n        \"delay_ms\": 0.0,\n        \"eq\": [\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          },\n          {\n            \"kind\": \"bell\",\n            \"slope\": 1.0,\n            \"hz\": 1000.0,\n            \"q\": 0.707,\n            \"db\": 0.0\n          }\n        ],\n        \"limiter_db\": -1.0,\n        \"release_ms\": 100.0\n      },\n      \"muted\": false\n    }\n  ]\n}\n",
+          "pa_program_buses": [
+            0,
+            1
+          ],
+          "pa_status": {
+            "applied_frame": 0,
+            "committed": 1,
+            "epoch": 1,
+            "fault_latched": 0,
+            "generation": 1,
+            "input_channels": 2,
+            "max_block": 256,
+            "muted": 1,
+            "next_frame": 0,
+            "output_channels": 8,
+            "quiesced": 1,
+            "reserved0": 0,
+            "reserved1": 0,
+            "sample_rate": 48000,
+            "size": 80,
+            "version": 2
+          },
+          "revision": "0",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "topology": {
+            "capture_channels": 18,
+            "identity": "umc1820-ada8200-analog-48k-reference",
+            "inputs": [
+              {
+                "capture_slot": 0,
+                "id": "input-01",
+                "physical_port": "umc1820-analog-in-1"
+              },
+              {
+                "capture_slot": 1,
+                "id": "input-02",
+                "physical_port": "umc1820-analog-in-2"
+              },
+              {
+                "capture_slot": 2,
+                "id": "input-03",
+                "physical_port": "umc1820-analog-in-3"
+              },
+              {
+                "capture_slot": 3,
+                "id": "input-04",
+                "physical_port": "umc1820-analog-in-4"
+              },
+              {
+                "capture_slot": 4,
+                "id": "input-05",
+                "physical_port": "umc1820-analog-in-5"
+              },
+              {
+                "capture_slot": 5,
+                "id": "input-06",
+                "physical_port": "umc1820-analog-in-6"
+              },
+              {
+                "capture_slot": 6,
+                "id": "input-07",
+                "physical_port": "umc1820-analog-in-7"
+              },
+              {
+                "capture_slot": 7,
+                "id": "input-08",
+                "physical_port": "umc1820-analog-in-8"
+              },
+              {
+                "capture_slot": 10,
+                "id": "input-09",
+                "physical_port": "ada8200-analog-in-1"
+              },
+              {
+                "capture_slot": 11,
+                "id": "input-10",
+                "physical_port": "ada8200-analog-in-2"
+              },
+              {
+                "capture_slot": 12,
+                "id": "input-11",
+                "physical_port": "ada8200-analog-in-3"
+              },
+              {
+                "capture_slot": 13,
+                "id": "input-12",
+                "physical_port": "ada8200-analog-in-4"
+              },
+              {
+                "capture_slot": 14,
+                "id": "input-13",
+                "physical_port": "ada8200-analog-in-5"
+              },
+              {
+                "capture_slot": 15,
+                "id": "input-14",
+                "physical_port": "ada8200-analog-in-6"
+              },
+              {
+                "capture_slot": 16,
+                "id": "input-15",
+                "physical_port": "ada8200-analog-in-7"
+              },
+              {
+                "capture_slot": 17,
+                "id": "input-16",
+                "physical_port": "ada8200-analog-in-8"
+              }
+            ],
+            "map_revision": 1,
+            "mapping_evidence": "manufacturer-reference-unverified",
+            "max_block_frames": 4096,
+            "measurement_slots": [],
+            "monitors": 5,
+            "outputs": [
+              {
+                "id": "analog-out-01",
+                "physical_port": "umc1820-main-out-left",
+                "playback_slot": 0,
+                "source": {
+                  "index": 0,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-02",
+                "physical_port": "umc1820-main-out-right",
+                "playback_slot": 1,
+                "source": {
+                  "index": 1,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-03",
+                "physical_port": "umc1820-line-out-3",
+                "playback_slot": 2,
+                "source": {
+                  "index": 2,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-04",
+                "physical_port": "umc1820-line-out-4",
+                "playback_slot": 3,
+                "source": {
+                  "index": 3,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-05",
+                "physical_port": "umc1820-line-out-5",
+                "playback_slot": 4,
+                "source": {
+                  "index": 4,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-06",
+                "physical_port": "umc1820-line-out-6",
+                "playback_slot": 5,
+                "source": {
+                  "index": 5,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-07",
+                "physical_port": "umc1820-line-out-7",
+                "playback_slot": 6,
+                "source": {
+                  "index": 6,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-08",
+                "physical_port": "umc1820-line-out-8",
+                "playback_slot": 7,
+                "source": {
+                  "index": 7,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-09",
+                "physical_port": "umc1820-line-out-9",
+                "playback_slot": 8,
+                "source": null
+              },
+              {
+                "id": "analog-out-10",
+                "physical_port": "umc1820-line-out-10",
+                "playback_slot": 9,
+                "source": null
+              },
+              {
+                "id": "analog-out-11",
+                "physical_port": "ada8200-analog-out-1",
+                "playback_slot": 12,
+                "source": null
+              },
+              {
+                "id": "analog-out-12",
+                "physical_port": "ada8200-analog-out-2",
+                "playback_slot": 13,
+                "source": null
+              },
+              {
+                "id": "analog-out-13",
+                "physical_port": "ada8200-analog-out-3",
+                "playback_slot": 14,
+                "source": null
+              },
+              {
+                "id": "analog-out-14",
+                "physical_port": "ada8200-analog-out-4",
+                "playback_slot": 15,
+                "source": null
+              },
+              {
+                "id": "analog-out-15",
+                "physical_port": "ada8200-analog-out-5",
+                "playback_slot": 16,
+                "source": null
+              },
+              {
+                "id": "analog-out-16",
+                "physical_port": "ada8200-analog-out-6",
+                "playback_slot": 17,
+                "source": null
+              },
+              {
+                "id": "analog-out-17",
+                "physical_port": "ada8200-analog-out-7",
+                "playback_slot": 18,
+                "source": null
+              },
+              {
+                "id": "analog-out-18",
+                "physical_port": "ada8200-analog-out-8",
+                "playback_slot": 19,
+                "source": null
+              }
+            ],
+            "pa_outputs": 8,
+            "playback_channels": 20,
+            "sample_rate": 48000
+          }
+        },
+        "state": "snapshot",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "structural_snapshot",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "48",
+        "reason": null,
+        "revision": "0",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "0",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "48",
+        "reason": null,
+        "revision": "1",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "0",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "1",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "720",
+        "reason": null,
+        "revision": "1",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "1",
+        "kind": "output_mute",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "3",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "1",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "720",
+        "reason": null,
+        "revision": "2",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "1",
+        "kind": "output_mute",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "3",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "2",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "4",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "1392",
+        "reason": null,
+        "revision": "2",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]}],\"sample_rate\":48000,\"version\":2}",
+          "program_buses": [
+            2,
+            3
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "2",
+        "kind": "pa_set",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "4",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "2",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "4",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "1392",
+        "reason": null,
+        "revision": "3",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]}],\"sample_rate\":48000,\"version\":2}",
+          "program_buses": [
+            2,
+            3
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "2",
+        "kind": "pa_set",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "4",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "3",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "5",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "1536",
+        "reason": null,
+        "revision": "3",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "3",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "5",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "3",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "5",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "1536",
+        "reason": null,
+        "revision": "4",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "3",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "5",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "4",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "6",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "2208",
+        "reason": null,
+        "revision": "4",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "4",
+        "kind": "output_mute",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "6",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "4",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "6",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "2208",
+        "reason": null,
+        "revision": "5",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "4",
+        "kind": "output_mute",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "6",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "5",
+          "lease": "2",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "route-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "2880",
+        "reason": null,
+        "revision": "5",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "outputs": [
+            {
+              "id": "analog-out-01",
+              "physical_port": "umc1820-main-out-left",
+              "playback_slot": 0,
+              "source": {
+                "index": 1,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-02",
+              "physical_port": "umc1820-main-out-right",
+              "playback_slot": 1,
+              "source": {
+                "index": 0,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-03",
+              "physical_port": "umc1820-line-out-3",
+              "playback_slot": 2,
+              "source": {
+                "index": 2,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-04",
+              "physical_port": "umc1820-line-out-4",
+              "playback_slot": 3,
+              "source": {
+                "index": 3,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-05",
+              "physical_port": "umc1820-line-out-5",
+              "playback_slot": 4,
+              "source": {
+                "index": 4,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-06",
+              "physical_port": "umc1820-line-out-6",
+              "playback_slot": 5,
+              "source": {
+                "index": 5,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-07",
+              "physical_port": "umc1820-line-out-7",
+              "playback_slot": 6,
+              "source": {
+                "index": 6,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-08",
+              "physical_port": "umc1820-line-out-8",
+              "playback_slot": 7,
+              "source": {
+                "index": 7,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-09",
+              "physical_port": "umc1820-line-out-9",
+              "playback_slot": 8,
+              "source": null
+            },
+            {
+              "id": "analog-out-10",
+              "physical_port": "umc1820-line-out-10",
+              "playback_slot": 9,
+              "source": null
+            },
+            {
+              "id": "analog-out-11",
+              "physical_port": "ada8200-analog-out-1",
+              "playback_slot": 12,
+              "source": null
+            },
+            {
+              "id": "analog-out-12",
+              "physical_port": "ada8200-analog-out-2",
+              "playback_slot": 13,
+              "source": null
+            },
+            {
+              "id": "analog-out-13",
+              "physical_port": "ada8200-analog-out-3",
+              "playback_slot": 14,
+              "source": null
+            },
+            {
+              "id": "analog-out-14",
+              "physical_port": "ada8200-analog-out-4",
+              "playback_slot": 15,
+              "source": null
+            },
+            {
+              "id": "analog-out-15",
+              "physical_port": "ada8200-analog-out-5",
+              "playback_slot": 16,
+              "source": null
+            },
+            {
+              "id": "analog-out-16",
+              "physical_port": "ada8200-analog-out-6",
+              "playback_slot": 17,
+              "source": null
+            },
+            {
+              "id": "analog-out-17",
+              "physical_port": "ada8200-analog-out-7",
+              "playback_slot": 18,
+              "source": null
+            },
+            {
+              "id": "analog-out-18",
+              "physical_port": "ada8200-analog-out-8",
+              "playback_slot": 19,
+              "source": null
+            }
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "5",
+        "kind": "output_patch",
+        "lease": "2",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "route-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "5",
+          "lease": "2",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "route-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "2880",
+        "reason": null,
+        "revision": "6",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "outputs": [
+            {
+              "id": "analog-out-01",
+              "physical_port": "umc1820-main-out-left",
+              "playback_slot": 0,
+              "source": {
+                "index": 1,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-02",
+              "physical_port": "umc1820-main-out-right",
+              "playback_slot": 1,
+              "source": {
+                "index": 0,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-03",
+              "physical_port": "umc1820-line-out-3",
+              "playback_slot": 2,
+              "source": {
+                "index": 2,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-04",
+              "physical_port": "umc1820-line-out-4",
+              "playback_slot": 3,
+              "source": {
+                "index": 3,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-05",
+              "physical_port": "umc1820-line-out-5",
+              "playback_slot": 4,
+              "source": {
+                "index": 4,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-06",
+              "physical_port": "umc1820-line-out-6",
+              "playback_slot": 5,
+              "source": {
+                "index": 5,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-07",
+              "physical_port": "umc1820-line-out-7",
+              "playback_slot": 6,
+              "source": {
+                "index": 6,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-08",
+              "physical_port": "umc1820-line-out-8",
+              "playback_slot": 7,
+              "source": {
+                "index": 7,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-09",
+              "physical_port": "umc1820-line-out-9",
+              "playback_slot": 8,
+              "source": null
+            },
+            {
+              "id": "analog-out-10",
+              "physical_port": "umc1820-line-out-10",
+              "playback_slot": 9,
+              "source": null
+            },
+            {
+              "id": "analog-out-11",
+              "physical_port": "ada8200-analog-out-1",
+              "playback_slot": 12,
+              "source": null
+            },
+            {
+              "id": "analog-out-12",
+              "physical_port": "ada8200-analog-out-2",
+              "playback_slot": 13,
+              "source": null
+            },
+            {
+              "id": "analog-out-13",
+              "physical_port": "ada8200-analog-out-3",
+              "playback_slot": 14,
+              "source": null
+            },
+            {
+              "id": "analog-out-14",
+              "physical_port": "ada8200-analog-out-4",
+              "playback_slot": 15,
+              "source": null
+            },
+            {
+              "id": "analog-out-15",
+              "physical_port": "ada8200-analog-out-5",
+              "playback_slot": 16,
+              "source": null
+            },
+            {
+              "id": "analog-out-16",
+              "physical_port": "ada8200-analog-out-6",
+              "playback_slot": 17,
+              "source": null
+            },
+            {
+              "id": "analog-out-17",
+              "physical_port": "ada8200-analog-out-7",
+              "playback_slot": 18,
+              "source": null
+            },
+            {
+              "id": "analog-out-18",
+              "physical_port": "ada8200-analog-out-8",
+              "playback_slot": 19,
+              "source": null
+            }
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "5",
+        "kind": "output_patch",
+        "lease": "2",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "route-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "2",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "route-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "2976",
+        "reason": null,
+        "revision": "6",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "outputs": [
+            {
+              "id": "analog-out-01",
+              "physical_port": "umc1820-main-out-left",
+              "playback_slot": 0,
+              "source": {
+                "index": 1,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-02",
+              "physical_port": "umc1820-main-out-right",
+              "playback_slot": 0,
+              "source": {
+                "index": 0,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-03",
+              "physical_port": "umc1820-line-out-3",
+              "playback_slot": 2,
+              "source": {
+                "index": 2,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-04",
+              "physical_port": "umc1820-line-out-4",
+              "playback_slot": 3,
+              "source": {
+                "index": 3,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-05",
+              "physical_port": "umc1820-line-out-5",
+              "playback_slot": 4,
+              "source": {
+                "index": 4,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-06",
+              "physical_port": "umc1820-line-out-6",
+              "playback_slot": 5,
+              "source": {
+                "index": 5,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-07",
+              "physical_port": "umc1820-line-out-7",
+              "playback_slot": 6,
+              "source": {
+                "index": 6,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-08",
+              "physical_port": "umc1820-line-out-8",
+              "playback_slot": 7,
+              "source": {
+                "index": 7,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-09",
+              "physical_port": "umc1820-line-out-9",
+              "playback_slot": 8,
+              "source": null
+            },
+            {
+              "id": "analog-out-10",
+              "physical_port": "umc1820-line-out-10",
+              "playback_slot": 9,
+              "source": null
+            },
+            {
+              "id": "analog-out-11",
+              "physical_port": "ada8200-analog-out-1",
+              "playback_slot": 12,
+              "source": null
+            },
+            {
+              "id": "analog-out-12",
+              "physical_port": "ada8200-analog-out-2",
+              "playback_slot": 13,
+              "source": null
+            },
+            {
+              "id": "analog-out-13",
+              "physical_port": "ada8200-analog-out-3",
+              "playback_slot": 14,
+              "source": null
+            },
+            {
+              "id": "analog-out-14",
+              "physical_port": "ada8200-analog-out-4",
+              "playback_slot": 15,
+              "source": null
+            },
+            {
+              "id": "analog-out-15",
+              "physical_port": "ada8200-analog-out-5",
+              "playback_slot": 16,
+              "source": null
+            },
+            {
+              "id": "analog-out-16",
+              "physical_port": "ada8200-analog-out-6",
+              "playback_slot": 17,
+              "source": null
+            },
+            {
+              "id": "analog-out-17",
+              "physical_port": "ada8200-analog-out-7",
+              "playback_slot": 18,
+              "source": null
+            },
+            {
+              "id": "analog-out-18",
+              "physical_port": "ada8200-analog-out-8",
+              "playback_slot": 19,
+              "source": null
+            }
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "6",
+        "kind": "output_patch",
+        "lease": "2",
+        "module": "audio",
+        "request_id": "3",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "route-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "2",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "route-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": null,
+        "reason": "physical remap requires reviewed topology reopen",
+        "revision": "6",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "outputs": [
+            {
+              "id": "analog-out-01",
+              "physical_port": "umc1820-main-out-left",
+              "playback_slot": 0,
+              "source": {
+                "index": 1,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-02",
+              "physical_port": "umc1820-main-out-right",
+              "playback_slot": 0,
+              "source": {
+                "index": 0,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-03",
+              "physical_port": "umc1820-line-out-3",
+              "playback_slot": 2,
+              "source": {
+                "index": 2,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-04",
+              "physical_port": "umc1820-line-out-4",
+              "playback_slot": 3,
+              "source": {
+                "index": 3,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-05",
+              "physical_port": "umc1820-line-out-5",
+              "playback_slot": 4,
+              "source": {
+                "index": 4,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-06",
+              "physical_port": "umc1820-line-out-6",
+              "playback_slot": 5,
+              "source": {
+                "index": 5,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-07",
+              "physical_port": "umc1820-line-out-7",
+              "playback_slot": 6,
+              "source": {
+                "index": 6,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-08",
+              "physical_port": "umc1820-line-out-8",
+              "playback_slot": 7,
+              "source": {
+                "index": 7,
+                "kind": "pa"
+              }
+            },
+            {
+              "id": "analog-out-09",
+              "physical_port": "umc1820-line-out-9",
+              "playback_slot": 8,
+              "source": null
+            },
+            {
+              "id": "analog-out-10",
+              "physical_port": "umc1820-line-out-10",
+              "playback_slot": 9,
+              "source": null
+            },
+            {
+              "id": "analog-out-11",
+              "physical_port": "ada8200-analog-out-1",
+              "playback_slot": 12,
+              "source": null
+            },
+            {
+              "id": "analog-out-12",
+              "physical_port": "ada8200-analog-out-2",
+              "playback_slot": 13,
+              "source": null
+            },
+            {
+              "id": "analog-out-13",
+              "physical_port": "ada8200-analog-out-3",
+              "playback_slot": 14,
+              "source": null
+            },
+            {
+              "id": "analog-out-14",
+              "physical_port": "ada8200-analog-out-4",
+              "playback_slot": 15,
+              "source": null
+            },
+            {
+              "id": "analog-out-15",
+              "physical_port": "ada8200-analog-out-5",
+              "playback_slot": 16,
+              "source": null
+            },
+            {
+              "id": "analog-out-16",
+              "physical_port": "ada8200-analog-out-6",
+              "playback_slot": 17,
+              "source": null
+            },
+            {
+              "id": "analog-out-17",
+              "physical_port": "ada8200-analog-out-7",
+              "playback_slot": 18,
+              "source": null
+            },
+            {
+              "id": "analog-out-18",
+              "physical_port": "ada8200-analog-out-8",
+              "playback_slot": 19,
+              "source": null
+            }
+          ]
+        },
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "6",
+        "kind": "output_patch",
+        "lease": "2",
+        "module": "audio",
+        "request_id": "3",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "route-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "7",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "3072",
+        "reason": null,
+        "revision": "6",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "6",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "7",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "7",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "pa-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "3072",
+        "reason": null,
+        "revision": "7",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "1",
+        "expected_revision": "6",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "7",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "pa-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "9",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "recovered-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "96",
+        "reason": null,
+        "revision": "0",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "9",
+        "expected_revision": "0",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "recovered-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "9",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "2",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "recovered-desk"
+        },
+        "contract": "GP14-structure",
+        "effective_frame": "96",
+        "reason": null,
+        "revision": "1",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "9",
+        "expected_revision": "0",
+        "kind": "output_rearm",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "2",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "recovered-desk"
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "9",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP14-structure",
+        "effective_frame": null,
+        "reason": null,
+        "revision": "1",
+        "snapshot": {
+          "clock": {
+            "adat_lock": "unknown",
+            "domain": "single-interface",
+            "epoch": 9,
+            "fault": null,
+            "mapping_verified": false,
+            "next_frame": 720,
+            "sample_rate": 48000,
+            "state": "running"
+          },
+          "epoch": "9",
+          "frame": "720",
+          "outputs_quiesced": false,
+          "pa_capabilities": {
+            "acoustic_protection_available": 0,
+            "max_block": 8192,
+            "max_delay_samples": 8388608,
+            "max_json_bytes": 1048576,
+            "max_nodes": 4096,
+            "max_operations": 65536,
+            "max_ports": 4096,
+            "max_rate": 192000,
+            "measurement_available": 0,
+            "min_block": 1,
+            "min_rate": 8000,
+            "physical_io_owned": 0,
+            "sample_format": 1,
+            "size": 64,
+            "true_peak_available": 0,
+            "version": 2
+          },
+          "pa_configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]}],\"sample_rate\":48000,\"version\":2}",
+          "pa_program_buses": [
+            2,
+            3
+          ],
+          "pa_status": {
+            "applied_frame": 0,
+            "committed": 1,
+            "epoch": 9,
+            "fault_latched": 0,
+            "generation": 1,
+            "input_channels": 2,
+            "max_block": 256,
+            "muted": 0,
+            "next_frame": 720,
+            "output_channels": 8,
+            "quiesced": 0,
+            "reserved0": 0,
+            "reserved1": 0,
+            "sample_rate": 48000,
+            "size": 80,
+            "version": 2
+          },
+          "revision": "1",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "topology": {
+            "capture_channels": 18,
+            "identity": "umc1820-ada8200-analog-48k-reference",
+            "inputs": [
+              {
+                "capture_slot": 0,
+                "id": "input-01",
+                "physical_port": "umc1820-analog-in-1"
+              },
+              {
+                "capture_slot": 1,
+                "id": "input-02",
+                "physical_port": "umc1820-analog-in-2"
+              },
+              {
+                "capture_slot": 2,
+                "id": "input-03",
+                "physical_port": "umc1820-analog-in-3"
+              },
+              {
+                "capture_slot": 3,
+                "id": "input-04",
+                "physical_port": "umc1820-analog-in-4"
+              },
+              {
+                "capture_slot": 4,
+                "id": "input-05",
+                "physical_port": "umc1820-analog-in-5"
+              },
+              {
+                "capture_slot": 5,
+                "id": "input-06",
+                "physical_port": "umc1820-analog-in-6"
+              },
+              {
+                "capture_slot": 6,
+                "id": "input-07",
+                "physical_port": "umc1820-analog-in-7"
+              },
+              {
+                "capture_slot": 7,
+                "id": "input-08",
+                "physical_port": "umc1820-analog-in-8"
+              },
+              {
+                "capture_slot": 10,
+                "id": "input-09",
+                "physical_port": "ada8200-analog-in-1"
+              },
+              {
+                "capture_slot": 11,
+                "id": "input-10",
+                "physical_port": "ada8200-analog-in-2"
+              },
+              {
+                "capture_slot": 12,
+                "id": "input-11",
+                "physical_port": "ada8200-analog-in-3"
+              },
+              {
+                "capture_slot": 13,
+                "id": "input-12",
+                "physical_port": "ada8200-analog-in-4"
+              },
+              {
+                "capture_slot": 14,
+                "id": "input-13",
+                "physical_port": "ada8200-analog-in-5"
+              },
+              {
+                "capture_slot": 15,
+                "id": "input-14",
+                "physical_port": "ada8200-analog-in-6"
+              },
+              {
+                "capture_slot": 16,
+                "id": "input-15",
+                "physical_port": "ada8200-analog-in-7"
+              },
+              {
+                "capture_slot": 17,
+                "id": "input-16",
+                "physical_port": "ada8200-analog-in-8"
+              }
+            ],
+            "map_revision": 3,
+            "mapping_evidence": "manufacturer-reference-unverified",
+            "max_block_frames": 4096,
+            "measurement_slots": [],
+            "monitors": 5,
+            "outputs": [
+              {
+                "id": "analog-out-01",
+                "physical_port": "umc1820-main-out-left",
+                "playback_slot": 0,
+                "source": {
+                  "index": 1,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-02",
+                "physical_port": "umc1820-main-out-right",
+                "playback_slot": 1,
+                "source": {
+                  "index": 0,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-03",
+                "physical_port": "umc1820-line-out-3",
+                "playback_slot": 2,
+                "source": {
+                  "index": 2,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-04",
+                "physical_port": "umc1820-line-out-4",
+                "playback_slot": 3,
+                "source": {
+                  "index": 3,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-05",
+                "physical_port": "umc1820-line-out-5",
+                "playback_slot": 4,
+                "source": {
+                  "index": 4,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-06",
+                "physical_port": "umc1820-line-out-6",
+                "playback_slot": 5,
+                "source": {
+                  "index": 5,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-07",
+                "physical_port": "umc1820-line-out-7",
+                "playback_slot": 6,
+                "source": {
+                  "index": 6,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-08",
+                "physical_port": "umc1820-line-out-8",
+                "playback_slot": 7,
+                "source": {
+                  "index": 7,
+                  "kind": "pa"
+                }
+              },
+              {
+                "id": "analog-out-09",
+                "physical_port": "umc1820-line-out-9",
+                "playback_slot": 8,
+                "source": null
+              },
+              {
+                "id": "analog-out-10",
+                "physical_port": "umc1820-line-out-10",
+                "playback_slot": 9,
+                "source": null
+              },
+              {
+                "id": "analog-out-11",
+                "physical_port": "ada8200-analog-out-1",
+                "playback_slot": 12,
+                "source": null
+              },
+              {
+                "id": "analog-out-12",
+                "physical_port": "ada8200-analog-out-2",
+                "playback_slot": 13,
+                "source": null
+              },
+              {
+                "id": "analog-out-13",
+                "physical_port": "ada8200-analog-out-3",
+                "playback_slot": 14,
+                "source": null
+              },
+              {
+                "id": "analog-out-14",
+                "physical_port": "ada8200-analog-out-4",
+                "playback_slot": 15,
+                "source": null
+              },
+              {
+                "id": "analog-out-15",
+                "physical_port": "ada8200-analog-out-5",
+                "playback_slot": 16,
+                "source": null
+              },
+              {
+                "id": "analog-out-16",
+                "physical_port": "ada8200-analog-out-6",
+                "playback_slot": 17,
+                "source": null
+              },
+              {
+                "id": "analog-out-17",
+                "physical_port": "ada8200-analog-out-7",
+                "playback_slot": 18,
+                "source": null
+              },
+              {
+                "id": "analog-out-18",
+                "physical_port": "ada8200-analog-out-8",
+                "playback_slot": 19,
+                "source": null
+              }
+            ],
+            "pa_outputs": 8,
+            "playback_channels": 20,
+            "sample_rate": 48000
+          }
+        },
+        "state": "snapshot",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP14-structure",
+        "epoch": "9",
+        "expected_revision": null,
+        "kind": "structural_snapshot",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    }
+  ],
+  "inputs": 16
+}

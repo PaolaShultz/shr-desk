@@ -329,6 +329,36 @@ async fn read(
     deadline: Instant,
     available: bool,
 ) -> Result<Option<Response>, String> {
+    let Some(first) = read_frame(receive, deadline, available).await? else {
+        return Ok(None);
+    };
+    // The producer segments the complete remote Response, outside its payload.
+    // Reassemble that immutable envelope before decoding the session binding.
+    let deadline = if available {
+        Instant::now() + Duration::from_millis(200)
+    } else {
+        deadline
+    };
+    let mut assembly = crate::pages::Assembly::default();
+    let mut frame = first;
+    loop {
+        if let Some(bytes) = assembly.offer(frame, Instant::now())? {
+            return decode_response(&bytes).map(Some);
+        }
+        frame = read_frame(receive, deadline, false)
+            .await?
+            .ok_or("remote snapshot assembly deadline")?;
+    }
+}
+fn decode_response(bytes: &[u8]) -> Result<Response, String> {
+    let value = provider::parse_document(bytes)?;
+    serde_json::from_value(value).map_err(|e| e.to_string())
+}
+async fn read_frame(
+    receive: &mut quinn::RecvStream,
+    deadline: Instant,
+    available: bool,
+) -> Result<Option<Vec<u8>>, String> {
     let mut length = [0; 4];
     match tokio::time::timeout_at(deadline.into(), receive.read_exact(&mut length[..1])).await {
         Err(_) => return Ok(None),
@@ -354,11 +384,58 @@ async fn read(
             .read_exact(&mut bytes)
             .await
             .map_err(|e| e.to_string())?;
-        let value = provider::parse(&bytes)?;
-        serde_json::from_value(value)
-            .map(Some)
-            .map_err(|e| e.to_string())
+        Ok(Some(bytes))
     })
     .await
     .map_err(|_| "remote partial frame deadline".to_string())?
+}
+
+#[cfg(test)]
+mod envelope_tests {
+    use super::*;
+    #[test]
+    fn large_actual_producer_reply_decodes_only_after_outer_envelope_reassembly() {
+        let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-pages.json"
+        ))
+        .unwrap();
+        let expected = include_bytes!("../tests/fixtures/gp14/v1/remote-response-whole.json");
+        let manifest: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-provenance.json"
+        ))
+        .unwrap();
+        let mut framed = Vec::new();
+        let mut assembly = crate::pages::Assembly::default();
+        for (index, page) in pages.iter().enumerate() {
+            framed.extend_from_slice(&(page.len() as u32).to_be_bytes());
+            framed.extend_from_slice(page.as_bytes());
+            assert!(decode_response(page.as_bytes()).is_err());
+            let result = assembly
+                .offer(page.as_bytes().to_vec(), Instant::now())
+                .unwrap();
+            if index + 1 == pages.len() {
+                let bytes = result.unwrap();
+                assert_eq!(bytes, expected);
+                let Response::Reply { session, payload } = decode_response(&bytes).unwrap() else {
+                    panic!("reply")
+                };
+                assert_eq!(session, manifest["session"].as_str().unwrap());
+                let snapshot = crate::audio::decode_reply(&serde_json::to_vec(&payload).unwrap())
+                    .unwrap()
+                    .snapshot
+                    .unwrap();
+                assert_eq!(snapshot.authority.inputs.len(), 48);
+            } else {
+                assert!(result.is_none());
+            }
+        }
+        assert_eq!(
+            format!("{:x}", Sha256::digest(&framed)),
+            manifest["framed_sha256"].as_str().unwrap()
+        );
+        assert_eq!(
+            format!("{:x}", Sha256::digest(expected)),
+            manifest["whole_sha256"].as_str().unwrap()
+        );
+    }
 }

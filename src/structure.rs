@@ -104,8 +104,21 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     }
     reply.context.validate()?;
     provider::counter(&reply.revision)?;
-    if reply.context.epoch == "0" || !matches!(reply.state.as_str(), "pending" | "final") {
+    if reply.context.epoch == "0"
+        || !matches!(reply.state.as_str(), "snapshot" | "pending" | "final")
+    {
         return Err("structural context/state".into());
+    }
+    if reply.state == "snapshot"
+        && (reply.context.writer.is_some()
+            || reply.context.lease.is_some()
+            || reply.context.request_id.is_some()
+            || reply.context.expected_revision.is_some()
+            || reply.reason.is_some()
+            || reply.effective_frame.is_some()
+            || reply.snapshot.is_none())
+    {
+        return Err("structural snapshot query shape".into());
     }
     if let Some(frame) = &reply.effective_frame
         && !provider::counter(frame)?.is_multiple_of(48)
@@ -132,9 +145,6 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
         {
             return Err("structural snapshot binding".into());
         }
-    }
-    if reply.state == "final" && reply.reason.is_none() && reply.snapshot.is_none() {
-        return Err("structural final readback required".into());
     }
     Ok(reply)
 }
@@ -195,6 +205,33 @@ pub fn validate_body(kind: &str, body: &Value, snapshot: Option<&Snapshot>) -> R
     }
 }
 
+/// Explicit import from a regular file. Never follow the final symlink or block
+/// opening a FIFO/device, and check the opened descriptor (not a racy path stat).
+pub fn read_import(path: &std::path::Path) -> Result<String, String> {
+    use std::{io::Read, os::unix::fs::OpenOptionsExt};
+    if !path.is_absolute() {
+        return Err("PA import requires an explicit absolute file path".into());
+    }
+    // Use the target ABI constants (O_NOFOLLOW differs between ARM and x86).
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    let metadata = file.metadata().map_err(|e| e.to_string())?;
+    if !metadata.is_file() || metadata.len() > 48 * 1024 {
+        return Err("PA import requires a regular file within 48 KiB".into());
+    }
+    let mut text = String::new();
+    file.take(48 * 1024 + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    if text.len() > 48 * 1024 {
+        return Err("PA import grew beyond 48 KiB".into());
+    }
+    Ok(text)
+}
+
 /// Detached draft. PA numeric/boolean fields retain the owner's names and units;
 /// physical routing selects explicit advertised sources for existing output sockets.
 #[derive(Clone, Debug)]
@@ -225,7 +262,7 @@ impl Draft {
                 (0..snapshot.topology.outputs.len()).map(|n| format!("/outputs/{n}/source")),
             );
         } else {
-            numeric_fields(&document, "", &mut fields);
+            editable_fields(&document, "", &mut fields);
         }
         if fields.is_empty() {
             return Err("no advertised editable fields".into());
@@ -244,7 +281,7 @@ impl Draft {
             (self.selected as i64 + i64::from(delta)).rem_euclid(self.fields.len() as i64) as usize;
     }
     pub fn text(&mut self, text: &str) -> Result<(), String> {
-        if text.len() > 128 {
+        if text.len() > 48 * 1024 {
             return Err("field entry capacity".into());
         }
         let value: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
@@ -252,11 +289,32 @@ impl Draft {
             .document
             .pointer_mut(&self.fields[self.selected])
             .ok_or("field")?;
-        if (field.is_number() && !value.is_number()) || (field.is_boolean() && !value.is_boolean())
-        {
-            return Err("owner field type".into());
-        }
         *field = value;
+        self.refresh_fields();
+        Ok(())
+    }
+    fn refresh_fields(&mut self) {
+        if self.kind == "pa_set" {
+            let selected = self.fields.get(self.selected).cloned();
+            self.fields.clear();
+            editable_fields(&self.document, "", &mut self.fields);
+            self.selected = selected
+                .and_then(|p| self.fields.iter().position(|v| v == &p))
+                .unwrap_or(0);
+        }
+    }
+    /// Replace the entire detached owner configuration and bus map, never send it.
+    pub fn import(&mut self, text: &str) -> Result<(), String> {
+        if self.kind != "pa_set" || text.len() > 48 * 1024 {
+            return Err("PA import kind/resource bound".into());
+        }
+        let document: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        provider::keys(&document, &["configuration", "program_buses"])?;
+        let mut candidate = self.clone();
+        candidate.document = document;
+        validate_body("pa_set", &candidate.body()?, None)?;
+        candidate.refresh_fields();
+        *self = candidate;
         Ok(())
     }
     pub fn adjust(&mut self, delta: i32, snapshot: &Snapshot) -> Result<(), String> {
@@ -311,24 +369,29 @@ impl Draft {
         }
     }
 }
-fn numeric_fields(value: &Value, path: &str, fields: &mut Vec<String>) {
+fn editable_fields(value: &Value, path: &str, fields: &mut Vec<String>) {
     match value {
-        Value::Number(_) | Value::Bool(_) => fields.push(path.into()),
+        Value::Number(_) | Value::Bool(_) | Value::String(_) | Value::Null => {
+            fields.push(path.into())
+        }
         Value::Array(values) => {
+            fields.push(path.into());
             for (i, value) in values.iter().enumerate() {
-                numeric_fields(value, &format!("{path}/{i}"), fields);
+                editable_fields(value, &format!("{path}/{i}"), fields);
             }
         }
         Value::Object(values) => {
+            if !path.is_empty() {
+                fields.push(path.into());
+            }
             for (key, value) in values {
-                numeric_fields(
+                editable_fields(
                     value,
                     &format!("{path}/{}", key.replace('~', "~0").replace('/', "~1")),
                     fields,
                 );
             }
         }
-        _ => (),
     }
 }
 

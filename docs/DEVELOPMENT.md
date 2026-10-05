@@ -89,3 +89,26 @@ is opt-in against an independently accepted executable; no provider binary enter
 public source. Cargo commands use the documented parent-held nonblocking build lock,
 Rust +1.97.1, --locked -j1, CARGO_INCREMENTAL=0 and CARGO_BUILD_JOBS=1. Initial new
 lock resolution without --locked was separately accepted by root.
+
+## Task0014 continuation validation and handoff
+
+The canonical Pi4 Desk worker makes scoped local handoff commits only. The root
+coordinator independently reviews exact staged content and owns upstream pushes,
+CI and both-node source synchronization; no publication is implicit in a worker
+commit. Preserve the earlier partial handoff and all producer corpora.
+
+Run the complete default and native suites after shared-state, routing, remote or
+renderer changes. Serial test execution (`-- --test-threads=1`) is permitted on the
+Pi4 while retaining every production deadline assertion. Record a parallel-run
+failure rather than increasing a deadline to make it pass. Native checks explicitly
+select `/usr/share/vulkan/icd.d/lvp_icd.json`, after inspection, with `DISPLAY` and
+`WAYLAND_DISPLAY` unset. This is CPU-headless validation, not a window/GPU test.
+
+All Cargo/fmt/Clippy/release invocations use the parent-held nonblocking shared
+build lock and `CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0`; Cargo tests, Clippy and builds
+use Rust +1.97.1, `--locked -j1`. Complete both warnings-denied Clippy feature sets
+and both release builds, plus formatting, Python publication tests, document links,
+complete-index and outgoing-history guards. Actual provider drivers remain explicit
+opt-ins under the coordinator's finite private-network reservation, with frozen
+source/executable hashes, bounded stage diagnostics and separate sample witnesses.
+Driver success alone does not prove physical mapping, ADAT lock or audio safety.

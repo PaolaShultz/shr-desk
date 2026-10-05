@@ -9,6 +9,7 @@ pub enum Action {
     StructureEdit,
     StructureField(i32),
     StructureText(String),
+    StructureImport(String),
     StructureAdjust(i32),
     StructureApply,
     OutputMute,
@@ -172,6 +173,7 @@ pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
         | Action::StructureEdit
         | Action::StructureField(_)
         | Action::StructureText(_)
+        | Action::StructureImport(_)
         | Action::StructureAdjust(_)
         | Action::StructureApply
         | Action::OutputMute

@@ -309,7 +309,9 @@ impl Operator {
             return Err("authenticated source epoch differs from expected epoch".into());
         }
         let writer = connection.writer.clone();
-        Self::from_connection_version(Box::new(connection), show, epoch, &writer, scope, 2)
+        // QUIC has already reassembled the outer Response into a complete payload.
+        // Applying the Unix frame assembler again would reject documents >64 KiB.
+        Self::from_document_connection(Box::new(connection), show, epoch, &writer, scope, 2)
     }
     pub fn connect_version(
         endpoint: &Path,
@@ -347,12 +349,23 @@ impl Operator {
         scope: &str,
         version: u8,
     ) -> Result<Self, String> {
+        let transport = if version == 2 {
+            Box::new(crate::pages::Connection::new(transport)) as Box<dyn AuthorityConnection>
+        } else {
+            transport
+        };
+        Self::from_document_connection(transport, show, epoch, writer, scope, version)
+    }
+    fn from_document_connection(
+        transport: Box<dyn AuthorityConnection>,
+        show: &str,
+        epoch: u64,
+        writer: &str,
+        scope: &str,
+        version: u8,
+    ) -> Result<Self, String> {
         Ok(Self {
-            transport: if version == 2 {
-                Box::new(crate::pages::Connection::new(transport))
-            } else {
-                transport
-            },
+            transport,
             session: Session::new_version(show, epoch, writer, scope, version)?,
             start: Instant::now(),
             draft: None,
@@ -448,6 +461,9 @@ impl Operator {
         if tag.contract.as_deref() == Some("GP14-structure") {
             let reply = crate::structure::decode_reply(bytes)?;
             if reply.context == self.session.structural_request().context {
+                if reply.state != "snapshot" {
+                    return Err(format!("structural query unavailable: {:?}", reply.reason));
+                }
                 self.session.ingest_structural(
                     reply
                         .snapshot
@@ -455,7 +471,7 @@ impl Operator {
                     self.now(),
                 )?;
             } else {
-                self.session.accept_structural(reply, self.now())?;
+                self.session.dispatch_structural(reply, self.now())?;
             }
             return Ok(true);
         }
@@ -489,20 +505,45 @@ impl Operator {
     }
     pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
         self.check_guard()?;
-        self.transport.send(&self.session.structural_request())?;
         let deadline = Instant::now() + Duration::from_millis(250);
-        while Instant::now() < deadline {
+        // Raw state can expire while the structural response is in flight. Request
+        // both observations within one budget; never wait for an unrequested raw reply.
+        self.transport
+            .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        self.transport
+            .send_frame_until(&self.session.structural_request().encode()?, deadline)?;
+        let (mut raw, mut structural) = (false, false);
+        let mut count = 0;
+        while Instant::now() < deadline && count < 64 {
             self.check_guard()?;
             if let Some(bytes) = self.transport.receive_until(deadline)? {
-                if !self.processing_frame(&bytes)? {
-                    self.telemetry(&audio::decode_reply(&bytes)?)?;
+                count += 1;
+                #[derive(serde::Deserialize)]
+                struct Tag {
+                    contract: Option<String>,
+                    state: Option<String>,
                 }
-                if self.session.structural_fresh(self.now()) {
+                let tag: Tag = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+                if tag.contract.as_deref() == Some("GP14-structure")
+                    && tag.state.as_deref() == Some("snapshot")
+                {
+                    let reply = crate::structure::decode_reply(&bytes)?;
+                    if reply.context != self.session.structural_request().context {
+                        return Err("structural query context".into());
+                    }
+                    structural |= self.session.ingest_structural(
+                        reply.snapshot.ok_or("structural readback missing")?,
+                        self.now(),
+                    )?;
+                } else if !self.processing_frame(&bytes)? {
+                    raw |= self.telemetry(&audio::decode_reply(&bytes)?)?;
+                }
+                if raw && structural && self.session.structural_fresh(self.now()) {
                     return Ok(());
                 }
             }
         }
-        Err("structural snapshot deadline".into())
+        Err("structural snapshot deadline/queue bound".into())
     }
     pub(crate) fn refresh_processing(&mut self) -> Result<(), String> {
         self.check_guard()?;
@@ -1178,5 +1219,121 @@ mod gp07_stage_tests {
     #[test]
     fn expired_raw_snapshot_cannot_rebase_queued_processing_review() {
         paired(true);
+    }
+}
+
+#[cfg(test)]
+mod remote_document_tests {
+    use super::*;
+    struct CompleteDocument(Option<Vec<u8>>);
+    impl AuthorityConnection for CompleteDocument {
+        fn send_frame_until(&mut self, _: &[u8], _: Instant) -> Result<(), String> {
+            Ok(())
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.0.take())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.0.take())
+        }
+    }
+    #[test]
+    fn remote_complete_payload_does_not_pass_through_unix_frame_size_gate_again() {
+        let corpus: Value =
+            serde_json::from_slice(include_bytes!("../tests/fixtures/gp14/v1/profile-48.json"))
+                .unwrap();
+        let bytes = serde_json::to_vec(&corpus["snapshot"]).unwrap();
+        assert!(bytes.len() > crate::provider::MAX_BYTES);
+        let snapshot = audio::decode_reply(&bytes).unwrap().snapshot.unwrap();
+        let mut operator = Operator::from_document_connection(
+            Box::new(CompleteDocument(Some(bytes))),
+            &snapshot.authority.show_id,
+            snapshot.authority.epoch.parse().unwrap(),
+            "remote-doc-test",
+            "foh",
+            2,
+        )
+        .unwrap();
+        operator.refresh().unwrap();
+        assert_eq!(
+            operator.session.snapshot.unwrap().authority.inputs.len(),
+            48
+        );
+    }
+}
+
+#[cfg(test)]
+mod structural_pair_tests {
+    use super::*;
+    use std::collections::VecDeque;
+    struct Staggered {
+        raw: Vec<u8>,
+        structural: Vec<u8>,
+        replies: VecDeque<Vec<u8>>,
+        delayed: bool,
+    }
+    impl AuthorityConnection for Staggered {
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            match request["kind"].as_str().unwrap() {
+                "snapshot" => self.replies.push_back(self.raw.clone()),
+                "structural_snapshot" => self.replies.push_front(self.structural.clone()),
+                _ => panic!("read-only pair expected"),
+            }
+            Ok(())
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            if !self.delayed {
+                std::thread::sleep(Duration::from_millis(5));
+                self.delayed = true;
+            }
+            Ok(self.replies.pop_front())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(None)
+        }
+    }
+    #[test]
+    fn raw_expiring_in_flight_does_not_deadlock_structural_readback() {
+        let corpus: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/final/structure-replies-48.json"
+        ))
+        .unwrap();
+        let structural = corpus["exchanges"][0]["reply"].clone();
+        let profile: Value =
+            serde_json::from_slice(include_bytes!("../tests/fixtures/gp14/v1/profile-48.json"))
+                .unwrap();
+        let mut raw = profile["snapshot"].clone();
+        raw["context"]["epoch"] = "1".into();
+        raw["outcome"]["epoch"] = "1".into();
+        raw["outcome"]["body"]["snapshot"]["epoch"] = "1".into();
+        raw["snapshot"]["authority"]["epoch"] = "1".into();
+        raw["snapshot"]["clock"]["epoch"] = 1.into();
+        raw["snapshot"]["topology"] = structural["snapshot"]["topology"].clone();
+        let initial = audio::decode_reply(&serde_json::to_vec(&raw).unwrap())
+            .unwrap()
+            .snapshot
+            .unwrap();
+        raw["snapshot"]["frame"] = "48".into();
+        raw["snapshot"]["clock"]["next_frame"] = 48.into();
+        let mut operator = Operator::from_document_connection(
+            Box::new(Staggered {
+                raw: serde_json::to_vec(&raw).unwrap(),
+                structural: serde_json::to_vec(&structural).unwrap(),
+                replies: VecDeque::new(),
+                delayed: false,
+            }),
+            &initial.authority.show_id,
+            1,
+            "paired-structure",
+            "pa_configuration",
+            2,
+        )
+        .unwrap();
+        operator.session.ingest_snapshot(initial, 0).unwrap();
+        operator.start = Instant::now() - Duration::from_millis(249);
+        operator.refresh_structural().unwrap();
+        assert!(operator.session.structural_fresh(operator.now()));
+        assert_eq!(operator.session.snapshot.as_ref().unwrap().frame, "48");
     }
 }

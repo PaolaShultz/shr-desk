@@ -33,9 +33,24 @@ fn snapshot(f: &Frontend) -> &processing::Snapshot {
     f.state.as_ref().unwrap().processing.as_ref().unwrap()
 }
 fn wait(f: &mut Frontend, deadline: Instant, label: &str, predicate: impl Fn(&Frontend) -> bool) {
+    eprintln!("driver stage: {label}");
+    let mut previous = String::new();
     loop {
         f.pump();
+        let diagnostic = format!(
+            "message={} status={} fresh={} structural={} processing={}",
+            f.message,
+            f.state.as_ref().map_or("no update", |u| u.status.as_str()),
+            f.fresh(),
+            f.state.as_ref().is_some_and(|u| u.structural_fresh),
+            f.processing_ready()
+        );
+        if diagnostic != previous {
+            eprintln!("driver {label}: {diagnostic}");
+            previous = diagnostic;
+        }
         if predicate(f) {
+            eprintln!("driver stage complete: {label}");
             return;
         }
         assert!(
@@ -618,9 +633,10 @@ fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
 #[test]
 #[ignore = "requires actual dynamic LocalAudio at GP14_EXTERNAL_ENDPOINT; coordinator owns sample/module acceptance"]
 fn gp14_high_channel_external_driver() {
+    eprintln!("GP14 high-channel driver start (45s internal deadline)");
     let endpoint = PathBuf::from(std::env::var_os("GP14_EXTERNAL_ENDPOINT").unwrap());
     let epoch: u64 = std::env::var("GP14_EPOCH").unwrap().parse().unwrap();
-    let deadline = Instant::now() + Duration::from_secs(55);
+    let deadline = Instant::now() + Duration::from_secs(45);
     let mut f = Frontend::new(Config {
         wire_version: 2,
         remote: std::env::var_os("GP14_REMOTE_CONFIG")
@@ -784,12 +800,13 @@ fn gp14_high_channel_external_driver() {
 #[test]
 #[ignore = "requires actual integrated dynamic provider/PA; GP14_EXTERNAL_ENDPOINT,GP14_EPOCH and optional GP14_REMOTE_CONFIG"]
 fn gp14_structural_external_driver() {
+    eprintln!("GP14 structural driver start (45s internal deadline)");
     let endpoint = PathBuf::from(std::env::var_os("GP14_EXTERNAL_ENDPOINT").unwrap());
     let epoch: u64 = std::env::var("GP14_EPOCH").unwrap().parse().unwrap();
     let remote = std::env::var_os("GP14_REMOTE_CONFIG").map(|p| {
         serde_json::from_slice::<shr_desk::remote::Config>(&fs::read(p).unwrap()).unwrap()
     });
-    let deadline = Instant::now() + Duration::from_secs(55);
+    let deadline = Instant::now() + Duration::from_secs(45);
     let make = |scope: &str| {
         Frontend::new(Config {
             wire_version: 2,
@@ -842,10 +859,19 @@ fn gp14_structural_external_driver() {
                     .is_some_and(|u| u.status.starts_with("grant applied"))
         });
     };
+    let mut actions = Vec::new();
     let mut pa = make("pa_configuration");
     grant(&mut pa);
+    tap(&mut pa, "X");
+    confirm(&mut pa);
+    actions
+        .push(json!({"kind":"baseline_rearm","final":pa.state.as_ref().unwrap().structural_final}));
+    thread::sleep(Duration::from_millis(150));
+    wait(&mut pa, deadline, "baseline rearm readback", ready);
     tap(&mut pa, "Z");
     confirm(&mut pa);
+    actions.push(json!({"kind":"quiesce","final":pa.state.as_ref().unwrap().structural_final}));
+    wait(&mut pa, deadline, "quiesced readback", ready);
     assert!(
         pa.state
             .as_ref()
@@ -866,9 +892,26 @@ fn gp14_structural_external_driver() {
         .expect("actual PA gain_db field required");
     controller(&mut pa, Action::StructureField(field as i32));
     controller(&mut pa, Action::StructureAdjust(-1));
+    // Exercise full owner-document import through the same reviewed action path.
+    let mut imported = pa.structural_draft.as_ref().unwrap().document.clone();
+    let weighted_node = json!({"routes":[{"source":{"input":0},"weight":0.5},{"source":{"input":1},"weight":0.25}]});
+    imported["configuration"]["nodes"] = json!([weighted_node]);
+    imported["configuration"]["outputs"][0]["source"] = json!({"node":0});
+    let desired_owner = imported["configuration"].clone();
+    let imported = serde_json::to_string(&imported).unwrap();
+    controller(&mut pa, Action::StructureImport(imported));
     controller(&mut pa, Action::StructureApply);
     confirm(&mut pa);
+    actions.push(json!({"kind":"pa_set","final":pa.state.as_ref().unwrap().structural_final}));
+    wait(&mut pa, deadline, "PA replacement readback", ready);
     let pa_readback = pa.state.as_ref().unwrap().structural.clone().unwrap();
+    let confirmed_owner: serde_json::Value =
+        serde_json::from_str(pa_readback.pa_configuration_json.as_ref().unwrap()).unwrap();
+    assert_eq!(
+        confirmed_owner, desired_owner,
+        "complete imported gain and weighted route readback"
+    );
+    assert_eq!(pa_readback.pa_program_buses, vec![0, 1]);
     tap(&mut pa, "Q");
     wait(&mut pa, deadline, "PA lease released", |f| {
         f.state
@@ -890,19 +933,46 @@ fn gp14_structural_external_driver() {
             .pa_outputs
             > 0
     );
+    let outputs = &patch
+        .state
+        .as_ref()
+        .unwrap()
+        .structural
+        .as_ref()
+        .unwrap()
+        .topology
+        .outputs;
+    let (patch_index, chosen) = outputs
+        .iter()
+        .enumerate()
+        .skip(1)
+        .find(|(_, output)| {
+            output.source != Some(shr_desk::topology::OutputSource::Pa { index: 0 })
+        })
+        .expect("an additional physical port with a different source is required");
+    let before_source = chosen.source.clone();
+    let patch_port = chosen.id.clone();
+    let target_index = 0;
     tap(&mut patch, "F9");
+    controller(&mut patch, Action::StructureField(patch_index as i32));
     controller(
         &mut patch,
-        Action::StructureText("{\"kind\":\"pa\",\"index\":0}".into()),
+        Action::StructureText(json!({"kind":"pa","index":target_index}).to_string()),
     );
     tap(&mut patch, "F4");
     confirm(&mut patch);
-    let patch_readback = patch.state.as_ref().unwrap().structural.clone().unwrap();
-    assert_eq!(
-        patch_readback.topology.outputs[0].source,
-        Some(shr_desk::topology::OutputSource::Pa { index: 0 })
+    actions.push(
+        json!({"kind":"output_patch","port_index":patch_index,"port_id":patch_port,"before_source":before_source,"after_source":{"kind":"pa","index":target_index},"final":patch.state.as_ref().unwrap().structural_final}),
     );
-    assert!(patch_readback.outputs_quiesced);
+    let patch_revision = patch
+        .state
+        .as_ref()
+        .unwrap()
+        .structural_final
+        .as_ref()
+        .unwrap()
+        .revision
+        .clone();
     tap(&mut patch, "F5");
     wait(
         &mut patch,
@@ -910,29 +980,35 @@ fn gp14_structural_external_driver() {
         "fresh map readback without replay",
         ready,
     );
+    let patch_readback = patch.state.as_ref().unwrap().structural.clone().unwrap();
+    assert_eq!(patch_readback.revision, patch_revision);
     assert_eq!(
-        patch
-            .state
-            .as_ref()
-            .unwrap()
-            .structural
-            .as_ref()
-            .unwrap()
-            .revision,
-        patch_readback.revision
+        patch_readback.topology.outputs[patch_index].source,
+        Some(shr_desk::topology::OutputSource::Pa {
+            index: target_index
+        })
     );
+    assert_ne!(
+        patch_readback.topology.outputs[patch_index].source,
+        before_source
+    );
+    assert!(patch_readback.outputs_quiesced);
     drop(patch);
     let mut rearm = make("pa_configuration");
     grant(&mut rearm);
     tap(&mut rearm, "X");
     confirm(&mut rearm);
+    actions
+        .push(json!({"kind":"final_rearm","final":rearm.state.as_ref().unwrap().structural_final}));
+    thread::sleep(Duration::from_millis(150));
+    wait(&mut rearm, deadline, "final rearm source advance", ready);
     let final_readback = rearm.state.as_ref().unwrap().structural.clone().unwrap();
     assert!(!final_readback.outputs_quiesced);
     if let Some(path) = std::env::var_os("GP14_STRUCTURE_EVIDENCE") {
         fs::write(
             path,
             serde_json::to_vec_pretty(
-                &json!({"pa":pa_readback,"patch":patch_readback,"rearmed":final_readback}),
+                &json!({"actions":actions,"pa":pa_readback,"patch":patch_readback,"rearmed":final_readback}),
             )
             .unwrap(),
         )

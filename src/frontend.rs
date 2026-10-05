@@ -163,6 +163,7 @@ fn worker(
     let mut serial = 0u64;
     let mut review: Option<(u64, String)> = None;
     let mut status = "provider unavailable; read-only attach".to_string();
+    let mut operation_error: Option<String> = None;
     let mut processing_requested = false;
     let mut processing_enabled = false;
     let mut processing_status = "unavailable; GP07 probe not enabled".to_string();
@@ -240,6 +241,9 @@ fn worker(
             {
                 status = "ROLE UNAVAILABLE: new provider writes refused".into();
                 continue;
+            }
+            if !matches!(r.operation, Operation::InputReleased) {
+                operation_error = None;
             }
             if matches!(r.operation, Operation::EnableProcessing) {
                 processing_requested = true;
@@ -400,6 +404,7 @@ fn worker(
                     Ok(()) => {}
                     Err(e) => {
                         status = format!("REFUSED/UNCERTAIN: {e}");
+                        operation_error = Some(status.clone());
                         review = None;
                         o.cancel();
                     }
@@ -412,7 +417,9 @@ fn worker(
             o.guard(generation.clone(), g);
             // Publish a valid new review before unrelated renewal/telemetry work.
             // Its displayed generation/revision/deadline remain checked at confirmation.
-            if review.is_some() && o.review_valid() && generation.load(Ordering::Acquire) == g {
+            if ((review.is_some() && o.review_valid()) || status.starts_with("REFUSED/UNCERTAIN:"))
+                && generation.load(Ordering::Acquire) == g
+            {
                 *latest.update.lock().unwrap() = Some(Update {
                     generation: g,
                     snapshot: o.session.snapshot.clone(),
@@ -494,9 +501,16 @@ fn worker(
             review: review.clone(),
             received: Instant::now(),
         };
-        *latest.update.lock().unwrap() = Some(update);
+        publish_provider_update(&latest, update, operation_error.as_deref());
     }
     // No release/recall is sent on UI exit. Engine owns persistent held state.
+}
+
+fn publish_provider_update(latest: &Latest, mut update: Update, operation_error: Option<&str>) {
+    if let Some(error) = operation_error {
+        update.status = error.into();
+    }
+    *latest.update.lock().unwrap() = Some(update);
 }
 
 #[derive(Clone, Debug)]
@@ -558,6 +572,7 @@ pub struct Frontend {
     topology_page: Option<usize>,
     pub processing_draft: Option<ProcessingDraft>,
     pub structural_draft: Option<crate::structure::Draft>,
+    pub structure_text_entry: bool,
     pub processing_field: usize,
     pub processing_entry: String,
     pub page: Page,
@@ -594,6 +609,7 @@ impl Frontend {
             topology_page: None,
             processing_draft: None,
             structural_draft: None,
+            structure_text_entry: false,
             processing_field: 0,
             processing_entry: String::new(),
             page: Page::Mix,
@@ -671,6 +687,7 @@ impl Frontend {
         self.mode_picker = false;
         self.processing_draft = None;
         self.structural_draft = None;
+        self.structure_text_entry = false;
         self.processing_entry.clear();
         self.state = None;
         self.leds = None;
@@ -773,6 +790,7 @@ impl Frontend {
                 || d.generation != self.provider.generation()
         }) {
             self.structural_draft = None;
+            self.structure_text_entry = false;
             self.processing_entry.clear();
             self.message = "Structural draft cancelled: authority/freshness changed".into();
         }
@@ -922,6 +940,45 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if self.structure_text_entry && self.structural_draft.is_some() {
+            match key {
+                "Esc" => {
+                    self.structure_text_entry = false;
+                    self.processing_entry.clear();
+                }
+                "Backspace" => {
+                    self.processing_entry.pop();
+                }
+                "Enter" => {
+                    let entry = self.processing_entry.clone();
+                    if let Some(path) = entry.strip_prefix('@') {
+                        self.action(Action::StructureImport(crate::structure::read_import(
+                            std::path::Path::new(path),
+                        )?))?;
+                    } else {
+                        self.action(Action::StructureText(entry))?;
+                    }
+                    self.structure_text_entry = false;
+                }
+                _ if key.chars().all(|c| !c.is_control()) && key.chars().count() == 1 => {
+                    if self.processing_entry.len() + key.len() > 48 * 1024 {
+                        return Err("owner JSON entry capacity".into());
+                    }
+                    self.processing_entry.push_str(key);
+                }
+                _ => return Err("JSON entry: Enter accepts, Esc cancels entry".into()),
+            }
+            return Ok(());
+        }
+        // Preserve raw text in queued events; normalize shortcuts only after
+        // earlier events (F3/Enter) have changed the current editor mode.
+        let normalized;
+        let key = if key.chars().count() == 1 {
+            normalized = key.to_uppercase();
+            normalized.as_str()
+        } else {
+            key
+        };
         if key == "F8" {
             return self.reconnect_legacy();
         }
@@ -949,6 +1006,11 @@ impl Frontend {
         }
         if self.structural_draft.is_some() {
             match key {
+                "F3" => {
+                    self.structure_text_entry = true;
+                    self.processing_entry.clear();
+                    return Ok(());
+                }
                 "U" => return self.action(Action::StructureField(-1)),
                 "I" => return self.action(Action::StructureField(1)),
                 "J" => return self.action(Action::StructureAdjust(-1)),
@@ -1046,6 +1108,14 @@ impl Frontend {
                 self.processing_entry.clear();
                 Ok(())
             }
+            Action::StructureImport(text) => {
+                self.structural_draft
+                    .as_mut()
+                    .ok_or("F9 opens structural editor")?
+                    .import(&text)?;
+                self.processing_entry.clear();
+                Ok(())
+            }
             Action::StructureAdjust(delta) => {
                 let snapshot = self
                     .state
@@ -1072,6 +1142,7 @@ impl Frontend {
                 };
                 self.send(operation)?;
                 self.structural_draft = None;
+                self.structure_text_entry = false;
                 Ok(())
             }
             Action::OutputMute | Action::OutputRearm => {
@@ -1582,24 +1653,46 @@ impl Frontend {
                             " "
                         },
                         path,
-                        draft.document.pointer(path).unwrap()
-                    ),
+                        draft
+                            .document
+                            .pointer(path)
+                            .unwrap()
+                            .to_string()
+                            .chars()
+                            .take(100)
+                            .collect::<String>()
+                    )
+                    .chars()
+                    .take(156)
+                    .collect(),
                     "#e4e8e9",
                 );
             }
             line(
                 816,
                 format!(
-                    "FIELD {}/{} / entry {}",
+                    "FIELD {}/{} / {} entry {}",
                     draft.selected + 1,
                     draft.fields.len(),
+                    if self.structure_text_entry {
+                        "JSON/import"
+                    } else {
+                        "numeric"
+                    },
                     self.processing_entry
+                        .chars()
+                        .rev()
+                        .take(100)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .collect::<String>()
                 ),
                 "#66dfd3",
             );
             line(
                 864,
-                "U/I field | J/K +/-1 owner unit or toggle/cycle source | numeric text then Enter"
+                "U/I field | J/K adjust | F3 JSON or @absolute/import.json, Enter accepts | F4 review"
                     .into(),
                 "#9caebc",
             );
@@ -2320,6 +2413,127 @@ mod processing_tests {
         });
         f.page = Page::Channel;
         f
+    }
+    #[test]
+    fn final_worker_update_keeps_stage_error_after_failed_health_poll() {
+        let f = surface();
+        let latest = Latest::default();
+        let mut update = f.state.as_ref().unwrap().clone();
+        update.status = "PENDING structural review".into();
+        publish_provider_update(&latest, update.clone(), None);
+        let operation_error = "REFUSED/UNCERTAIN: staged context changed";
+        update.status = "Structural state unavailable: structural snapshot deadline".into();
+        update.fresh = false;
+        update.structural_fresh = false;
+        // Read only the final coalesced update, as a slow frontend would.
+        publish_provider_update(&latest, update.clone(), Some(operation_error));
+        let final_update = latest.update.lock().unwrap().take().unwrap();
+        assert_eq!(final_update.status, operation_error);
+        assert!(!final_update.fresh);
+        assert!(!final_update.structural_fresh);
+        publish_provider_update(&latest, update, None); // next explicit operation clears sticky error
+        assert!(
+            latest
+                .update
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .status
+                .starts_with("Structural state unavailable")
+        );
+    }
+    #[test]
+    fn batched_raw_keys_apply_editor_mode_at_dispatch() {
+        let snapshot = crate::structure::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp14/v1/structure-16.json"
+        ))
+        .unwrap();
+        let mut f = surface();
+        let (tx, _rx) = mpsc::sync_channel(8);
+        f.provider = Provider {
+            tx,
+            latest: Arc::new(Latest::default()),
+            generation: Arc::new(AtomicU64::new(1)),
+            stop: Arc::new(AtomicBool::new(false)),
+            child: None,
+            authorization: Arc::new(AtomicBool::new(true)),
+        };
+        let state = f.state.as_mut().unwrap();
+        state.structural_fresh = true;
+        state.snapshot.as_mut().unwrap().authority.revision = snapshot.revision.clone();
+        state.received = Instant::now();
+        f.structural_draft =
+            Some(crate::structure::Draft::new(&snapshot, "pa_configuration", 1).unwrap());
+        let draft = f.structural_draft.as_mut().unwrap();
+        draft.selected = draft
+            .fields
+            .iter()
+            .position(|p| p == "/configuration/outputs/0/source")
+            .unwrap();
+        let selected = draft.selected;
+        let mut keys = vec!["F3".to_string()];
+        keys.extend(r#"{"node":0}"#.chars().map(|c| c.to_string()));
+        keys.extend(["Enter".into(), "i".into()]);
+        for key in keys {
+            for pressed in [true, false] {
+                f.enqueue(Event::Key {
+                    key: key.clone(),
+                    pressed,
+                })
+                .unwrap();
+            }
+        }
+        f.pump();
+        let draft = f.structural_draft.as_ref().unwrap();
+        assert_eq!(
+            draft.document["configuration"]["outputs"][0]["source"],
+            json!({"node":0})
+        );
+        assert_eq!(
+            draft.selected,
+            selected + 1,
+            "lowercase shortcut after Enter normalizes at dispatch"
+        );
+        assert!(!f.structure_text_entry);
+    }
+    #[test]
+    fn structural_json_keyboard_and_semantic_import_preserve_complete_owner_intent() {
+        let snapshot = crate::structure::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp14/v1/structure-16.json"
+        ))
+        .unwrap();
+        let mut f = surface();
+        f.structural_draft =
+            Some(crate::structure::Draft::new(&snapshot, "pa_configuration", 1).unwrap());
+        let path = "/configuration/outputs/0/source";
+        let draft = f.structural_draft.as_mut().unwrap();
+        draft.selected = draft.fields.iter().position(|p| p == path).unwrap();
+        f.key("F3").unwrap();
+        for c in r#"{"node":0}"#.chars() {
+            f.key(&c.to_string()).unwrap();
+        }
+        f.key("Enter").unwrap();
+        assert!(!f.structure_text_entry);
+        assert_eq!(
+            f.structural_draft
+                .as_ref()
+                .unwrap()
+                .document
+                .pointer(path)
+                .unwrap(),
+            &json!({"node":0})
+        );
+        let document =
+            serde_json::to_string(&f.structural_draft.as_ref().unwrap().document).unwrap();
+        f.action(Action::StructureImport(document)).unwrap();
+        assert!(f.scene().in_bounds());
+        f.key("F3").unwrap();
+        f.key("Q").unwrap(); // text, never a writer release
+        assert_eq!(f.processing_entry, "Q");
+        f.key("Esc").unwrap();
+        assert!(f.structural_draft.is_some());
+        assert!(f.processing_entry.is_empty());
     }
     #[test]
     fn processing_selection_uses_identity_after_independent_inventory_reorder() {
