@@ -830,18 +830,34 @@ impl Operator {
         if !drained {
             return Err("snapshot backlog saturated; freshness not admitted".into());
         }
-        let mut accepted = false;
-        for bytes in frames.into_iter().rev() {
+        // Contract replies are state transitions, not coalescible telemetry:
+        // pending must precede final, including the independent priority-close lane.
+        // Dispatch them before raw ingestion so a final's needs_snapshot flag is
+        // cleared only by a subsequently validated raw observation. In particular,
+        // do not admit the newest raw revision first and suppress older contract
+        // observations that still belong to this wire-ordered transaction batch.
+        let mut raw_frames = Vec::new();
+        for bytes in frames {
             if Instant::now() >= deadline {
-                break;
+                return Err("snapshot deadline/queue bound".into());
             }
-            if self.processing_frame(&bytes)? || accepted {
-                continue;
+            if !self.processing_frame(&bytes)? {
+                raw_frames.push(bytes);
+            }
+        }
+        // Preserve newest-first raw coalescing, including fallback past regressive
+        // observations. Discarded raw frames never touch trusted/session state.
+        for bytes in raw_frames.into_iter().rev() {
+            if Instant::now() >= deadline {
+                return Err("snapshot deadline/queue bound".into());
             }
             let r = audio::decode_reply(&bytes)?;
+            if Instant::now() >= deadline {
+                return Err("snapshot deadline/queue bound".into());
+            }
             if r.context == self.session.snapshot_request().context {
-                if !accepted {
-                    accepted = self.telemetry(&r)?;
+                if self.telemetry(&r)? {
+                    break;
                 }
             } else if r.context.show_id != self.session.snapshot_request().context.show_id
                 || r.context.epoch != self.session.snapshot_request().context.epoch
@@ -849,7 +865,7 @@ impl Operator {
                 return Err("unrelated snapshot session".into());
             }
         }
-        if self.session.fresh(self.now()) {
+        if Instant::now() < deadline && self.session.fresh(self.now()) {
             Ok(())
         } else {
             Err("snapshot deadline/queue bound".into())
@@ -1764,5 +1780,271 @@ mod device_fence_tests {
         assert!(op.session.validate_device_intent(&body, op.now()).is_err());
         op.session.invalidate_device();
         assert!(!op.review_valid());
+    }
+}
+
+#[cfg(test)]
+mod brain_fifo_tests {
+    use super::*;
+    use std::{
+        collections::VecDeque,
+        sync::{Arc, Mutex},
+    };
+
+    #[derive(Clone, Default)]
+    struct FakeAuthorityConnection(Arc<Mutex<VecDeque<Vec<u8>>>>);
+    impl FakeAuthorityConnection {
+        fn push(&self, value: Value) {
+            self.0
+                .lock()
+                .unwrap()
+                .push_back(serde_json::to_vec(&value).unwrap());
+        }
+    }
+    impl AuthorityConnection for FakeAuthorityConnection {
+        fn send_frame_until(&mut self, _: &[u8], _: Instant) -> Result<(), String> {
+            panic!("buffered refresh must not send or replay a command")
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            self.receive_available()
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.0.lock().unwrap().pop_front())
+        }
+    }
+    fn setup() -> (Operator, FakeAuthorityConnection, Value) {
+        let raw = audio::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp15/v1/raw-snapshot-16-1.json"
+        ))
+        .unwrap();
+        let peer = FakeAuthorityConnection::default();
+        let mut op = Operator::from_document_connection(
+            Box::new(peer.clone()),
+            &raw.authority.show_id,
+            1,
+            "talkback",
+            "talkback_destinations",
+            2,
+        )
+        .unwrap();
+        op.session.ingest_snapshot(raw.clone(), 0).unwrap();
+        op.session
+            .begin("grant", json!({"scope":"talkback_destinations"}), 0)
+            .unwrap();
+        op.session
+            .accept(
+                audio::decode_reply(include_bytes!(
+                    "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+                ))
+                .unwrap(),
+                0,
+            )
+            .unwrap();
+        op.session.ingest_snapshot(raw.clone(), 0).unwrap();
+        op.session.input_released();
+        let mut brain =
+            crate::brain::decode_reply(include_bytes!("../tests/fixtures/gp15/v1/hold-final.json"))
+                .unwrap()
+                .snapshot
+                .unwrap();
+        brain.talkback_monitors = vec![0];
+        brain.revision = raw.authority.revision.clone();
+        brain.frame = raw.frame.clone();
+        brain.held_generation = None;
+        brain.hold_generation_counter = "0".into();
+        brain.hold_deadline_ms = None;
+        op.session.ingest_brain(brain, 0).unwrap();
+        let mut telemetry: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+        ))
+        .unwrap();
+        telemetry["snapshot"] = serde_json::to_value(raw).unwrap();
+        for k in ["writer", "lease", "request_id", "expected_revision"] {
+            telemetry["context"][k] = Value::Null;
+            telemetry["outcome"][k] = Value::Null;
+        }
+        for k in ["granted_lease", "lease_remaining_ms", "scope"] {
+            telemetry["outcome"]["body"][k] = Value::Null;
+        }
+        (op, peer, telemetry)
+    }
+    fn replies(op: &Operator, request: &Request, held: bool) -> (Value, Value) {
+        let revision = request
+            .context
+            .expected_revision
+            .as_ref()
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        let frame = op
+            .session
+            .brain
+            .as_ref()
+            .unwrap()
+            .frame
+            .parse::<u64>()
+            .unwrap()
+            + 48;
+        let pending = json!({"contract":"GP15-brain","version":1,"state":"pending","reason":null,"context":request.context,"revision":revision.to_string(),"applied_frame":frame.to_string(),"snapshot":null});
+        let mut final_reply = pending.clone();
+        final_reply["state"] = json!("final");
+        final_reply["revision"] = json!((revision + 1).to_string());
+        let mut brain = op.session.brain.clone().unwrap();
+        brain.revision = (revision + 1).to_string();
+        brain.frame = frame.to_string();
+        brain.held_generation = held.then(|| "1".into());
+        brain.hold_generation_counter = "1".into();
+        brain.hold_deadline_ms = held.then(|| "150".into());
+        final_reply["snapshot"] = serde_json::to_value(brain).unwrap();
+        (pending, final_reply)
+    }
+    fn raw_at(raw: &Value, revision: &str, frame: &str) -> Value {
+        let mut raw = raw.clone();
+        raw["outcome"]["body"]["revision"] = json!(revision);
+        raw["snapshot"]["authority"]["revision"] = json!(revision);
+        raw["snapshot"]["authority"]["sequence"] = json!(frame);
+        raw["snapshot"]["frame"] = json!(frame);
+        raw["snapshot"]["clock"]["next_frame"] = json!(frame.parse::<u64>().unwrap());
+        raw
+    }
+    #[test]
+    fn pending_final_batch_and_repeated_heartbeats_keep_common_revision_fresh() {
+        let (mut op, peer, raw) = setup();
+        for index in 0..5 {
+            let kind = if index == 0 {
+                "brain_hold"
+            } else {
+                "brain_heartbeat"
+            };
+            let body = if index == 0 {
+                json!({"generation":"1"})
+            } else {
+                json!({"generation":"1","observed_frame":op.session.brain.as_ref().unwrap().frame})
+            };
+            let request = op.session.begin(kind, body, op.now()).unwrap();
+            let (pending, final_reply) = replies(&op, &request, true);
+            let revision = final_reply["revision"].as_str().unwrap();
+            let frame = final_reply["applied_frame"].as_str().unwrap();
+            // Newest raw can arrive before final, with older raw after it. Only
+            // final-then-newest-raw admission clears needs_snapshot coherently.
+            peer.push(pending);
+            peer.push(raw_at(&raw, revision, frame));
+            peer.push(final_reply.clone());
+            let mut regressive = raw.clone();
+            regressive["snapshot"]["authority"]["sequence"] = json!("0");
+            peer.push(regressive);
+            op.refresh().unwrap();
+            assert!(op.session.pending.is_none());
+            assert!(op.session.brain_fresh(op.now()));
+            assert_eq!(
+                op.session.snapshot.as_ref().unwrap().authority.revision,
+                revision
+            );
+            assert_eq!(
+                op.session.brain_final.as_ref().unwrap().context,
+                request.context
+            );
+        }
+    }
+    #[test]
+    fn priority_close_interleaves_with_hold_without_losing_either_correlation() {
+        let (mut op, peer, raw) = setup();
+        let hold = op
+            .session
+            .begin("brain_hold", json!({"generation":"1"}), op.now())
+            .unwrap();
+        let close = op.session.brain_close_request(op.now()).unwrap();
+        let (pending, final_reply) = replies(&op, &hold, true);
+        let (close_pending, mut close_final) = replies(&op, &close, false);
+        // Both requests pinned revision zero. Hold applies first; close is
+        // explicitly refused at revision one, never silently treated as applied.
+        close_final["reason"] = json!("conflict");
+        close_final["snapshot"] = Value::Null;
+        peer.push(pending);
+        peer.push(close_pending);
+        peer.push(final_reply.clone());
+        peer.push(close_final);
+        peer.push(raw_at(
+            &raw,
+            "1",
+            final_reply["applied_frame"].as_str().unwrap(),
+        ));
+        op.refresh().unwrap();
+        assert!(op.session.pending.is_none());
+        assert_eq!(
+            op.session.brain_final.as_ref().unwrap().context,
+            close.context
+        );
+        assert!(op.session.brain_final.as_ref().unwrap().reason.is_some());
+        assert!(!op.session.brain_fresh(op.now()));
+        assert_eq!(
+            op.session
+                .brain
+                .as_ref()
+                .unwrap()
+                .held_generation
+                .as_deref(),
+            Some("1")
+        );
+        assert_ne!(
+            op.session
+                .brain_close_request(op.now())
+                .unwrap()
+                .context
+                .request_id,
+            close.context.request_id
+        );
+    }
+    #[test]
+    fn differing_raw_and_brain_revisions_require_a_matching_raw_observation() {
+        let (mut op, peer, raw) = setup();
+        let request = op
+            .session
+            .begin("brain_hold", json!({"generation":"1"}), op.now())
+            .unwrap();
+        let (pending, final_reply) = replies(&op, &request, true);
+        peer.push(pending);
+        peer.push(final_reply.clone());
+        peer.push(raw.clone());
+        op.refresh().unwrap();
+        assert!(op.session.fresh(op.now()));
+        assert!(!op.session.brain_fresh(op.now()));
+        assert!(op.session.pending.is_none());
+        peer.push(raw_at(
+            &raw,
+            "1",
+            final_reply["applied_frame"].as_str().unwrap(),
+        ));
+        op.refresh().unwrap();
+        assert!(op.session.brain_fresh(op.now()));
+    }
+    #[test]
+    fn unknown_reply_still_fails_and_saturated_batch_dispatches_nothing() {
+        let (mut op, peer, raw) = setup();
+        let request = op
+            .session
+            .begin("brain_hold", json!({"generation":"1"}), op.now())
+            .unwrap();
+        let (pending, final_reply) = replies(&op, &request, true);
+        peer.push(pending.clone());
+        peer.push(final_reply.clone());
+        for _ in 0..62 {
+            peer.push(raw.clone());
+        }
+        assert!(op.refresh().unwrap_err().contains("backlog saturated"));
+        assert_eq!(
+            op.session.pending.as_ref().unwrap().state,
+            audio::PendingState::Sent
+        );
+        assert!(op.session.brain_final.is_none());
+        let mut unknown = pending;
+        unknown["context"]["request_id"] = json!("999");
+        peer.push(unknown);
+        assert!(
+            op.refresh()
+                .unwrap_err()
+                .contains("unknown Brain reply correlation")
+        );
+        assert!(op.session.pending.is_some());
     }
 }

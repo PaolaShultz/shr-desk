@@ -69,6 +69,11 @@ A release review disappears when its engine-issued preview expires; the two-seco
 provider deadline is preserved. Fresh telemetry is coalesced in a bounded batch
 (up to64 frames/4MiB,250ms); quiet stale observations trigger a snapshot request,
 while fresh polling avoids duplicate requests. Saturated batches refuse freshness until the bounded read proves the queue drained.
+Within a drained batch, GP15 Brain/device, GP14 and GP07 contract replies are
+dispatched in wire FIFO order before newest-first raw snapshot coalescing. This
+preserves pending/final and priority-close correlation; a contract final cannot
+invalidate raw freshness after the batch has admitted its newest raw observation.
+Raw and contract revision equality remains required for coherent Brain freshness.
 Older rejected observations never renew freshness. Buffered telemetry does not add an artificial delay ahead of
 correlated command replies. A fresh reconnect request arriving during a worker
 receive wait is checked against the new generation before it is processed.
