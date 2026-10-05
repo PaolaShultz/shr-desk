@@ -27,3 +27,12 @@ evidence under ignored artifacts/ or user/. Preserve drafts in docs/archive/.
 Before committing inspect live Git state and named staged content. Preserve
 unrelated edits. No publication is implicit in local development. Follow
 docs/DEVELOPMENT.md for the current local-only publication boundary.
+
+Task0014 capacity direction: input, monitor, PA port, physical socket, USB slot,
+recorder track and screen-bank counts are independent. Eight-input legacy schemas
+remain explicit compatibility contracts, not product ceilings. Successor provider
+versions require actual producer fixtures before consumer acceptance. Keep logical
+analog numbering contiguous while presenting physical socket and USB identities
+separately; physical patch assignment is configurable, with no fixed PA/monitor
+socket split. Expected interface maps and physical clock lock remain unverified
+until an explicitly authorized session observes the actual rig.

@@ -83,6 +83,8 @@ fn peer_delayed(drop_grant: bool) -> (Peer, Config) {
         }
     });
     let config = Config {
+        wire_version: 1,
+        remote: None,
         endpoint,
         show: "11111111-1111-4111-8111-111111111111".into(),
         epoch: 9,

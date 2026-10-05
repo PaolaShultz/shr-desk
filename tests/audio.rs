@@ -61,7 +61,7 @@ fn delayed_cached_grant_never_extends_lease() {
 fn adversarial_schema_and_gain_are_refused() {
     let c = corpus();
     for (path, value) in [
-        ("/capability_version", json!(2)),
+        ("/capability_version", json!(3)),
         ("/meters", json!([0])),
         ("/protection", json!("protected")),
         ("/coefficients/0/current_nanogain/0", json!(3981071707u64)),

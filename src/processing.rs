@@ -352,11 +352,19 @@ pub struct Snapshot {
 }
 impl Snapshot {
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_version(2)
+    }
+    pub(crate) fn validate_version(&self, version: u8) -> Result<(), String> {
+        if !matches!(version, 2 | 3) {
+            return Err("processing version".into());
+        }
         if !provider::uuid(&self.show_id)
             || self.sample_rate != 48000
             || self.foh_tap != "foh-post-eq-dynamics-v2"
             || self.monitor_tap != "raw-post-mute-v1"
-            || self.channels.len() != 8
+            || (version == 2 && self.channels.len() != 8)
+            || self.channels.is_empty()
+            || self.channels.len() > u16::MAX as usize
         {
             return Err("processing identity/rate/taps/channels".into());
         }
@@ -404,15 +412,31 @@ pub fn decode_config(value: &Value) -> Result<Config, String> {
     Ok(c)
 }
 pub fn validate_body(body: &Value) -> Result<(), String> {
+    validate_body_version(body, 1)
+}
+pub(crate) fn validate_body_version(body: &Value, version: u8) -> Result<(), String> {
     provider::keys(body, &["input", "config"])?;
-    if !(1..=8).any(|i| body["input"] == format!("input-{i:02}")) {
+    let input = body["input"].as_str().ok_or("processing input")?;
+    if provider::target_version(
+        &crate::provider::Target {
+            input: input.into(),
+            parameter: "fader".into(),
+            monitor: None,
+        },
+        version,
+    )
+    .is_err()
+    {
         return Err("processing input".into());
     }
     decode_config(&body["config"])?;
     Ok(())
 }
 pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
-    let v = provider::parse(bytes)?;
+    let v = provider::parse_document(bytes)?;
+    if v["version"] != 3 && bytes.len() > provider::MAX_BYTES {
+        return Err("legacy processing capacity".into());
+    }
     provider::keys(
         &v,
         &[
@@ -452,7 +476,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     if r.context.epoch == "0" {
         return Err("processing epoch must be nonzero".into());
     }
-    if r.contract != "GP07-processing" || r.version != 2 {
+    if r.contract != "GP07-processing" || !matches!(r.version, 2 | 3) {
         return Err("processing contract/version".into());
     }
     provider::counter(&r.revision)?;
@@ -488,7 +512,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
         return Err("processing reply state/timing".into());
     }
     if let Some(s) = &r.snapshot {
-        s.validate()?;
+        s.validate_version(r.version)?;
         if s.show_id != r.context.show_id
             || s.epoch != r.context.epoch
             || s.revision != r.revision

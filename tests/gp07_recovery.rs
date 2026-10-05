@@ -89,6 +89,8 @@ fn one_lost_readonly_processing_observation_does_not_disable_future_polls() {
         }
     });
     let mut front = Frontend::new(Config {
+        wire_version: 1,
+        remote: None,
         endpoint,
         show: "11111111-1111-4111-8111-111111111111".into(),
         epoch: 9,

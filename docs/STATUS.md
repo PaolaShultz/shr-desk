@@ -326,3 +326,41 @@ references cover 143,664 samples with maximum error 1.943e-16; monitors remain
 bit-exact, actual owner FX/PA comparisons pass, and reconnect causes no replay.
 Independent source review and publication remain coordinator-owned. These are software-only
 checks; no physical display, controller, audio, listening or combined-load claim.
+
+## Task0014 dynamic integration — implementation, acceptance pending
+
+The existing real provider/session/frontend now has explicit successor version
+selection, dynamic input/coefficient/processing inventory, exact additional monitor
+scope serialization, stable-ID selection and complete partial-bank navigation.
+F7 presents paginated physical patch and common-clock/resource metadata; unknown
+physical lock/mapping stays unknown. F9 edits detached PA numeric/boolean owner
+fields or advertised output routes; Apply/review/confirm and separate mute/rearm
+use the same authority session with PA/route-specific grants. General PA topology
+and enum editing remains outside the numeric field editor.
+
+The authenticated QUIC connection and bounded immutable-document assembler are
+implemented in source. No peer grant, freshness or pending/retry authority is moved
+out of the existing Session. Old accepted corpora remain unchanged. Actual supplied
+16/17/32/48 final producer profiles and actual structural snapshots are retained
+with SHA256 provenance in tests/fixtures/gp14/v1 and pass normal decoder tests.
+The current focused codec/segmentation suite passes five tests; five real-provider
+drivers remain opt-in and unexecuted for this checkpoint. Full default/native
+suites passed before the final structural-close retention fix; both warnings-denied
+Clippy feature sets passed afterward. Final full-suite reruns, releases and actual
+integrated driver/sample acceptance remain required.
+
+| Requirement | Consumer location | Remaining acceptance |
+|---|---|---|
+| Dynamic strips/banking and stable identity | frontend/provider/audio | Actual high-channel driver (final profiles decoded) |
+| Four-band16/17/32/33/48 edits | processing/audio/frontend | Actual operator/sample chain and native review |
+| Additional monitor scopes | scopes/provider/audio | Actual independent grants/sends |
+| Authenticated remote, same authority | remote/local_audio | Exact integrated mutual-TLS/revoke/reconnect runs |
+| Editable patch and PA controls | topology/structure/frontend | Actual owner PA readback, mute/prepare/patch/rearm |
+| Common-clock health/resources | topology/frontend | Final coherent producer timeline and recovery |
+| Transport segmentation | pages | Normal adversaries plus real large producer replies |
+
+The coordinator owns final producer schema/fixture freeze, independent acceptance
+and publication. This checkpoint does not mark task0014 complete. Physical devices,
+USB-slot/socket mapping, ADAT lock, hardware throughput, windows and physical GPU
+acceptance remain separate and unverified. Current commands/results and exact local
+handoff source identities are recorded by the bounded worker before handback.

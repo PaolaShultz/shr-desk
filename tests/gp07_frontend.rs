@@ -197,6 +197,8 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     let start = Instant::now();
     let deadline = start + Duration::from_secs(55);
     let mut f = Frontend::new(Config {
+        wire_version: 1,
+        remote: None,
         endpoint: endpoint.to_path_buf(),
         show: SHOW.into(),
         epoch,
@@ -534,6 +536,8 @@ fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
     let service = launch_service(&binary);
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut f = Frontend::new(Config {
+        wire_version: 1,
+        remote: None,
         endpoint: service.dir.join("audio.sock"),
         show: SHOW.into(),
         epoch: 100,
@@ -609,4 +613,329 @@ fn gp07_legacy_disconnect_requires_explicit_gp03_reconnect() {
     assert!(f.state.as_ref().unwrap().processing.is_none());
     drop(f);
     drop(service);
+}
+
+#[test]
+#[ignore = "requires actual dynamic LocalAudio at GP14_EXTERNAL_ENDPOINT; coordinator owns sample/module acceptance"]
+fn gp14_high_channel_external_driver() {
+    let endpoint = PathBuf::from(std::env::var_os("GP14_EXTERNAL_ENDPOINT").unwrap());
+    let epoch: u64 = std::env::var("GP14_EPOCH").unwrap().parse().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(55);
+    let mut f = Frontend::new(Config {
+        wire_version: 2,
+        remote: std::env::var_os("GP14_REMOTE_CONFIG")
+            .map(|p| serde_json::from_slice(&fs::read(p).unwrap()).unwrap()),
+        endpoint,
+        show: SHOW.into(),
+        epoch,
+        writer: format!("desk-gp14-{}", std::process::id()),
+        scope: "foh".into(),
+    });
+    f.enable_processing().unwrap();
+    wait(
+        &mut f,
+        deadline,
+        "dynamic ready",
+        Frontend::processing_ready,
+    );
+    assert!(snapshot(&f).channels.len() >= 48);
+    tap(&mut f, "G");
+    wait(&mut f, deadline, "dynamic FOH grant", |f| {
+        f.state
+            .as_ref()
+            .is_some_and(|u| u.status.starts_with("grant applied"))
+    });
+    tap(&mut f, "F2");
+    wait(
+        &mut f,
+        deadline,
+        "dynamic Channel",
+        Frontend::processing_ready,
+    );
+    let mut evidence = Vec::new();
+    for (index, number) in [16usize, 17, 32, 33, 48].into_iter().enumerate() {
+        let delta = number as i32 - 1 - f.selected as i32;
+        if index % 2 == 0 {
+            for _ in 0..delta.unsigned_abs() {
+                tap(&mut f, if delta > 0 { "Right" } else { "Left" });
+                wait(
+                    &mut f,
+                    deadline,
+                    "keyboard selection",
+                    Frontend::processing_ready,
+                );
+            }
+        } else {
+            controller(&mut f, Action::Move(delta));
+        }
+        wait(
+            &mut f,
+            deadline,
+            "selected high channel",
+            Frontend::processing_ready,
+        );
+        assert_eq!(f.selected, number - 1);
+        let id = format!("input-{number:02}");
+        let before = snapshot(&f).clone();
+        if index % 2 == 0 {
+            tap(&mut f, "E");
+        } else {
+            controller(&mut f, Action::ProcessingEdit);
+        }
+        assert_eq!(f.processing_draft.as_ref().unwrap().input, id);
+        let mut desired = f.processing_draft.as_ref().unwrap().config.clone();
+        desired.eq_bypass = false;
+        desired.band1_bypass = false;
+        desired.band2_bypass = false;
+        desired.band3_bypass = false;
+        desired.band4_bypass = false;
+        desired.band1_hz = 150 + number as i32;
+        desired.band1_gain_mdb = 1000;
+        desired.band1_q_milli = 800;
+        desired.band2_hz = 600 + number as i32;
+        desired.band2_gain_mdb = -2000;
+        desired.band2_q_milli = 1100;
+        desired.band3_hz = 2200 + number as i32;
+        desired.band3_gain_mdb = 3000;
+        desired.band3_q_milli = 1400;
+        desired.band4_hz = 8000 + number as i32;
+        desired.band4_gain_mdb = -1000;
+        desired.band4_q_milli = 1800;
+        desired.compressor_bypass = false;
+        desired.threshold_mdb = -24000;
+        desired.ratio_milli = 3000;
+        desired.knee_mdb = 3000;
+        desired.attack_us = 5000;
+        desired.release_ms = 120;
+        desired.makeup_mdb = 1000;
+        for (field, value) in entries(&desired).into_iter().enumerate() {
+            if index % 2 == 0 {
+                field_keyboard(&mut f, field, &value);
+            } else {
+                let delta = field as i32 - f.processing_field as i32;
+                controller(&mut f, Action::ProcessingField(delta));
+                controller(&mut f, Action::ProcessingText(value));
+            }
+        }
+        assert_eq!(f.processing_draft.as_ref().unwrap().config, desired);
+        review_confirm(&mut f, deadline, index % 2 != 0, false);
+        wait(&mut f, deadline, "high-channel applied and settled", |f| {
+            f.processing_ready()
+                && f.state
+                    .as_ref()
+                    .and_then(|u| u.processing.as_ref())
+                    .is_some_and(|s| {
+                        s.revision != before.revision
+                            && s.channels
+                                .iter()
+                                .any(|c| c.input == id && c.target == desired && c.ready)
+                    })
+        });
+        let after = snapshot(&f).clone();
+        for old in &before.channels {
+            if old.input != id {
+                assert_eq!(
+                    after
+                        .channels
+                        .iter()
+                        .find(|c| c.input == old.input)
+                        .unwrap()
+                        .target,
+                    old.target
+                );
+            }
+        }
+        evidence.push(json!({"input":id,"actions":24,"path":if index%2==0 {"keyboard"} else {"injected"},
+            "config":desired,"revision":after.revision,"final":f.state.as_ref().unwrap().processing_final}));
+    }
+    let final_state = snapshot(&f).clone();
+    tap(&mut f, "F5");
+    wait(
+        &mut f,
+        deadline,
+        "reconnect read-only",
+        Frontend::processing_ready,
+    );
+    assert_eq!(snapshot(&f).revision, final_state.revision);
+    assert_eq!(
+        snapshot(&f)
+            .channels
+            .iter()
+            .map(|c| &c.target)
+            .collect::<Vec<_>>(),
+        final_state
+            .channels
+            .iter()
+            .map(|c| &c.target)
+            .collect::<Vec<_>>()
+    );
+    if let Some(path) = std::env::var_os("GP14_DRIVER_EVIDENCE") {
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(
+                &json!({"edits":evidence,"reconnect_revision":final_state.revision}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+#[ignore = "requires actual integrated dynamic provider/PA; GP14_EXTERNAL_ENDPOINT,GP14_EPOCH and optional GP14_REMOTE_CONFIG"]
+fn gp14_structural_external_driver() {
+    let endpoint = PathBuf::from(std::env::var_os("GP14_EXTERNAL_ENDPOINT").unwrap());
+    let epoch: u64 = std::env::var("GP14_EPOCH").unwrap().parse().unwrap();
+    let remote = std::env::var_os("GP14_REMOTE_CONFIG").map(|p| {
+        serde_json::from_slice::<shr_desk::remote::Config>(&fs::read(p).unwrap()).unwrap()
+    });
+    let deadline = Instant::now() + Duration::from_secs(55);
+    let make = |scope: &str| {
+        Frontend::new(Config {
+            wire_version: 2,
+            remote: remote.clone(),
+            endpoint: endpoint.clone(),
+            show: SHOW.into(),
+            epoch,
+            writer: format!("desk-structure-{}-{scope}", std::process::id()),
+            scope: scope.into(),
+        })
+    };
+    let ready = |f: &Frontend| f.fresh() && f.state.as_ref().is_some_and(|u| u.structural_fresh);
+    let confirm = |f: &mut Frontend| {
+        wait(f, deadline, "structural review", |f| {
+            ready(f) && f.state.as_ref().is_some_and(|u| u.review.is_some())
+        });
+        for page in 0..f.review_pages() {
+            if page > 0 {
+                tap(f, "PageDown");
+            }
+            assert!(f.scene().in_bounds());
+            let _ = shr_desk::raster::rgba(&f.scene());
+            f.mark_presented();
+        }
+        let revision = f
+            .state
+            .as_ref()
+            .unwrap()
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .authority
+            .revision
+            .clone();
+        tap(f, "Enter");
+        wait(f, deadline, "structural final", |f| {
+            f.state
+                .as_ref()
+                .and_then(|u| u.structural_final.as_ref())
+                .is_some_and(|r| r.reason.is_none() && r.revision != revision)
+        });
+    };
+    let grant = |f: &mut Frontend| {
+        wait(f, deadline, "structural attach", ready);
+        tap(f, "G");
+        wait(f, deadline, "separate structural grant", |f| {
+            ready(f)
+                && f.state
+                    .as_ref()
+                    .is_some_and(|u| u.status.starts_with("grant applied"))
+        });
+    };
+    let mut pa = make("pa_configuration");
+    grant(&mut pa);
+    tap(&mut pa, "Z");
+    confirm(&mut pa);
+    assert!(
+        pa.state
+            .as_ref()
+            .unwrap()
+            .structural
+            .as_ref()
+            .unwrap()
+            .outputs_quiesced
+    );
+    tap(&mut pa, "F9");
+    let field = pa
+        .structural_draft
+        .as_ref()
+        .unwrap()
+        .fields
+        .iter()
+        .position(|p| p.ends_with("/gain_db"))
+        .expect("actual PA gain_db field required");
+    controller(&mut pa, Action::StructureField(field as i32));
+    controller(&mut pa, Action::StructureAdjust(-1));
+    controller(&mut pa, Action::StructureApply);
+    confirm(&mut pa);
+    let pa_readback = pa.state.as_ref().unwrap().structural.clone().unwrap();
+    tap(&mut pa, "Q");
+    wait(&mut pa, deadline, "PA lease released", |f| {
+        f.state
+            .as_ref()
+            .is_some_and(|u| u.status.starts_with("release applied"))
+    });
+    drop(pa);
+    let mut patch = make("output_routes");
+    grant(&mut patch);
+    assert!(
+        patch
+            .state
+            .as_ref()
+            .unwrap()
+            .structural
+            .as_ref()
+            .unwrap()
+            .topology
+            .pa_outputs
+            > 0
+    );
+    tap(&mut patch, "F9");
+    controller(
+        &mut patch,
+        Action::StructureText("{\"kind\":\"pa\",\"index\":0}".into()),
+    );
+    tap(&mut patch, "F4");
+    confirm(&mut patch);
+    let patch_readback = patch.state.as_ref().unwrap().structural.clone().unwrap();
+    assert_eq!(
+        patch_readback.topology.outputs[0].source,
+        Some(shr_desk::topology::OutputSource::Pa { index: 0 })
+    );
+    assert!(patch_readback.outputs_quiesced);
+    tap(&mut patch, "F5");
+    wait(
+        &mut patch,
+        deadline,
+        "fresh map readback without replay",
+        ready,
+    );
+    assert_eq!(
+        patch
+            .state
+            .as_ref()
+            .unwrap()
+            .structural
+            .as_ref()
+            .unwrap()
+            .revision,
+        patch_readback.revision
+    );
+    drop(patch);
+    let mut rearm = make("pa_configuration");
+    grant(&mut rearm);
+    tap(&mut rearm, "X");
+    confirm(&mut rearm);
+    let final_readback = rearm.state.as_ref().unwrap().structural.clone().unwrap();
+    assert!(!final_readback.outputs_quiesced);
+    if let Some(path) = std::env::var_os("GP14_STRUCTURE_EVIDENCE") {
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(
+                &json!({"pa":pa_readback,"patch":patch_readback,"rearmed":final_readback}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    }
 }

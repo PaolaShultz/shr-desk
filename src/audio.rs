@@ -61,9 +61,9 @@ pub struct Nanogain(pub u64);
 #[serde(deny_unknown_fields)]
 pub struct Coefficients {
     pub input: String,
-    pub current_nanogain: [Nanogain; 6],
-    pub ramp_target_nanogain: [Nanogain; 6],
-    pub held_nanogain: [Option<Nanogain>; 6],
+    pub current_nanogain: Vec<Nanogain>,
+    pub ramp_target_nanogain: Vec<Nanogain>,
+    pub held_nanogain: Vec<Option<Nanogain>>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -78,6 +78,12 @@ pub struct RenderedSnapshot {
     pub meters: Value,
     pub authority: Snapshot,
     pub coefficients: Vec<Coefficients>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology: Option<crate::topology::Topology>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clock: Option<crate::topology::Clock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<crate::topology::Resources>,
 }
 impl RenderedSnapshot {
     fn validate(&self) -> Result<(), String> {
@@ -90,13 +96,38 @@ impl RenderedSnapshot {
             return fail("render capability/protection/meters");
         }
         provider::counter(&self.frame)?;
+        if self.capability_version == 1 {
+            if self.topology.is_some() || self.clock.is_some() || self.resources.is_some() {
+                return fail("legacy topology fields");
+            }
+        } else {
+            let topology = self.topology.as_ref().ok_or("dynamic topology required")?;
+            topology.validate()?;
+            self.resources
+                .as_ref()
+                .ok_or("dynamic resources required")?
+                .validate()?;
+            let clock = self.clock.as_ref().ok_or("dynamic clock required")?;
+            clock.validate()?;
+            if clock.epoch != provider::counter(&self.authority.epoch)?
+                || topology
+                    .inputs
+                    .iter()
+                    .map(|p| &p.id)
+                    .collect::<BTreeSet<_>>()
+                    != self.authority.inputs.iter().collect()
+                || topology.monitors != self.authority.monitors.len()
+            {
+                return fail("topology/authority/clock coherence");
+            }
+        }
         // The nested authority intentionally remains the separately reviewed GP02 metadata body.
         let bytes = serde_json::to_vec(&self.authority_value()).map_err(|e| e.to_string())?;
-        let a = provider::decode(&bytes)?;
+        let a = provider::decode_version(&bytes, self.capability_version)?;
         if a.page != 0
             || a.page_count != 1
-            || a.parameters.len() != 40
-            || self.coefficients.len() != 8
+            || a.parameters.len() != a.inputs.len() * (3 + a.monitors.len())
+            || self.coefficients.len() != a.inputs.len()
         {
             return fail("incomplete rendered snapshot");
         }
@@ -105,13 +136,20 @@ impl RenderedSnapshot {
             if !a.inputs.contains(&c.input) || !seen.insert(&c.input) {
                 return fail("coefficient identity");
             }
+            let width = 4 + a.monitors.len();
+            if c.current_nanogain.len() != width
+                || c.ramp_target_nanogain.len() != width
+                || c.held_nanogain.len() != width
+            {
+                return fail("coefficient lane shape");
+            }
             for (i, (current, target)) in c
                 .current_nanogain
                 .iter()
                 .zip(&c.ramp_target_nanogain)
                 .enumerate()
             {
-                let max = if [0, 4, 5].contains(&i) {
+                let max = if i == 0 || i >= 4 {
                     3_981_071_706
                 } else {
                     1_000_000_000
@@ -127,13 +165,11 @@ impl RenderedSnapshot {
         Ok(())
     }
     fn authority_value(&self) -> Value {
-        // Snapshot is a read-only type; serialization is explicit and never changes its contract.
-        let a = &self.authority;
-        json!({"show_id":a.show_id,"epoch":a.epoch,"revision":a.revision,"sequence":a.sequence,"page":a.page,"page_count":a.page_count,"durability":a.durability,"validity":a.validity,"acquisition_frame":a.acquisition_frame,"age_ms":a.age_ms,"rendered_application":a.rendered_application,"release_commit":a.release_commit,"session_history_capacity":a.session_history_capacity,"inputs":a.inputs,"monitors":a.monitors,"modes":a.modes,"automation_bounds":a.automation_bounds.iter().map(|b|json!({"target":target_value(&b.target),"min":b.min,"max":b.max})).collect::<Vec<_>>(),"parameters":a.parameters.iter().map(|p|json!({"target":target_value(&p.target),"actual":p.actual,"target_value":p.target_value,"proposal":p.proposal,"hold":p.hold,"owner":p.owner})).collect::<Vec<_>>()})
+        serde_json::to_value(&self.authority).expect("serializable authority")
     }
 }
 fn capability(name: &str, version: u8) -> Result<(), String> {
-    if name != "GP03-rendered" || version != 1 {
+    if name != "GP03-rendered" || !matches!(version, 1 | 2) {
         return fail("unsupported capability");
     }
     Ok(())
@@ -156,13 +192,14 @@ pub struct Destination {
 pub struct Preview {
     pub token: String,
     pub revision: String,
+    #[serde(with = "crate::scopes::one")]
     pub scope: String,
     pub remaining_ms: u64,
     pub ramp_frames: u64,
     pub destinations: Vec<Destination>,
 }
 impl Preview {
-    fn validate(&self) -> Result<(), String> {
+    fn validate(&self, version: u8) -> Result<(), String> {
         if !provider::id(&self.token)
             || !scope(&self.scope)
             || self.remaining_ms > 2000
@@ -175,7 +212,7 @@ impl Preview {
         provider::counter(&self.revision)?;
         let mut seen = BTreeSet::new();
         for d in &self.destinations {
-            provider::target(&d.target)?;
+            provider::target_version(&d.target, version)?;
             provider::value(&d.target, &d.value)?;
             if d.target.parameter == "mute"
                 || target_scope(&d.target) != self.scope
@@ -194,6 +231,7 @@ pub struct OutcomeBody {
     pub reason: Option<String>,
     pub lease_remaining_ms: Option<u64>,
     pub granted_lease: Option<String>,
+    #[serde(with = "crate::scopes::optional")]
     pub scope: Option<String>,
     pub preview: Option<Preview>,
     pub snapshot: Option<Snapshot>,
@@ -227,29 +265,36 @@ pub fn decode_command_body(bytes: &[u8]) -> Result<Value, String> {
     provider::parse(bytes)
 }
 pub fn decode_snapshot(bytes: &[u8]) -> Result<RenderedSnapshot, String> {
-    let v = provider::parse(bytes)?;
+    let v = provider::parse_document(bytes)?;
+    if v["capability_version"] != 2 && bytes.len() > provider::MAX_BYTES {
+        return fail("legacy frame capacity");
+    }
     validate_snapshot_value(&v)?;
     let s: RenderedSnapshot = serde_json::from_value(v).map_err(|e| e.to_string())?;
     s.validate()?;
     Ok(s)
 }
 fn validate_snapshot_value(v: &Value) -> Result<(), String> {
-    provider::keys(
-        v,
-        &[
-            "capability",
-            "capability_version",
-            "rendered_application",
-            "release_commit",
-            "frame",
-            "faulted",
-            "protection",
-            "meters",
-            "authority",
-            "coefficients",
-        ],
+    let mut fields = vec![
+        "capability",
+        "capability_version",
+        "rendered_application",
+        "release_commit",
+        "frame",
+        "faulted",
+        "protection",
+        "meters",
+        "authority",
+        "coefficients",
+    ];
+    if v["capability_version"] == 2 {
+        fields.extend(["topology", "clock", "resources"]);
+    }
+    provider::keys(v, &fields)?;
+    provider::decode_version(
+        &serde_json::to_vec(&v["authority"]).map_err(|e| e.to_string())?,
+        v["capability_version"].as_u64().ok_or("version")? as u8,
     )?;
-    provider::decode(&serde_json::to_vec(&v["authority"]).map_err(|e| e.to_string())?)?;
     for c in v["coefficients"].as_array().ok_or("coefficients array")? {
         provider::keys(
             c,
@@ -264,7 +309,10 @@ fn validate_snapshot_value(v: &Value) -> Result<(), String> {
     Ok(())
 }
 pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
-    let v = provider::parse(bytes)?;
+    let v = provider::parse_document(bytes)?;
+    if v["capability_version"] != 2 && bytes.len() > provider::MAX_BYTES {
+        return fail("legacy frame capacity");
+    }
     provider::keys(
         &v,
         &[
@@ -315,9 +363,10 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
             ],
         )?;
         if !v["outcome"]["body"]["snapshot"].is_null() {
-            provider::decode(
+            provider::decode_version(
                 &serde_json::to_vec(&v["outcome"]["body"]["snapshot"])
                     .map_err(|e| e.to_string())?,
+                v["capability_version"].as_u64().ok_or("version")? as u8,
             )?;
         }
     }
@@ -375,7 +424,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     }
     if let Some(o) = &r.outcome {
         if o.contract != "C-AUDIO"
-            || o.version != 1
+            || o.version != r.capability_version
             || o.context != r.context
             || !matches!(
                 o.kind.as_str(),
@@ -437,7 +486,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
             return fail("unsupported lease duration");
         }
         if let Some(p) = &o.body.preview {
-            p.validate()?;
+            p.validate(r.capability_version)?;
             if p.revision != o.body.revision
                 || r.context.writer.is_none()
                 || r.context.lease.is_none()
@@ -461,6 +510,9 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
         }
         if let Some(s) = &r.snapshot {
             s.validate()?;
+            if s.capability_version != r.capability_version {
+                return fail("nested snapshot version mismatch");
+            }
             if s.authority.show_id != r.context.show_id
                 || s.authority.epoch != r.context.epoch
                 || s.authority.revision != o.body.revision
@@ -491,17 +543,14 @@ pub(crate) fn validate_context_value(v: &Value) -> Result<(), String> {
     )
 }
 fn scope(s: &str) -> bool {
-    matches!(s, "foh" | "monitor1" | "monitor2")
+    crate::scopes::valid(s)
 }
-fn target_scope(t: &Target) -> &str {
-    match t.monitor.as_deref() {
-        Some("monitor-1") => "monitor1",
-        Some("monitor-2") => "monitor2",
-        _ => "foh",
-    }
+fn target_scope(t: &Target) -> String {
+    provider::target_scope(t)
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Request {
+    pub version: u8,
     pub context: Context,
     pub kind: String,
     pub body: Value,
@@ -509,6 +558,9 @@ pub struct Request {
 impl Request {
     pub fn encode(&self) -> Result<Vec<u8>, String> {
         self.context.validate()?;
+        if !matches!(self.version, 1 | 2) {
+            return fail("request version");
+        }
         let c = &self.context;
         if self.kind.starts_with("processing_") && c.epoch == "0" {
             return fail("processing epoch must be nonzero");
@@ -519,19 +571,30 @@ impl Request {
                 return fail("processing snapshot must be read-only");
             }
         } else if self.kind == "processing_set" {
-            crate::processing::validate_body(&self.body)?;
+            crate::processing::validate_body_version(&self.body, self.version)?;
             if c.writer.is_none() || c.lease.is_none() {
                 return fail("processing mutation authority");
             }
         } else if self.kind.starts_with("processing_") {
             return fail("unknown processing request");
         }
-        let contract = if self.kind.starts_with("processing_") {
+        if crate::structure::is_kind(&self.kind) {
+            if self.version != 2 {
+                return fail("structural controls require dynamic authority");
+            }
+            crate::structure::validate_body(&self.kind, &self.body, None)?;
+            if (self.kind == "structural_snapshot") != c.writer.is_none() {
+                return fail("structural writer context");
+            }
+        }
+        let contract = if crate::structure::is_kind(&self.kind) {
+            "GP14-structure"
+        } else if self.kind.starts_with("processing_") {
             "GP07-processing"
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":if contract == "GP07-processing" {2} else {1},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
+        let v = json!({"contract":contract,"version":if contract == "GP14-structure" {1} else if contract == "GP07-processing" {self.version + 1} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":self.kind,"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -565,6 +628,7 @@ struct Lease {
 /// One writer, one immutable outstanding request, injected monotonic milliseconds.
 #[derive(Clone)]
 pub struct Session {
+    version: u8,
     show: String,
     epoch: u64,
     writer: String,
@@ -574,6 +638,9 @@ pub struct Session {
     receipt: Option<u64>,
     pub processing: Option<crate::processing::Snapshot>,
     processing_receipt: Option<u64>,
+    pub structural: Option<crate::structure::Snapshot>,
+    pub structural_final: Option<crate::structure::Reply>,
+    structural_receipt: Option<u64>,
     /// Last correlated successful final, retained independently of polling snapshots.
     pub processing_final: Option<crate::processing::Reply>,
     lease: Option<Lease>,
@@ -587,10 +654,25 @@ pub struct Session {
 }
 impl Session {
     pub fn new(show: &str, epoch: u64, writer: &str, scoped: &str) -> Result<Self, String> {
-        if !provider::uuid(show) || !provider::id(writer) || !scope(scoped) {
+        Self::new_version(show, epoch, writer, scoped, 1)
+    }
+    pub fn new_version(
+        show: &str,
+        epoch: u64,
+        writer: &str,
+        scoped: &str,
+        version: u8,
+    ) -> Result<Self, String> {
+        if !matches!(version, 1 | 2)
+            || (version == 1 && !matches!(scoped, "foh" | "monitor1" | "monitor2"))
+            || !provider::uuid(show)
+            || !provider::id(writer)
+            || !scope(scoped)
+        {
             return fail("session identity/scope");
         }
         Ok(Self {
+            version,
             show: show.into(),
             epoch,
             writer: writer.into(),
@@ -600,6 +682,9 @@ impl Session {
             receipt: None,
             processing: None,
             processing_receipt: None,
+            structural: None,
+            structural_final: None,
+            structural_receipt: None,
             processing_final: None,
             lease: None,
             pending: None,
@@ -613,6 +698,7 @@ impl Session {
     }
     pub fn snapshot_request(&self) -> Request {
         Request {
+            version: self.version,
             context: Context {
                 show_id: self.show.clone(),
                 module: "audio".into(),
@@ -628,6 +714,9 @@ impl Session {
     }
     pub fn ingest_snapshot(&mut self, s: RenderedSnapshot, now: u64) -> Result<bool, String> {
         s.validate()?;
+        if s.capability_version != self.version {
+            return fail("snapshot version differs from selected session");
+        }
         if s.authority.show_id != self.show || provider::counter(&s.authority.epoch)? != self.epoch
         {
             return fail("wrong snapshot session");
@@ -682,6 +771,7 @@ impl Session {
         self.lease = None;
         self.receipt = None;
         self.processing_receipt = None;
+        self.structural_receipt = None;
         self.processing_final = None;
         self.needs_snapshot = true;
         self.context_changed();
@@ -720,6 +810,109 @@ impl Session {
                 .as_ref()
                 .is_some_and(|l| now >= l.renew_at && now < l.deadline)
     }
+    pub fn structural_request(&self) -> Request {
+        let mut request = self.snapshot_request();
+        request.kind = "structural_snapshot".into();
+        request
+    }
+    pub fn ingest_structural(
+        &mut self,
+        snapshot: crate::structure::Snapshot,
+        now: u64,
+    ) -> Result<bool, String> {
+        snapshot.validate()?;
+        if self.version != 2
+            || snapshot.show_id != self.show
+            || provider::counter(&snapshot.epoch)? != self.epoch
+        {
+            return fail("structural session");
+        }
+        if self.structural.as_ref().is_some_and(|old| {
+            provider::counter(&snapshot.revision).unwrap()
+                < provider::counter(&old.revision).unwrap()
+                || provider::counter(&snapshot.frame).unwrap()
+                    < provider::counter(&old.frame).unwrap()
+        }) {
+            return Ok(false);
+        }
+        if self.snapshot.as_ref().is_some_and(|raw| {
+            provider::counter(&snapshot.revision).unwrap()
+                < provider::counter(&raw.authority.revision).unwrap()
+        }) {
+            return Ok(false);
+        }
+        self.structural = Some(snapshot);
+        self.structural_receipt = Some(now);
+        Ok(true)
+    }
+    pub fn structural_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .structural_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self.structural.as_ref().is_some_and(|s| {
+                self.snapshot.as_ref().is_some_and(|raw| {
+                    s.revision == raw.authority.revision
+                        && raw.topology.as_ref() == Some(&s.topology)
+                })
+            })
+    }
+    pub fn accept_structural(
+        &mut self,
+        reply: crate::structure::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        let reply = crate::structure::decode_reply(
+            &serde_json::to_vec(&reply).map_err(|e| e.to_string())?,
+        )?;
+        let pending = self
+            .pending
+            .as_ref()
+            .ok_or("no pending structural command")?;
+        if !crate::structure::is_kind(&pending.request.kind)
+            || pending.request.context != reply.context
+            || self.version != 2
+        {
+            return fail("structural correlation");
+        }
+        let expected = provider::counter(
+            reply
+                .context
+                .expected_revision
+                .as_deref()
+                .ok_or("structural expected revision")?,
+        )?;
+        if reply.state == "pending" {
+            if provider::counter(&reply.revision)? != expected {
+                return fail("structural pending revision");
+            }
+            self.pending.as_mut().unwrap().state = PendingState::Accepted;
+            return Ok(());
+        }
+        if reply.reason.is_none()
+            && (provider::counter(&reply.revision)?
+                != expected.checked_add(1).ok_or("revision overflow")?
+                || reply.effective_frame.is_none())
+        {
+            return fail("structural final boundary/revision");
+        }
+        if let Some(snapshot) = reply.snapshot.clone() {
+            self.ingest_structural(snapshot, now)?;
+        }
+        self.structural_final = Some(reply.clone());
+        self.last_result = match reply.reason {
+            Some(reason) => format!("structural REFUSED {reason}; confirmed state unchanged"),
+            None => format!(
+                "structural applied revision {} at frame {}; explicit rearm remains separate",
+                reply.revision,
+                reply.effective_frame.unwrap()
+            ),
+        };
+        self.pending = None;
+        self.needs_snapshot = true;
+        self.preview = None;
+        Ok(())
+    }
     pub fn processing_request(&self) -> Request {
         let mut request = self.snapshot_request();
         request.kind = "processing_snapshot".into();
@@ -730,7 +923,7 @@ impl Session {
         s: crate::processing::Snapshot,
         now: u64,
     ) -> Result<bool, String> {
-        s.validate()?;
+        s.validate_version(self.version + 1)?;
         if s.show_id != self.show || provider::counter(&s.epoch)? != self.epoch {
             return fail("wrong processing session");
         }
@@ -745,6 +938,12 @@ impl Session {
             && provider::counter(&s.revision)? < provider::counter(&raw.authority.revision)?
         {
             return Ok(false);
+        }
+        if let Some(raw) = &self.snapshot {
+            let ids: BTreeSet<_> = s.channels.iter().map(|c| &c.input).collect();
+            if ids != raw.authority.inputs.iter().collect() {
+                return fail("processing inventory differs from authority");
+            }
         }
         self.processing = Some(s);
         self.processing_receipt = Some(now);
@@ -775,6 +974,9 @@ impl Session {
         let r = crate::processing::decode_reply(
             &serde_json::to_vec(&reply).map_err(|e| e.to_string())?,
         )?;
+        if r.version != self.version + 1 {
+            return fail("processing reply version differs from session");
+        }
         let mut candidate = self.clone();
         candidate.accept_processing_validated(r, now)?;
         *self = candidate;
@@ -867,7 +1069,10 @@ impl Session {
             return fail("fresh complete compatible snapshot required");
         }
         if kind == "grant" {
-            if self.next_id != 1 || self.lease.is_some() || body != json!({"scope":self.scope}) {
+            if self.next_id != 1
+                || self.lease.is_some()
+                || body != json!({"scope":crate::scopes::value(&self.scope)?})
+            {
                 return fail("invalid grant");
             }
         } else {
@@ -882,6 +1087,7 @@ impl Session {
         let id = self.next_id;
         self.next_id = id.checked_add(1).ok_or("request counter exhausted")?;
         let request = Request {
+            version: self.version,
             context: Context {
                 show_id: self.show.clone(),
                 module: "audio".into(),
@@ -908,18 +1114,45 @@ impl Session {
     }
     fn validate_command(&self, kind: &str, body: &Value, now: u64) -> Result<(), String> {
         match kind {
+            kind if crate::structure::is_kind(kind) => {
+                if self.version != 2
+                    || crate::structure::scope(kind) != Some(self.scope.as_str())
+                    || !self.structural_fresh(now)
+                {
+                    return fail("fresh structural state and separate scoped grant required");
+                }
+                let snapshot = self.structural.as_ref().unwrap();
+                if matches!(kind, "pa_set" | "output_patch") && !snapshot.outputs_quiesced {
+                    return fail("quiesce outputs before structural prepare");
+                }
+                crate::structure::validate_body(kind, body, Some(snapshot))
+            }
             "processing_set" => {
                 if self.scope != "foh" || !self.processing_fresh(now) {
                     return fail("fresh ready GP07 processing and FOH lease required");
                 }
-                crate::processing::validate_body(body)
+                {
+                    crate::processing::validate_body_version(body, self.version)?;
+                    if !self
+                        .snapshot
+                        .as_ref()
+                        .unwrap()
+                        .authority
+                        .inputs
+                        .iter()
+                        .any(|id| body["input"] == *id)
+                    {
+                        return fail("processing input absent");
+                    }
+                    Ok(())
+                }
             }
             "grant" => provider::keys(body, &["scope"]),
             "renew" | "release" => provider::keys(body, &[]),
             "set" | "propose" | "preview_release" => {
                 provider::keys(body, &["targets"])?;
                 let a = body["targets"].as_array().ok_or("targets")?;
-                if a.is_empty() || a.len() > 40 {
+                if a.is_empty() || a.len() > if self.version == 1 { 40 } else { 64 } {
                     return fail("targets capacity");
                 }
                 let mut seen = BTreeSet::new();
@@ -939,7 +1172,11 @@ impl Session {
                             &["parameter", "input"]
                         },
                     )?;
-                    provider::target(&t)?;
+                    self.snapshot
+                        .as_ref()
+                        .unwrap()
+                        .authority
+                        .validate_target(&t)?;
                     if target_scope(&t) != self.scope || !seen.insert(t.clone()) {
                         return fail("target scope/duplicate");
                     }
@@ -957,7 +1194,7 @@ impl Session {
                 let a = body["bounds"].as_array().ok_or("bounds")?;
                 if !matches!(mode, "manual" | "assist" | "auto")
                     || (mode == "auto") == a.is_empty()
-                    || a.len() > 40
+                    || a.len() > if self.version == 1 { 40 } else { 64 }
                 {
                     return fail("mode explicit bounds");
                 }
@@ -974,7 +1211,11 @@ impl Session {
                             &["parameter", "input"]
                         },
                     )?;
-                    provider::target(&t)?;
+                    self.snapshot
+                        .as_ref()
+                        .unwrap()
+                        .authority
+                        .validate_target(&t)?;
                     provider::value(&t, &b["min"])?;
                     provider::value(&t, &b["max"])?;
                     if t.parameter == "mute"
@@ -1020,6 +1261,9 @@ impl Session {
     pub fn accept(&mut self, r: Reply, now: u64) -> Result<(), String> {
         // Public typed callers receive the same strict semantics as the wire path.
         let validated = decode_reply(&serde_json::to_vec(&r).map_err(|e| e.to_string())?)?;
+        if validated.capability_version != self.version {
+            return fail("reply version differs from session");
+        }
         let mut candidate = self.clone();
         candidate.accept_validated(validated, now)?;
         *self = candidate;

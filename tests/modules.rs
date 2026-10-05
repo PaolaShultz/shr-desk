@@ -202,6 +202,8 @@ fn actual_gp05_readonly_metadata_and_independent_frontend_health() {
         thread::sleep(Duration::from_millis(10));
     }
     let config = shr_desk::frontend::Config {
+        wire_version: 1,
+        remote: None,
         endpoint: dir.join("audio.sock"),
         show: SHOW.into(),
         epoch: 9,
@@ -428,6 +430,8 @@ fn end_to_end_query_deadline_stall_drip_backlog_and_worker_join() {
             }
         });
         let config = shr_desk::frontend::Config {
+            wire_version: 1,
+            remote: None,
             endpoint: socket,
             show: SHOW.into(),
             epoch: 9,

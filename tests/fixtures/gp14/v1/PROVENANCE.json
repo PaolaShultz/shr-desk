@@ -1,0 +1,41 @@
+{
+  "status": "actual producer bytes supplied by coordinator; consumer runtime acceptance recorded separately",
+  "contracts": [
+    "C-AUDIO:2",
+    "GP03-rendered:2",
+    "GP07-processing:3",
+    "GP14-structure:1"
+  ],
+  "generator_test": "write_producer_fixtures",
+  "files": {
+    "profile-48.json": "35f691ad5e073f499a28d61cb1ece7a515ba8f8723b20f19c2bcb60913d612f6",
+    "profile-16.json": "239647b1da1064126014f3effa7439b55f6f0b93483afa840095d5f08385d888",
+    "profile-17.json": "9865c859cad816622f8b6762030734207157357afc046d7f29b7c49483ef4a13",
+    "profile-32.json": "095fefd594c7a46dc8a0e785cdda2e8ae688f27687e181b9c7450baceff4978b",
+    "structure-16.json": "3ff64ffa5de88dbcff594e5e636089075ce5831c1de780af5752660e7e196fb4",
+    "structure-32.json": "63e2a50a5511e9845b72fc4ed6854eb882226d40fe9efb16d568e4f66dafbcbd",
+    "structure-48.json": "9eac059a5b0f7ba281e64fe3ff5076b81b6aac6ae82b17f21358ad59e2b63981"
+  },
+  "producer_source_sha256": {
+    "src/mixer.rs": "478423dfe0a1f9e6024ab8a5182e15d3c833a9eeb6c3041e7eacf76b06877b07",
+    "src/mixer_control.rs": "5c9f38e71d3c95c4d056cc8ccb9b73899619970fbd573f342476d7f74058483b",
+    "src/control_model.rs": "daa09456ce8411c42658337933ec5b15d94942a258c4eece0c7de92b9944efd6",
+    "src/processing_wire.rs": "b69f04abd761ceade37fc2a0e920bcf31613ad1ad1f9e09894cd794b6fad6ead",
+    "src/topology.rs": "8a4367bbc7767367791e213f905775ce822a3a29626a5552a9259a3c57cc4149",
+    "src/clock_domain.rs": "7c7d2a524f4f14701966c9f47d90921d63001267ba89f7a81f1d1468d7606155",
+    "src/snapshot_pages.rs": "8407ce3e4a8f1a53981cda65de09d86d447ffe4e73a7b9632cb2a6b1b9bc9a8c"
+  },
+  "generator_executable_sha256": "ecf8164fe0c9c2bcdadab6c79c28c165234fbc5bfd5d3434645057b7d0595d7f",
+  "structural_producer_source_sha256": {
+    "src/host/pa_v2.rs": "bc16ac16d591929212724bdfd99c2870d5028f269d55ce5e5dcad130c3c1bfd4",
+    "src/local_audio.rs": "4e6ca9d71c4c59b8a663536ae7edbc25332cdb98c975ba30717ffd4a42abf2b5",
+    "src/mixer.rs": "478423dfe0a1f9e6024ab8a5182e15d3c833a9eeb6c3041e7eacf76b06877b07",
+    "src/mixer_control.rs": "ff992feeef164d43196eb52f014907401ec06e4c46e44dafcde82e4b680ba0af",
+    "src/module_graph.rs": "61a38e6a24801aa63847e577253e4afa6d6f922a543280ef6b5dcbf3274296c1",
+    "src/structural_control.rs": "fb1acf1914bed021a661f05afc873a0c51aae8bee8c66021514c442c1324c9a3",
+    "src/topology.rs": "8a4367bbc7767367791e213f905775ce822a3a29626a5552a9259a3c57cc4149",
+    "tests/structural_producer.rs": "8831133b9b7787dbca7d8d7b1821f7770303658f23b951db6222d3c1d86f2891"
+  },
+  "owner_fixture_sha256": "5f46543ce6f0cfeec26e94966513f46dfd665bfc49040f853aace1b0927824e5",
+  "owner_manifest_sha256": "3d5591542ae7b85f622a9346fb143e170724d3f42fc4302b61a862f531fc11e8"
+}

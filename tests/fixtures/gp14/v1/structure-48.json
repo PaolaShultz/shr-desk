@@ -1,0 +1,428 @@
+{
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "epoch": "9",
+  "revision": "1",
+  "frame": "720",
+  "topology": {
+    "identity": "software-48-5-8",
+    "mapping_evidence": "synthetic",
+    "map_revision": 3,
+    "sample_rate": 48000,
+    "max_block_frames": 4096,
+    "capture_channels": 48,
+    "playback_channels": 15,
+    "inputs": [
+      {
+        "id": "input-01",
+        "capture_slot": 0,
+        "physical_port": "synthetic-capture-1"
+      },
+      {
+        "id": "input-02",
+        "capture_slot": 1,
+        "physical_port": "synthetic-capture-2"
+      },
+      {
+        "id": "input-03",
+        "capture_slot": 2,
+        "physical_port": "synthetic-capture-3"
+      },
+      {
+        "id": "input-04",
+        "capture_slot": 3,
+        "physical_port": "synthetic-capture-4"
+      },
+      {
+        "id": "input-05",
+        "capture_slot": 4,
+        "physical_port": "synthetic-capture-5"
+      },
+      {
+        "id": "input-06",
+        "capture_slot": 5,
+        "physical_port": "synthetic-capture-6"
+      },
+      {
+        "id": "input-07",
+        "capture_slot": 6,
+        "physical_port": "synthetic-capture-7"
+      },
+      {
+        "id": "input-08",
+        "capture_slot": 7,
+        "physical_port": "synthetic-capture-8"
+      },
+      {
+        "id": "input-09",
+        "capture_slot": 8,
+        "physical_port": "synthetic-capture-9"
+      },
+      {
+        "id": "input-10",
+        "capture_slot": 9,
+        "physical_port": "synthetic-capture-10"
+      },
+      {
+        "id": "input-11",
+        "capture_slot": 10,
+        "physical_port": "synthetic-capture-11"
+      },
+      {
+        "id": "input-12",
+        "capture_slot": 11,
+        "physical_port": "synthetic-capture-12"
+      },
+      {
+        "id": "input-13",
+        "capture_slot": 12,
+        "physical_port": "synthetic-capture-13"
+      },
+      {
+        "id": "input-14",
+        "capture_slot": 13,
+        "physical_port": "synthetic-capture-14"
+      },
+      {
+        "id": "input-15",
+        "capture_slot": 14,
+        "physical_port": "synthetic-capture-15"
+      },
+      {
+        "id": "input-16",
+        "capture_slot": 15,
+        "physical_port": "synthetic-capture-16"
+      },
+      {
+        "id": "input-17",
+        "capture_slot": 16,
+        "physical_port": "synthetic-capture-17"
+      },
+      {
+        "id": "input-18",
+        "capture_slot": 17,
+        "physical_port": "synthetic-capture-18"
+      },
+      {
+        "id": "input-19",
+        "capture_slot": 18,
+        "physical_port": "synthetic-capture-19"
+      },
+      {
+        "id": "input-20",
+        "capture_slot": 19,
+        "physical_port": "synthetic-capture-20"
+      },
+      {
+        "id": "input-21",
+        "capture_slot": 20,
+        "physical_port": "synthetic-capture-21"
+      },
+      {
+        "id": "input-22",
+        "capture_slot": 21,
+        "physical_port": "synthetic-capture-22"
+      },
+      {
+        "id": "input-23",
+        "capture_slot": 22,
+        "physical_port": "synthetic-capture-23"
+      },
+      {
+        "id": "input-24",
+        "capture_slot": 23,
+        "physical_port": "synthetic-capture-24"
+      },
+      {
+        "id": "input-25",
+        "capture_slot": 24,
+        "physical_port": "synthetic-capture-25"
+      },
+      {
+        "id": "input-26",
+        "capture_slot": 25,
+        "physical_port": "synthetic-capture-26"
+      },
+      {
+        "id": "input-27",
+        "capture_slot": 26,
+        "physical_port": "synthetic-capture-27"
+      },
+      {
+        "id": "input-28",
+        "capture_slot": 27,
+        "physical_port": "synthetic-capture-28"
+      },
+      {
+        "id": "input-29",
+        "capture_slot": 28,
+        "physical_port": "synthetic-capture-29"
+      },
+      {
+        "id": "input-30",
+        "capture_slot": 29,
+        "physical_port": "synthetic-capture-30"
+      },
+      {
+        "id": "input-31",
+        "capture_slot": 30,
+        "physical_port": "synthetic-capture-31"
+      },
+      {
+        "id": "input-32",
+        "capture_slot": 31,
+        "physical_port": "synthetic-capture-32"
+      },
+      {
+        "id": "input-33",
+        "capture_slot": 32,
+        "physical_port": "synthetic-capture-33"
+      },
+      {
+        "id": "input-34",
+        "capture_slot": 33,
+        "physical_port": "synthetic-capture-34"
+      },
+      {
+        "id": "input-35",
+        "capture_slot": 34,
+        "physical_port": "synthetic-capture-35"
+      },
+      {
+        "id": "input-36",
+        "capture_slot": 35,
+        "physical_port": "synthetic-capture-36"
+      },
+      {
+        "id": "input-37",
+        "capture_slot": 36,
+        "physical_port": "synthetic-capture-37"
+      },
+      {
+        "id": "input-38",
+        "capture_slot": 37,
+        "physical_port": "synthetic-capture-38"
+      },
+      {
+        "id": "input-39",
+        "capture_slot": 38,
+        "physical_port": "synthetic-capture-39"
+      },
+      {
+        "id": "input-40",
+        "capture_slot": 39,
+        "physical_port": "synthetic-capture-40"
+      },
+      {
+        "id": "input-41",
+        "capture_slot": 40,
+        "physical_port": "synthetic-capture-41"
+      },
+      {
+        "id": "input-42",
+        "capture_slot": 41,
+        "physical_port": "synthetic-capture-42"
+      },
+      {
+        "id": "input-43",
+        "capture_slot": 42,
+        "physical_port": "synthetic-capture-43"
+      },
+      {
+        "id": "input-44",
+        "capture_slot": 43,
+        "physical_port": "synthetic-capture-44"
+      },
+      {
+        "id": "input-45",
+        "capture_slot": 44,
+        "physical_port": "synthetic-capture-45"
+      },
+      {
+        "id": "input-46",
+        "capture_slot": 45,
+        "physical_port": "synthetic-capture-46"
+      },
+      {
+        "id": "input-47",
+        "capture_slot": 46,
+        "physical_port": "synthetic-capture-47"
+      },
+      {
+        "id": "input-48",
+        "capture_slot": 47,
+        "physical_port": "synthetic-capture-48"
+      }
+    ],
+    "measurement_slots": [],
+    "monitors": 5,
+    "pa_outputs": 8,
+    "outputs": [
+      {
+        "id": "output-01",
+        "playback_slot": 0,
+        "physical_port": "synthetic-playback-1",
+        "source": {
+          "kind": "pa",
+          "index": 1
+        }
+      },
+      {
+        "id": "output-02",
+        "playback_slot": 1,
+        "physical_port": "synthetic-playback-2",
+        "source": {
+          "kind": "pa",
+          "index": 0
+        }
+      },
+      {
+        "id": "output-03",
+        "playback_slot": 2,
+        "physical_port": "synthetic-playback-3",
+        "source": {
+          "kind": "pa",
+          "index": 2
+        }
+      },
+      {
+        "id": "output-04",
+        "playback_slot": 3,
+        "physical_port": "synthetic-playback-4",
+        "source": {
+          "kind": "pa",
+          "index": 3
+        }
+      },
+      {
+        "id": "output-05",
+        "playback_slot": 4,
+        "physical_port": "synthetic-playback-5",
+        "source": {
+          "kind": "pa",
+          "index": 4
+        }
+      },
+      {
+        "id": "output-06",
+        "playback_slot": 5,
+        "physical_port": "synthetic-playback-6",
+        "source": {
+          "kind": "pa",
+          "index": 5
+        }
+      },
+      {
+        "id": "output-07",
+        "playback_slot": 6,
+        "physical_port": "synthetic-playback-7",
+        "source": {
+          "kind": "pa",
+          "index": 6
+        }
+      },
+      {
+        "id": "output-08",
+        "playback_slot": 7,
+        "physical_port": "synthetic-playback-8",
+        "source": {
+          "kind": "pa",
+          "index": 7
+        }
+      },
+      {
+        "id": "output-09",
+        "playback_slot": 8,
+        "physical_port": "synthetic-playback-9",
+        "source": null
+      },
+      {
+        "id": "output-10",
+        "playback_slot": 9,
+        "physical_port": "synthetic-playback-10",
+        "source": null
+      },
+      {
+        "id": "output-11",
+        "playback_slot": 10,
+        "physical_port": "synthetic-playback-11",
+        "source": null
+      },
+      {
+        "id": "output-12",
+        "playback_slot": 11,
+        "physical_port": "synthetic-playback-12",
+        "source": null
+      },
+      {
+        "id": "output-13",
+        "playback_slot": 12,
+        "physical_port": "synthetic-playback-13",
+        "source": null
+      },
+      {
+        "id": "output-14",
+        "playback_slot": 13,
+        "physical_port": "synthetic-playback-14",
+        "source": null
+      },
+      {
+        "id": "output-15",
+        "playback_slot": 14,
+        "physical_port": "synthetic-playback-15",
+        "source": null
+      }
+    ]
+  },
+  "clock": {
+    "domain": "single-interface",
+    "sample_rate": 48000,
+    "epoch": 9,
+    "next_frame": 720,
+    "state": "running",
+    "adat_lock": "unknown",
+    "mapping_verified": false,
+    "fault": null
+  },
+  "outputs_quiesced": false,
+  "pa_configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]}],\"sample_rate\":48000,\"version\":2}",
+  "pa_program_buses": [
+    2,
+    3
+  ],
+  "pa_status": {
+    "applied_frame": 0,
+    "committed": 1,
+    "epoch": 9,
+    "fault_latched": 0,
+    "generation": 1,
+    "input_channels": 2,
+    "max_block": 256,
+    "muted": 0,
+    "next_frame": 720,
+    "output_channels": 8,
+    "quiesced": 0,
+    "reserved0": 0,
+    "reserved1": 0,
+    "sample_rate": 48000,
+    "size": 80,
+    "version": 2
+  },
+  "pa_capabilities": {
+    "acoustic_protection_available": 0,
+    "max_block": 8192,
+    "max_delay_samples": 8388608,
+    "max_json_bytes": 1048576,
+    "max_nodes": 4096,
+    "max_operations": 65536,
+    "max_ports": 4096,
+    "max_rate": 192000,
+    "measurement_available": 0,
+    "min_block": 1,
+    "min_rate": 8000,
+    "physical_io_owned": 0,
+    "sample_format": 1,
+    "size": 64,
+    "true_peak_available": 0,
+    "version": 2
+  }
+}

@@ -16,6 +16,7 @@ fn actual_preview_renew_cancel_release_expiry_and_command_codec() {
             if let Some(request) = node.get("request") {
                 let context:Context=serde_json::from_value(serde_json::json!({"show_id":request["show_id"],"module":request["module"],"epoch":request["epoch"],"writer":request["writer"],"lease":request["lease"],"request_id":request["request_id"],"expected_revision":request["expected_revision"]})).unwrap();
                 let decoded = Request {
+                    version: 1,
                     context,
                     kind: request["kind"].as_str().unwrap().into(),
                     body: request["body"].clone(),

@@ -422,6 +422,8 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::F5 => "F5",
             NamedKey::F8 => "F8",
             NamedKey::F6 => "F6",
+            NamedKey::F7 => "F7",
+            NamedKey::F9 => "F9",
             NamedKey::F10 => "F10",
             _ => return None,
         }

@@ -5,6 +5,14 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    Topology,
+    StructureEdit,
+    StructureField(i32),
+    StructureText(String),
+    StructureAdjust(i32),
+    StructureApply,
+    OutputMute,
+    OutputRearm,
     ProcessingEdit,
     ProcessingText(String),
     ProcessingField(i32),
@@ -132,6 +140,8 @@ pub fn key_action(key: &str) -> Option<Action> {
         "N" => Action::ProcessingAdjust(-100),
         "P" => Action::ProcessingAdjust(100),
         "F4" => Action::ProcessingApply,
+        "F7" => Action::Topology,
+        "F9" => Action::StructureEdit,
         "F1" => Action::Page(Page::Mix),
         "F2" => Action::Page(Page::Channel),
         "F6" => Action::Page(Page::Analysis),
@@ -158,7 +168,15 @@ pub fn key_action(key: &str) -> Option<Action> {
 }
 pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
     match action {
-        Action::ProcessingEdit
+        Action::Topology
+        | Action::StructureEdit
+        | Action::StructureField(_)
+        | Action::StructureText(_)
+        | Action::StructureAdjust(_)
+        | Action::StructureApply
+        | Action::OutputMute
+        | Action::OutputRearm
+        | Action::ProcessingEdit
         | Action::ProcessingText(_)
         | Action::ProcessingField(_)
         | Action::ProcessingAdjust(_)

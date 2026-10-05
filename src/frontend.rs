@@ -21,6 +21,9 @@ use std::{
 
 #[derive(Clone)]
 pub struct Config {
+    /// Explicit C-AUDIO/rendered version: 1 legacy, 2 dynamic.
+    pub wire_version: u8,
+    pub remote: Option<crate::remote::Config>,
     pub endpoint: PathBuf,
     pub show: String,
     pub epoch: u64,
@@ -29,6 +32,10 @@ pub struct Config {
 }
 #[derive(Clone, Debug)]
 pub enum Operation {
+    ReviewStructure {
+        kind: String,
+        body: Value,
+    },
     EnableProcessing,
     ReviewProcessing {
         input: String,
@@ -68,6 +75,9 @@ pub struct Update {
     pub processing: Option<crate::processing::Snapshot>,
     pub processing_age_ms: Option<u64>,
     pub processing_status: String,
+    pub structural: Option<crate::structure::Snapshot>,
+    pub structural_final: Option<crate::structure::Reply>,
+    pub structural_fresh: bool,
     pub processing_final: Option<crate::processing::Reply>,
     pub fresh: bool,
     pub status: String,
@@ -148,6 +158,7 @@ fn worker(
     authorization: Arc<AtomicBool>,
 ) {
     let mut op: Option<Operator> = None;
+    let mut structural_final: Option<crate::structure::Reply> = None;
     let mut g = generation.load(Ordering::Acquire);
     let mut serial = 0u64;
     let mut review: Option<(u64, String)> = None;
@@ -177,13 +188,19 @@ fn worker(
             } else {
                 format!("{}-r{}", config.writer, reconnects)
             };
-            match Operator::connect(
-                &config.endpoint,
-                &config.show,
-                config.epoch,
-                &writer,
-                &config.scope,
-            ) {
+            let connection = if let Some(remote) = &config.remote {
+                Operator::connect_remote(remote, &config.show, config.epoch, &config.scope)
+            } else {
+                Operator::connect_version(
+                    &config.endpoint,
+                    &config.show,
+                    config.epoch,
+                    &writer,
+                    &config.scope,
+                    config.wire_version,
+                )
+            };
+            match connection {
                 Ok(mut o) => match o.refresh() {
                     Ok(()) => {
                         status = "provider attached read-only; explicit G grant required".into();
@@ -252,6 +269,9 @@ fn worker(
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
                         processing_status: processing_status.clone(),
+                        structural: o.session.structural.clone(),
+                        structural_final: o.session.structural_final.clone(),
+                        structural_fresh: o.session.structural_fresh(o.now()),
                         processing_final: o.session.processing_final.clone(),
                         fresh: o.session.fresh(o.now()),
                         status: format!(
@@ -259,6 +279,7 @@ fn worker(
                             match &r.operation {
                                 Operation::EnableProcessing => "capability query",
                                 Operation::ReviewProcessing { .. } => "processing review",
+                                Operation::ReviewStructure { .. } => "structural review",
                                 Operation::Grant => "writer grant",
                                 Operation::ReleaseWriter => "writer release",
                                 Operation::Set { .. } => "parameter edit",
@@ -297,7 +318,14 @@ fn worker(
                             review = Some((serial, o.reviewed().unwrap_or_default()));
                             Ok(())
                         }
-                        Operation::Grant => o.mutate_inner("grant", json!({"scope":config.scope})),
+                        Operation::ReviewStructure { kind, body } => {
+                            o.stage(&kind, body)?;
+                            serial = serial.checked_add(1).ok_or("review counter exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
+                        Operation::Grant => crate::scopes::value(&config.scope)
+                            .and_then(|scope| o.mutate_inner("grant", json!({"scope":scope}))),
                         Operation::ReleaseWriter => o.mutate_inner("release", json!({})),
                         Operation::Set { target, value } => o.mutate_inner(
                             "set",
@@ -391,6 +419,9 @@ fn worker(
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
                     processing_status: processing_status.clone(),
+                    structural: o.session.structural.clone(),
+                    structural_final: o.session.structural_final.clone(),
+                    structural_fresh: o.session.structural_fresh(o.now()),
                     processing_final: o.session.processing_final.clone(),
                     fresh: o.session.fresh(o.now()),
                     status: status.clone(),
@@ -403,6 +434,12 @@ fn worker(
                 && let Err(e) = o.mutate("renew", json!({}))
             {
                 status = format!("LEASE UNCERTAIN: {e}");
+            }
+            if config.wire_version == 2
+                && matches!(config.scope.as_str(), "pa_configuration" | "output_routes")
+                && let Err(error) = o.refresh_structural()
+            {
+                status = format!("Structural state unavailable: {error}");
             }
             if processing_enabled && processing_poll.elapsed() >= Duration::from_millis(80) {
                 match o.refresh_processing() {
@@ -418,6 +455,9 @@ fn worker(
                     }
                 }
                 processing_poll = Instant::now();
+            }
+            if o.session.structural_final.is_some() {
+                structural_final = o.session.structural_final.clone();
             }
             if let Err(e) = o.refresh() {
                 status = format!("STALE/UNCERTAIN: {e}; F5 reconnect, no replay");
@@ -440,6 +480,14 @@ fn worker(
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
             processing_status: processing_status.clone(),
+            structural: op
+                .as_ref()
+                .and_then(|o| o.session.structural.clone())
+                .or_else(|| structural_final.as_ref().and_then(|r| r.snapshot.clone())),
+            structural_final: structural_final.clone(),
+            structural_fresh: op
+                .as_ref()
+                .is_some_and(|o| o.session.structural_fresh(o.now())),
             processing_final: op.as_ref().and_then(|o| o.session.processing_final.clone()),
             fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
             status: status.clone(),
@@ -507,7 +555,9 @@ pub struct Frontend {
     module_client: Option<crate::modules::Worker>,
     pub modules: Option<crate::modules::Update>,
     pub selected: usize,
+    topology_page: Option<usize>,
     pub processing_draft: Option<ProcessingDraft>,
+    pub structural_draft: Option<crate::structure::Draft>,
     pub processing_field: usize,
     pub processing_entry: String,
     pub page: Page,
@@ -541,7 +591,9 @@ impl Frontend {
             module_client: None,
             modules: None,
             selected: 0,
+            topology_page: None,
             processing_draft: None,
+            structural_draft: None,
             processing_field: 0,
             processing_entry: String::new(),
             page: Page::Mix,
@@ -618,6 +670,7 @@ impl Frontend {
         self.pressed.clear();
         self.mode_picker = false;
         self.processing_draft = None;
+        self.structural_draft = None;
         self.processing_entry.clear();
         self.state = None;
         self.leds = None;
@@ -678,17 +731,14 @@ impl Frontend {
         if let Some(u) = self.provider.take()
             && u.generation == self.provider.generation()
         {
-            let id = u.review.as_ref().map(|(id, _)| *id);
-            if id != self.review_id {
-                self.review_id = id;
-                self.review_page = 0;
-                self.review_seen.clear();
-            }
-            self.state = Some(u);
+            self.accept_update(u);
         }
         // Optional metadata gets its own connection and worker only after primary
         // attachment. No module query can consume control replies or block input.
-        if self.module_client.is_none() && self.state.as_ref().is_some_and(|s| s.snapshot.is_some())
+        if self.module_config.remote.is_none()
+            && self.module_config.wire_version == 1
+            && self.module_client.is_none()
+            && self.state.as_ref().is_some_and(|s| s.snapshot.is_some())
         {
             self.module_client = Some(crate::modules::Worker::start(self.module_config.clone()));
         }
@@ -706,11 +756,25 @@ impl Frontend {
                     .and_then(|s| s.processing.as_ref())
                     .is_none_or(|s| s.revision != d.revision)
                 || self.page != Page::Channel
-                || d.input != format!("input-{:02}", self.selected + 1)
+                || self.selected_input() != Some(d.input.as_str())
         }) {
             self.processing_draft = None;
             self.processing_entry.clear();
             self.message = "Processing draft cancelled: context/revision/freshness changed".into();
+        }
+        if self.structural_draft.as_ref().is_some_and(|d| {
+            !self.fresh()
+                || !self.state.as_ref().is_some_and(|u| {
+                    u.structural_fresh
+                        && u.snapshot
+                            .as_ref()
+                            .is_some_and(|s| s.authority.revision == d.revision)
+                })
+                || d.generation != self.provider.generation()
+        }) {
+            self.structural_draft = None;
+            self.processing_entry.clear();
+            self.message = "Structural draft cancelled: authority/freshness changed".into();
         }
         while let Some(event) = self.queue.pop_front() {
             if let Event::Controller { action, generation } = event {
@@ -720,13 +784,16 @@ impl Frontend {
                     && self.width > 0
                     && self.height > 0
                 {
-                    let opens_editor = matches!(action, Action::ProcessingEdit);
+                    let opens_editor =
+                        matches!(action, Action::ProcessingEdit | Action::StructureEdit);
                     if let Err(e) = self.action(action) {
                         self.message = e;
                     }
                     // Match keyboard release behavior: unsent local field gestures
                     // must not fill the provider queue or delay paired observations.
-                    if self.processing_draft.is_none() || opens_editor {
+                    if (self.processing_draft.is_none() && self.structural_draft.is_none())
+                        || opens_editor
+                    {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
                 }
@@ -736,7 +803,10 @@ impl Frontend {
                 if !pressed {
                     self.pressed.remove(&key);
                     self.blocked.remove(&key);
-                    if self.focused && (self.processing_draft.is_none() || key == "E") {
+                    if self.focused
+                        && ((self.processing_draft.is_none() && self.structural_draft.is_none())
+                            || matches!(key.as_str(), "E" | "F9"))
+                    {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
                     continue;
@@ -776,6 +846,41 @@ impl Frontend {
         self.state
             .as_ref()
             .is_some_and(|s| s.fresh && s.received.elapsed() <= Duration::from_millis(250))
+    }
+    fn accept_update(&mut self, update: Update) {
+        if let (Some(old), Some(new)) = (
+            self.state.as_ref().and_then(|s| s.snapshot.as_ref()),
+            update.snapshot.as_ref(),
+        ) && (old.authority.inputs != new.authority.inputs
+            || old.authority.monitors != new.authority.monitors
+            || old.topology != new.topology)
+        {
+            // A bank position is presentation, never a stable provider identity.
+            let selected = old
+                .authority
+                .inputs
+                .get(self.selected)
+                .and_then(|id| {
+                    new.authority
+                        .inputs
+                        .iter()
+                        .position(|candidate| candidate == id)
+                })
+                .unwrap_or(0);
+            self.fence();
+            self.selected = selected;
+            let _ = self.provider.send(None, Operation::Cancel);
+            // Require the worker to observe the new generation before edits resume.
+            self.message = "Inventory changed: intents discarded; refreshing authority".into();
+            return;
+        }
+        let id = update.review.as_ref().map(|(id, _)| *id);
+        if id != self.review_id {
+            self.review_id = id;
+            self.review_page = 0;
+            self.review_seen.clear();
+        }
+        self.state = Some(update);
     }
     pub fn processing_fresh(&self) -> bool {
         self.fresh()
@@ -842,6 +947,42 @@ impl Frontend {
             }
             return Ok(());
         }
+        if self.structural_draft.is_some() {
+            match key {
+                "U" => return self.action(Action::StructureField(-1)),
+                "I" => return self.action(Action::StructureField(1)),
+                "J" => return self.action(Action::StructureAdjust(-1)),
+                "K" => return self.action(Action::StructureAdjust(1)),
+                "F4" => return self.action(Action::StructureApply),
+                "Backspace" => {
+                    self.processing_entry.pop();
+                    return Ok(());
+                }
+                "Enter" if !self.processing_entry.is_empty() => {
+                    return self.action(Action::StructureText(self.processing_entry.clone()));
+                }
+                _ => (),
+            }
+            if key.len() == 1
+                && key
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b == b'.' || b == b'-')
+            {
+                if self.processing_entry.len() >= 128 {
+                    return Err("field entry capacity".into());
+                }
+                self.processing_entry.push_str(key);
+                return Ok(());
+            }
+        }
+        if matches!(self.scope.as_str(), "pa_configuration" | "output_routes") {
+            if key == "Z" {
+                return self.action(Action::OutputMute);
+            }
+            if key == "X" {
+                return self.action(Action::OutputRearm);
+            }
+        }
         if self.processing_draft.is_some() {
             if key == "Backspace" {
                 self.processing_entry.pop();
@@ -867,6 +1008,99 @@ impl Frontend {
     }
     fn action(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::StructureEdit => {
+                if self.processing_draft.is_some()
+                    || self.structural_draft.is_some()
+                    || self.state.as_ref().is_some_and(|u| u.review.is_some())
+                {
+                    return Err("Apply or Cancel existing edit first".into());
+                }
+                let state = self
+                    .state
+                    .as_ref()
+                    .filter(|u| u.structural_fresh && self.fresh())
+                    .ok_or("fresh structural readback required")?;
+                self.structural_draft = Some(crate::structure::Draft::new(
+                    state.structural.as_ref().ok_or("structural unavailable")?,
+                    &self.scope,
+                    self.provider.generation(),
+                )?);
+                self.processing_entry.clear();
+                Ok(())
+            }
+            Action::StructureField(delta) => {
+                if !self.processing_entry.is_empty() {
+                    return Err("accept or clear field entry first".into());
+                }
+                self.structural_draft
+                    .as_mut()
+                    .ok_or("F9 opens structural editor")?
+                    .move_field(delta);
+                Ok(())
+            }
+            Action::StructureText(text) => {
+                self.structural_draft
+                    .as_mut()
+                    .ok_or("F9 opens structural editor")?
+                    .text(&text)?;
+                self.processing_entry.clear();
+                Ok(())
+            }
+            Action::StructureAdjust(delta) => {
+                let snapshot = self
+                    .state
+                    .as_ref()
+                    .filter(|u| u.structural_fresh)
+                    .and_then(|u| u.structural.as_ref())
+                    .ok_or("fresh structural readback required")?;
+                self.structural_draft
+                    .as_mut()
+                    .ok_or("F9 opens structural editor")?
+                    .adjust(delta, snapshot)
+            }
+            Action::StructureApply => {
+                if !self.processing_entry.is_empty() {
+                    return Err("accept field before Apply".into());
+                }
+                let draft = self
+                    .structural_draft
+                    .as_ref()
+                    .ok_or("no structural draft")?;
+                let operation = Operation::ReviewStructure {
+                    kind: draft.kind.clone(),
+                    body: draft.body()?,
+                };
+                self.send(operation)?;
+                self.structural_draft = None;
+                Ok(())
+            }
+            Action::OutputMute | Action::OutputRearm => {
+                if self.structural_draft.is_some() {
+                    return Err("Apply or Cancel structural draft first".into());
+                }
+                self.send(Operation::ReviewStructure {
+                    kind: if matches!(action, Action::OutputMute) {
+                        "output_mute"
+                    } else {
+                        "output_rearm"
+                    }
+                    .into(),
+                    body: json!({}),
+                })
+            }
+            Action::Topology => {
+                self.send_cancel();
+                self.topology_page = Some(0);
+                Ok(())
+            }
+            Action::Bank(delta) if self.topology_page.is_some() => {
+                let pages = self.topology_lines().len().div_ceil(25).max(1);
+                self.topology_page = Some(
+                    (self.topology_page.unwrap() as i64 + i64::from(delta)).rem_euclid(pages as i64)
+                        as usize,
+                );
+                Ok(())
+            }
             Action::ProcessingEdit => {
                 if self.page != Page::Channel || self.scope != "foh" || !self.processing_ready() {
                     return Err(
@@ -875,6 +1109,7 @@ impl Frontend {
                 }
                 if self.mode_picker
                     || self.processing_draft.is_some()
+                    || self.structural_draft.is_some()
                     || self.state.as_ref().is_some_and(|s| s.review.is_some())
                 {
                     return Err("Apply/confirm or Cancel existing draft/review".into());
@@ -882,7 +1117,8 @@ impl Frontend {
                 let s = self.state.as_ref().unwrap().processing.as_ref().unwrap();
                 let c = s
                     .channels
-                    .get(self.selected)
+                    .iter()
+                    .find(|c| Some(c.input.as_str()) == self.selected_input())
                     .ok_or("processing input unavailable")?;
                 self.processing_draft = Some(ProcessingDraft {
                     input: c.input.clone(),
@@ -953,14 +1189,10 @@ impl Frontend {
             Action::Page(page) => {
                 self.send_cancel();
                 self.page = page;
+                self.topology_page = None;
                 Ok(())
             }
             Action::Move(delta) | Action::Bank(delta) => {
-                let delta = if matches!(action, Action::Bank(_)) {
-                    delta * 12
-                } else {
-                    delta
-                };
                 let n = self
                     .state
                     .as_ref()
@@ -969,9 +1201,16 @@ impl Frontend {
                 if n == 0 {
                     return Err("inputs unavailable".into());
                 }
+                let selected = if matches!(action, Action::Bank(_)) {
+                    let bank_count = n.div_ceil(12);
+                    let bank = (self.selected as i64 / 12 + i64::from(delta))
+                        .rem_euclid(bank_count as i64) as usize;
+                    (bank * 12 + self.selected % 12).min(n - 1)
+                } else {
+                    (self.selected as i64 + i64::from(delta)).rem_euclid(n as i64) as usize
+                };
                 self.send_cancel();
-                self.selected =
-                    (self.selected as i64 + i64::from(delta)).rem_euclid(n as i64) as usize;
+                self.selected = selected;
                 Ok(())
             }
             Action::ModePicker => {
@@ -988,6 +1227,7 @@ impl Frontend {
                     return Err("open A mode picker first".into());
                 }
                 self.mode_picker = false;
+                self.scope_monitor()?;
                 let bounds = if mode == Mode::Auto {
                     serde_json::to_value(
                         self.state
@@ -998,12 +1238,8 @@ impl Frontend {
                             .automation_bounds
                             .iter()
                             .filter(|b| {
-                                b.target.monitor.as_deref()
-                                    == match self.scope.as_str() {
-                                        "monitor1" => Some("monitor-1"),
-                                        "monitor2" => Some("monitor-2"),
-                                        _ => None,
-                                    }
+                                self.scope_monitor()
+                                    .is_ok_and(|monitor| b.target.monitor.as_deref() == monitor)
                             })
                             .collect::<Vec<_>>(),
                     )
@@ -1063,6 +1299,44 @@ impl Frontend {
         self.fence();
         let _ = self.provider.send(None, Operation::Cancel);
     }
+    fn selected_input(&self) -> Option<&str> {
+        self.state
+            .as_ref()?
+            .snapshot
+            .as_ref()?
+            .authority
+            .inputs
+            .get(self.selected)
+            .map(String::as_str)
+    }
+    fn scope_monitor(&self) -> Result<Option<&str>, String> {
+        if self.scope == "foh" {
+            return Ok(None);
+        }
+        let authority = &self
+            .state
+            .as_ref()
+            .and_then(|s| s.snapshot.as_ref())
+            .ok_or("snapshot unavailable")?
+            .authority;
+        if !authority
+            .modes
+            .iter()
+            .any(|(scope, _)| scope == &self.scope)
+        {
+            return Err("scope not advertised".into());
+        }
+        let number = self
+            .scope
+            .strip_prefix("monitor")
+            .ok_or("not a channel scope")?;
+        authority
+            .monitors
+            .iter()
+            .find(|id| id.strip_prefix("monitor-") == Some(number))
+            .map(|id| Some(id.as_str()))
+            .ok_or_else(|| "monitor scope unavailable".into())
+    }
     fn target(&self, parameter: &str) -> Result<Value, String> {
         if self.scope != "foh" && parameter == "pan" {
             return Err("pan unavailable in monitor scope; send gain unchanged".into());
@@ -1077,10 +1351,11 @@ impl Frontend {
             .inputs
             .get(self.selected)
             .ok_or("input unavailable")?;
-        Ok(if self.scope == "foh" || parameter == "mute" {
+        let monitor = self.scope_monitor()?;
+        Ok(if monitor.is_none() || parameter == "mute" {
             json!({"input":input,"parameter":parameter})
         } else {
-            json!({"input":input,"parameter":"send","monitor":if self.scope=="monitor1"{"monitor-1"}else{"monitor-2"}})
+            json!({"input":input,"parameter":"send","monitor":monitor.ok_or("monitor scope unavailable")?})
         })
     }
     fn adjust(&mut self, parameter: &str, delta: i64, toggle: bool) -> Result<(), String> {
@@ -1161,6 +1436,72 @@ impl Frontend {
             self.review_seen.insert(self.review_page);
         }
     }
+    fn topology_lines(&self) -> Vec<String> {
+        let Some(snapshot) = self.state.as_ref().and_then(|s| s.snapshot.as_ref()) else {
+            return vec!["Topology unavailable: waiting for fresh provider state".into()];
+        };
+        let Some(topology) = &snapshot.topology else {
+            return vec!["Physical patch unavailable in selected legacy provider contract".into()];
+        };
+        let mut lines = vec![
+            format!(
+                "Map {} / revision {} / evidence {}",
+                topology.identity, topology.map_revision, topology.mapping_evidence
+            ),
+            format!(
+                "{} logical inputs / {} USB capture slots / {} USB playback slots / {} monitors / {} PA outputs",
+                topology.inputs.len(),
+                topology.capture_channels,
+                topology.playback_channels,
+                topology.monitors,
+                topology.pa_outputs
+            ),
+        ];
+        if let Some(resources) = &snapshot.resources {
+            lines.push(format!("ADMITTED {} / {} bytes; work {} / {}; estimated snapshot {} / {} bytes; {} writers x {} replies",
+                resources.admission.estimated_bytes, resources.render_budget.bytes, resources.admission.sample_operations, resources.render_budget.sample_operations,
+                resources.admission.estimated_snapshot_bytes, resources.snapshot_assembly_bytes, resources.live_writer_capacity, resources.reply_history_per_writer));
+        }
+        for input in &topology.inputs {
+            lines.push(format!(
+                "INPUT {} <- USB capture slot {} <- physical {}",
+                input.id, input.capture_slot, input.physical_port
+            ));
+        }
+        for slot in &topology.measurement_slots {
+            lines.push(format!(
+                "MEASUREMENT USB capture slot {slot} / excluded from program inputs"
+            ));
+        }
+        for output in &topology.outputs {
+            let source = match output.source {
+                None => "UNASSIGNED / SILENT".into(),
+                Some(crate::topology::OutputSource::Main { channel }) => {
+                    format!("main channel {}", channel + 1)
+                }
+                Some(crate::topology::OutputSource::Monitor { index }) => {
+                    format!("monitor {}", index + 1)
+                }
+                Some(crate::topology::OutputSource::Pa { index }) => {
+                    format!("PA output {}", index + 1)
+                }
+            };
+            lines.push(format!(
+                "OUTPUT {}: {source} -> USB playback slot {} -> physical {}",
+                output.id, output.playback_slot, output.physical_port
+            ));
+        }
+        lines
+            .into_iter()
+            .flat_map(|line| {
+                line.chars()
+                    .collect::<Vec<_>>()
+                    .chunks(150)
+                    .map(|chunk| chunk.iter().collect::<String>())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
     pub fn scene(&self) -> Scene {
         let mut scene = Scene::default();
         scene.primitives.push(Primitive::Rect {
@@ -1212,6 +1553,128 @@ impl Frontend {
                 "#66dfd3",
             );
             line(972, self.message.clone(), "#f47c85");
+            return scene;
+        }
+        if let Some(draft) = &self.structural_draft {
+            line(
+                12,
+                format!(
+                    "LOCAL {} DRAFT / scope {} / revision {}",
+                    draft.kind, self.scope, draft.revision
+                ),
+                "#66dfd3",
+            );
+            line(
+                48,
+                "OWNER FIELD NAMES/UNITS / no change sent / complete provider validation on Apply"
+                    .into(),
+                "#f1bd6b",
+            );
+            let start = draft.selected / 28 * 28;
+            for (row, path) in draft.fields.iter().skip(start).take(28).enumerate() {
+                line(
+                    108 + row as u32 * 24,
+                    format!(
+                        "{} {} = {}",
+                        if start + row == draft.selected {
+                            ">"
+                        } else {
+                            " "
+                        },
+                        path,
+                        draft.document.pointer(path).unwrap()
+                    ),
+                    "#e4e8e9",
+                );
+            }
+            line(
+                816,
+                format!(
+                    "FIELD {}/{} / entry {}",
+                    draft.selected + 1,
+                    draft.fields.len(),
+                    self.processing_entry
+                ),
+                "#66dfd3",
+            );
+            line(
+                864,
+                "U/I field | J/K +/-1 owner unit or toggle/cycle source | numeric text then Enter"
+                    .into(),
+                "#9caebc",
+            );
+            line(900,"F4 Apply: complete protected review | Esc cancel | outputs must be quiesced before prepare".into(),"#f1bd6b");
+            line(948, self.message.clone(), "#f47c85");
+            return scene;
+        }
+        if let Some(page) = self.topology_page {
+            let lines = self.topology_lines();
+            let pages = lines.len().div_ceil(25).max(1);
+            let page = page.min(pages - 1);
+            line(
+                12,
+                format!(
+                    "PHYSICAL PATCH / page {} of {pages} / scope {}",
+                    page + 1,
+                    self.scope
+                ),
+                "#66dfd3",
+            );
+            line(
+                48,
+                if self.fresh() {
+                    "PROVIDER FRESH / mapping is a descriptor, not hardware verification"
+                } else {
+                    "STALE / unavailable / edits disabled"
+                }
+                .into(),
+                "#f1bd6b",
+            );
+            if let Some(clock) = self
+                .state
+                .as_ref()
+                .and_then(|s| s.snapshot.as_ref())
+                .and_then(|s| s.clock.as_ref())
+            {
+                line(
+                    96,
+                    format!(
+                        "CLOCK {} / {} Hz / epoch {} / source next frame {} / {:?}",
+                        clock.domain, clock.sample_rate, clock.epoch, clock.next_frame, clock.state
+                    ),
+                    "#e4e8e9",
+                );
+                line(
+                    132,
+                    format!(
+                        "ADAT {:?} / physical mapping {} / fault {}",
+                        clock.adat_lock,
+                        if clock.mapping_verified {
+                            "provider reports verified"
+                        } else {
+                            "UNVERIFIED"
+                        },
+                        clock.fault.as_deref().unwrap_or("none reported")
+                    ),
+                    "#f1bd6b",
+                );
+            } else {
+                line(
+                    96,
+                    "Common-clock observation unavailable / physical lock UNKNOWN".into(),
+                    "#f1bd6b",
+                );
+            }
+            line(180, "Logical identities and physical sockets are separate. USB slots below are zero-based.".into(), "#9caebc");
+            for (row, text) in lines.iter().skip(page * 25).take(25).enumerate() {
+                line(228 + row as u32 * 24, text.clone(), "#e4e8e9");
+            }
+            line(
+                900,
+                "PageUp/PageDown patch | F9 scope editor | Z mute / X rearm (PA scope, reviewed) | F1/F2/F6 pages".into(),
+                "#66dfd3",
+            );
+            line(948, self.message.clone(), "#f47c85");
             return scene;
         }
         line(
@@ -1325,7 +1788,11 @@ impl Frontend {
                 }
                 if self.page == Page::Channel {
                     if let Some(processing) = &u.processing {
-                        if let Some(channel) = processing.channels.get(self.selected) {
+                        if let Some(channel) = processing
+                            .channels
+                            .iter()
+                            .find(|c| Some(c.input.as_str()) == self.selected_input())
+                        {
                             line(
                                 204,
                                 format!(
@@ -1451,12 +1918,11 @@ impl Frontend {
                                         .parameters
                                         .iter()
                                         .filter(|p| p.target.input == channel.input
-                                            && p.target.monitor.as_deref()
-                                                == match self.scope.as_str() {
-                                                    "monitor1" => Some("monitor-1"),
-                                                    "monitor2" => Some("monitor-2"),
-                                                    _ => None,
-                                                })
+                                            && self.scope_monitor().is_ok_and(|monitor| p
+                                                .target
+                                                .monitor
+                                                .as_deref()
+                                                == monitor))
                                         .map(|p| format!(
                                             "{} {} / hold {}",
                                             p.target.parameter,
@@ -1517,12 +1983,9 @@ impl Frontend {
                         .iter()
                         .filter(|p| {
                             &p.target.input == input
-                                && p.target.monitor.as_deref()
-                                    == match self.scope.as_str() {
-                                        "monitor1" => Some("monitor-1"),
-                                        "monitor2" => Some("monitor-2"),
-                                        _ => None,
-                                    }
+                                && self
+                                    .scope_monitor()
+                                    .is_ok_and(|monitor| p.target.monitor.as_deref() == monitor)
                         })
                         .collect();
                     line(
@@ -1592,7 +2055,10 @@ impl Frontend {
                     line(
                         756,
                         if self.page == Page::Analysis {
-                            format!("ACTUAL LINEAR NANO: {:?}", c.current_nanogain.map(|n| n.0))
+                            format!(
+                                "ACTUAL LINEAR NANO: {:?}",
+                                c.current_nanogain.iter().map(|n| n.0).collect::<Vec<_>>()
+                            )
                         } else {
                             format!(
                                 "RENDERED GAIN {} / RAMP TARGET {} (linear gain, measured dB unavailable)",
@@ -1607,11 +2073,14 @@ impl Frontend {
                         if self.page == Page::Analysis {
                             format!(
                                 "RAMP TARGET NANO: {:?}",
-                                c.ramp_target_nanogain.map(|n| n.0)
+                                c.ramp_target_nanogain
+                                    .iter()
+                                    .map(|n| n.0)
+                                    .collect::<Vec<_>>()
                             )
                         } else {
                             format!(
-                                "RENDERED PAN L {} / R {} / MUTE {} / MON1 {} / MON2 {}",
+                                "RENDERED PAN L {} / R {} / MUTE {} / {} monitor lanes (select monitor scope for send)",
                                 linear_display(c.current_nanogain[1]),
                                 linear_display(c.current_nanogain[2]),
                                 if c.current_nanogain[3].0 == 0 {
@@ -1619,8 +2088,7 @@ impl Frontend {
                                 } else {
                                     "off"
                                 },
-                                linear_display(c.current_nanogain[4]),
-                                linear_display(c.current_nanogain[5])
+                                s.authority.monitors.len()
                             )
                         },
                         "#9caebc",
@@ -1693,6 +2161,8 @@ mod tests {
     #[test]
     fn complete_large_review_requires_all_rendered_pages() {
         let mut f = Frontend::new(Config {
+            wire_version: 1,
+            remote: None,
             endpoint: "/nonexistent/desk-test.sock".into(),
             show: "11111111-1111-4111-8111-111111111111".into(),
             epoch: 9,
@@ -1712,6 +2182,9 @@ mod tests {
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
+            structural: None,
+            structural_final: None,
+            structural_fresh: false,
             processing_final: None,
             fresh: true,
             status: "review".into(),
@@ -1744,6 +2217,8 @@ mod tests {
     #[test]
     fn active_bank_and_channel_selection_stay_visible_without_detail_overlap() {
         let mut f = Frontend::new(Config {
+            wire_version: 1,
+            remote: None,
             endpoint: "/nonexistent/desk-bank-test.sock".into(),
             show: "11111111-1111-4111-8111-111111111111".into(),
             epoch: 9,
@@ -1764,6 +2239,9 @@ mod tests {
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
+            structural: None,
+            structural_final: None,
+            structural_fresh: false,
             processing_final: None,
             fresh: true,
             status: "layout fixture".into(),
@@ -1805,6 +2283,8 @@ mod processing_tests {
     use super::*;
     fn surface() -> Frontend {
         let mut f = Frontend::new(Config {
+            wire_version: 1,
+            remote: None,
             endpoint: "/nonexistent/gp07-layout.sock".into(),
             show: "11111111-1111-4111-8111-111111111111".into(),
             epoch: 9,
@@ -1829,6 +2309,9 @@ mod processing_tests {
             processing,
             processing_age_ms: Some(0),
             processing_status: "fixture layout only".into(),
+            structural: None,
+            structural_final: None,
+            structural_fresh: false,
             processing_final: None,
             fresh: true,
             status: "fixture layout only".into(),
@@ -1837,6 +2320,114 @@ mod processing_tests {
         });
         f.page = Page::Channel;
         f
+    }
+    #[test]
+    fn processing_selection_uses_identity_after_independent_inventory_reorder() {
+        let mut f = surface();
+        let u = f.state.as_mut().unwrap();
+        u.snapshot.as_mut().unwrap().authority.inputs.swap(0, 7);
+        u.processing.as_mut().unwrap().channels.reverse();
+        f.key("E").unwrap();
+        assert_eq!(f.processing_draft.as_ref().unwrap().input, "input-08");
+        assert_eq!(f.target("fader").unwrap()["input"], "input-08");
+        // Removing the selected processing identity must not edit another channel.
+        f.processing_draft = None;
+        f.state
+            .as_mut()
+            .unwrap()
+            .processing
+            .as_mut()
+            .unwrap()
+            .channels
+            .retain(|c| c.input != "input-08");
+        assert!(f.key("E").is_err());
+    }
+    #[test]
+    fn changed_inventory_preserves_identity_and_revokes_queued_edits() {
+        let mut f = surface();
+        f.selected = 7;
+        f.key("E").unwrap();
+        let mut update = f.state.as_ref().unwrap().clone();
+        update.snapshot.as_mut().unwrap().authority.inputs.reverse();
+        f.inject_controller(Action::ProcessingAdjust(1)).unwrap();
+        let generation = f.provider.generation();
+        f.accept_update(update.clone());
+        assert_eq!(f.selected, 0);
+        assert!(f.processing_draft.is_none());
+        assert!(f.queue.is_empty());
+        assert!(f.state.is_none());
+        assert!(f.provider.generation() > generation);
+        update.generation = f.provider.generation();
+        f.accept_update(update);
+        assert_eq!(f.selected_input(), Some("input-08"));
+    }
+    #[test]
+    fn monitor_scope_resolution_never_aliases_an_unknown_scope() {
+        let mut f = surface();
+        f.scope = "monitor3".into();
+        assert!(f.target("fader").is_err());
+        let authority = &mut f
+            .state
+            .as_mut()
+            .unwrap()
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .authority;
+        // Consumer model test only; legacy wire fixtures retain their exact shape.
+        authority.monitors.push("monitor-3".into());
+        authority.modes.push(("monitor3".into(), "manual".into()));
+        assert_eq!(f.target("fader").unwrap()["monitor"], "monitor-3");
+        assert!(f.target("pan").is_err());
+        f.scope = "pa".into();
+        assert!(f.target("fader").is_err());
+        assert!(f.target("mute").is_err());
+    }
+    #[test]
+    fn partial_bank_navigation_wraps_banks_without_skipping_the_first_strip() {
+        let mut f = surface();
+        let mut update = f.state.as_ref().unwrap().clone();
+        update.snapshot.as_mut().unwrap().authority.inputs =
+            (1..=49).map(|n| format!("strip-{n}")).collect();
+        for expected in [12, 24, 36, 48, 0] {
+            f.state = Some(update.clone());
+            f.action(Action::Bank(1)).unwrap();
+            assert_eq!(f.selected, expected);
+        }
+        f.state = Some(update.clone());
+        f.action(Action::Bank(-1)).unwrap();
+        assert_eq!(f.selected, 48);
+        f.state = Some(update);
+        f.action(Action::Bank(i32::MAX)).unwrap();
+        assert!(f.selected < 49);
+    }
+    #[test]
+    fn high_channel_selection_and_banking_are_presentation_dimensions() {
+        for count in [16, 17, 32, 33, 48, 49] {
+            let mut f = surface();
+            f.state
+                .as_mut()
+                .unwrap()
+                .snapshot
+                .as_mut()
+                .unwrap()
+                .authority
+                .inputs = (1..=count).map(|n| format!("strip-{n}")).collect();
+            for number in [16, 17, 32, 33, 48].into_iter().filter(|n| *n <= count) {
+                f.selected = number - 1;
+                assert_eq!(
+                    f.target("fader").unwrap()["input"],
+                    format!("strip-{number}")
+                );
+                f.page = Page::Mix;
+                assert!(f.scene().in_bounds());
+                assert!(f.scene().primitives.iter().any(|p| matches!(p,
+                    Primitive::Text {value, ..} if value.starts_with(&format!("> strip-{number} ")))));
+            }
+            f.selected = count - 1;
+            f.action(Action::Move(1)).unwrap();
+            assert_eq!(f.selected, 0);
+        }
     }
     #[test]
     fn processing_keyboard_and_controller_semantics_edit_same_detached_draft() {

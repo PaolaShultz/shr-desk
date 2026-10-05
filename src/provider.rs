@@ -9,6 +9,8 @@ use std::{
     fmt,
 };
 pub const MAX_BYTES: usize = 65536;
+/// Negotiated GP14 immutable document budget; individual frames stay64KiB.
+pub const MAX_DOCUMENT_BYTES: usize = 1024 * 1024;
 pub const ASSEMBLY_MS: u64 = 2000;
 pub const FRESH_MS: u64 = 250;
 fn required_option<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
@@ -65,6 +67,7 @@ pub struct Snapshot {
     pub session_history_capacity: usize,
     pub inputs: Vec<String>,
     pub monitors: Vec<String>,
+    #[serde(with = "crate::scopes::modes")]
     pub modes: Vec<(String, String)>,
     pub automation_bounds: Vec<AutoBound>,
     pub parameters: Vec<Parameter>,
@@ -123,8 +126,14 @@ impl<'de> Deserialize<'de> for Strict {
     }
 }
 pub(crate) fn parse(bytes: &[u8]) -> Result<Value, String> {
-    if bytes.len() > MAX_BYTES {
-        return Err("message exceeds 64KiB".into());
+    parse_limit(bytes, MAX_BYTES)
+}
+pub(crate) fn parse_document(bytes: &[u8]) -> Result<Value, String> {
+    parse_limit(bytes, MAX_DOCUMENT_BYTES)
+}
+fn parse_limit(bytes: &[u8], limit: usize) -> Result<Value, String> {
+    if bytes.len() > limit {
+        return Err(format!("message exceeds {limit} byte admission"));
     }
     let text = std::str::from_utf8(bytes).map_err(|_| "invalid UTF8")?;
     let (mut depth, mut string, mut escape) = (0usize, false, false);
@@ -187,13 +196,32 @@ pub(crate) fn keys(v: &Value, wanted: &[&str]) -> Result<(), String> {
     }
     Ok(())
 }
-pub(crate) fn target(t: &Target) -> Result<(), String> {
-    if !(1..=8).any(|n| t.input == format!("input-{n:02}")) {
+pub(crate) fn target_scope(t: &Target) -> String {
+    t.monitor
+        .as_deref()
+        .map_or_else(|| "foh".into(), |m| m.replace("monitor-", "monitor"))
+}
+pub(crate) fn target_version(t: &Target, version: u8) -> Result<(), String> {
+    let n = t
+        .input
+        .strip_prefix("input-")
+        .and_then(|n| n.parse::<u16>().ok())
+        .ok_or("input identity")?;
+    if n == 0 || t.input != format!("input-{n:02}") || (version == 1 && n > 8) {
         return Err("unknown input".into());
     }
     match (t.parameter.as_str(), t.monitor.as_deref()) {
         ("fader" | "pan" | "mute", None) => Ok(()),
-        ("send", Some("monitor-1" | "monitor-2")) => Ok(()),
+        ("send", Some(m)) => {
+            let n = m
+                .strip_prefix("monitor-")
+                .and_then(|n| n.parse::<u16>().ok())
+                .ok_or("monitor identity")?;
+            if n == 0 || m != format!("monitor-{n}") || (version == 1 && n > 2) {
+                return Err("unknown monitor".into());
+            }
+            Ok(())
+        }
         _ => Err("unknown target".into()),
     }
 }
@@ -215,6 +243,21 @@ pub(crate) fn value(t: &Target, v: &Value) -> Result<(), String> {
 }
 impl Snapshot {
     fn validate(&self) -> Result<(), String> {
+        self.validate_version(1)
+    }
+    pub(crate) fn validate_version(&self, version: u8) -> Result<(), String> {
+        if !matches!(version, 1 | 2) {
+            return Err("authority version".into());
+        }
+        let input_count = if version == 1 { 8 } else { self.inputs.len() };
+        let monitor_count = if version == 1 { 2 } else { self.monitors.len() };
+        if input_count == 0 || input_count > u16::MAX as usize || monitor_count > u16::MAX as usize
+        {
+            return Err("inventory protocol width".into());
+        }
+        let parameter_count = input_count
+            .checked_mul(3 + monitor_count)
+            .ok_or("parameter capacity")?;
         if !uuid(&self.show_id) {
             return Err("invalid show".into());
         }
@@ -224,7 +267,7 @@ impl Snapshot {
         if self.page_count == 0
             || self.page_count > 16
             || self.page >= self.page_count
-            || self.parameters.len() > 40
+            || self.parameters.len() > parameter_count
         {
             return Err("page capacity".into());
         }
@@ -240,18 +283,22 @@ impl Snapshot {
             return Err("unsupported GP02 capability/observation".into());
         }
         let inputs: BTreeSet<_> = self.inputs.iter().cloned().collect();
-        if self.inputs.len() != 8
-            || inputs != (1..=8).map(|n| format!("input-{n:02}")).collect()
-            || self.monitors.len() != 2
+        if self.inputs.len() != input_count
+            || inputs != (1..=input_count).map(|n| format!("input-{n:02}")).collect()
+            || self.monitors.len() != monitor_count
             || self.monitors.iter().cloned().collect::<BTreeSet<_>>()
-                != BTreeSet::from(["monitor-1".into(), "monitor-2".into()])
+                != (1..=monitor_count)
+                    .map(|n| format!("monitor-{n}"))
+                    .collect()
         {
             return Err("inventory capacity/identity".into());
         }
         let modes: BTreeMap<_, _> = self.modes.iter().cloned().collect();
-        if self.modes.len() != 3
+        if self.modes.len() != monitor_count + 1
             || modes.keys().cloned().collect::<BTreeSet<_>>()
-                != BTreeSet::from(["foh".into(), "monitor1".into(), "monitor2".into()])
+                != std::iter::once("foh".to_string())
+                    .chain((1..=monitor_count).map(|n| format!("monitor{n}")))
+                    .collect()
             || modes
                 .values()
                 .any(|v| !matches!(v.as_str(), "manual" | "assist" | "auto"))
@@ -259,22 +306,18 @@ impl Snapshot {
             return Err("invalid modes".into());
         }
         let mut seen = BTreeSet::new();
-        if self.automation_bounds.len() > 40 {
+        if self.automation_bounds.len() > if version == 1 { 40 } else { 64 } {
             return Err("bound capacity".into());
         }
         for b in &self.automation_bounds {
-            target(&b.target)?;
+            self.validate_target(&b.target)?;
             value(&b.target, &b.min.into())?;
             value(&b.target, &b.max.into())?;
-            let scope = match b.target.monitor.as_deref() {
-                Some("monitor-1") => "monitor1",
-                Some("monitor-2") => "monitor2",
-                _ => "foh",
-            };
+            let scope = target_scope(&b.target);
             if b.target.parameter == "mute"
                 || b.min > b.max
                 || !seen.insert(b.target.clone())
-                || modes.get(scope).map(String::as_str) != Some("auto")
+                || modes.get(&scope).map(String::as_str) != Some("auto")
             {
                 return Err("invalid automation bounds".into());
             }
@@ -284,18 +327,14 @@ impl Snapshot {
                 && !self
                     .automation_bounds
                     .iter()
-                    .any(|b| match b.target.monitor.as_deref() {
-                        Some("monitor-1") => scope == "monitor1",
-                        Some("monitor-2") => scope == "monitor2",
-                        _ => scope == "foh",
-                    })
+                    .any(|b| *scope == target_scope(&b.target))
             {
                 return Err("AUTO without bounds".into());
             }
         }
         seen.clear();
         for p in &self.parameters {
-            target(&p.target)?;
+            self.validate_target(&p.target)?;
             value(&p.target, &p.target_value)?;
             if p.actual.is_some() {
                 return Err("GP02 actual must be unavailable".into());
@@ -312,6 +351,17 @@ impl Snapshot {
         }
         Ok(())
     }
+    pub(crate) fn validate_target(&self, t: &Target) -> Result<(), String> {
+        target_version(t, 2)?;
+        if !self.inputs.contains(&t.input)
+            || t.monitor
+                .as_ref()
+                .is_some_and(|m| !self.monitors.contains(m))
+        {
+            return Err("target absent from inventory".into());
+        }
+        Ok(())
+    }
     fn metadata(&self) -> Self {
         let mut x = self.clone();
         x.page = 0;
@@ -322,7 +372,14 @@ impl Snapshot {
 /// This read-only boundary consumes standalone Snapshot bodies from GP02.
 /// Mutable request/reply handling belongs to DS04 after GP03 acceptance.
 pub fn decode(bytes: &[u8]) -> Result<Snapshot, String> {
-    let v = parse(bytes)?;
+    decode_version(bytes, 1)
+}
+pub(crate) fn decode_version(bytes: &[u8], version: u8) -> Result<Snapshot, String> {
+    let v = if version == 2 {
+        parse_document(bytes)?
+    } else {
+        parse(bytes)?
+    };
     for list in ["parameters", "automation_bounds"] {
         if let Some(a) = v[list].as_array() {
             for p in a {
@@ -339,7 +396,7 @@ pub fn decode(bytes: &[u8]) -> Result<Snapshot, String> {
         }
     }
     let s: Snapshot = serde_json::from_value(v).map_err(|e| e.to_string())?;
-    s.validate()?;
+    s.validate_version(version)?;
     Ok(s)
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

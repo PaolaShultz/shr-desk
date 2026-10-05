@@ -251,8 +251,37 @@ struct Draft {
     revision: String,
     generation: u64,
 }
+/// Framed authority connection. Implementations authenticate their endpoint before
+/// construction and preserve bounded whole-frame deadlines. This seam carries
+/// bytes only: leases, freshness, correlation and no-replay stay in `Session`.
+/// `None` means no frame before the deadline, never a partial decoded message.
+pub trait AuthorityConnection: Send {
+    fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String>;
+    fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String>;
+    fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String>;
+    fn send(&mut self, request: &Request) -> Result<(), String> {
+        self.send_frame_until(
+            &request.encode()?,
+            Instant::now() + Duration::from_millis(200),
+        )
+    }
+    fn receive(&mut self) -> Result<Option<Vec<u8>>, String> {
+        self.receive_until(Instant::now() + Duration::from_millis(200))
+    }
+}
+impl AuthorityConnection for Transport {
+    fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+        Transport::send_frame_until(self, bytes, deadline)
+    }
+    fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        Transport::receive_until(self, deadline)
+    }
+    fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+        Transport::receive_available(self)
+    }
+}
 pub struct Operator {
-    transport: Transport,
+    transport: Box<dyn AuthorityConnection>,
     pub(crate) session: Session,
     start: Instant,
     draft: Option<Draft>,
@@ -267,9 +296,64 @@ impl Operator {
         writer: &str,
         scope: &str,
     ) -> Result<Self, String> {
+        Self::connect_version(endpoint, show, epoch, writer, scope, 1)
+    }
+    pub fn connect_remote(
+        config: &crate::remote::Config,
+        show: &str,
+        epoch: u64,
+        scope: &str,
+    ) -> Result<Self, String> {
+        let connection = crate::remote::Connection::connect(config, scope)?;
+        if connection.source_epoch != epoch {
+            return Err("authenticated source epoch differs from expected epoch".into());
+        }
+        let writer = connection.writer.clone();
+        Self::from_connection_version(Box::new(connection), show, epoch, &writer, scope, 2)
+    }
+    pub fn connect_version(
+        endpoint: &Path,
+        show: &str,
+        epoch: u64,
+        writer: &str,
+        scope: &str,
+        version: u8,
+    ) -> Result<Self, String> {
+        Self::from_connection_version(
+            Box::new(Transport::connect(endpoint)?),
+            show,
+            epoch,
+            writer,
+            scope,
+            version,
+        )
+    }
+    /// Attach a previously authenticated connection read-only. Callers must use
+    /// the authenticated writer identity; no grants or previous intent are copied.
+    pub fn from_connection(
+        transport: Box<dyn AuthorityConnection>,
+        show: &str,
+        epoch: u64,
+        writer: &str,
+        scope: &str,
+    ) -> Result<Self, String> {
+        Self::from_connection_version(transport, show, epoch, writer, scope, 1)
+    }
+    pub fn from_connection_version(
+        transport: Box<dyn AuthorityConnection>,
+        show: &str,
+        epoch: u64,
+        writer: &str,
+        scope: &str,
+        version: u8,
+    ) -> Result<Self, String> {
         Ok(Self {
-            transport: Transport::connect(endpoint)?,
-            session: Session::new(show, epoch, writer, scope)?,
+            transport: if version == 2 {
+                Box::new(crate::pages::Connection::new(transport))
+            } else {
+                transport
+            },
+            session: Session::new_version(show, epoch, writer, scope, version)?,
             start: Instant::now(),
             draft: None,
             scope: scope.into(),
@@ -302,6 +386,8 @@ impl Operator {
         self.draft.as_ref().is_some_and(|d| {
             self.session.generation() == d.generation
                 && (d.kind != "processing_set" || self.session.processing_fresh(self.now()))
+                && (!crate::structure::is_kind(&d.kind)
+                    || self.session.structural_fresh(self.now()))
                 && (d.kind != "release_preview"
                     || self
                         .session
@@ -359,10 +445,27 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some("GP14-structure") {
+            let reply = crate::structure::decode_reply(bytes)?;
+            if reply.context == self.session.structural_request().context {
+                self.session.ingest_structural(
+                    reply
+                        .snapshot
+                        .ok_or_else(|| format!("structural unavailable: {:?}", reply.reason))?,
+                    self.now(),
+                )?;
+            } else {
+                self.session.accept_structural(reply, self.now())?;
+            }
+            return Ok(true);
+        }
         if tag.contract.as_deref() != Some("GP07-processing") {
             return Ok(false);
         }
         let r = crate::processing::decode_reply(bytes)?;
+        if r.version != self.session.snapshot_request().version + 1 {
+            return Err("processing version differs from selected session".into());
+        }
         if r.context == self.session.processing_request().context {
             if let Some(s) = r.snapshot {
                 self.session.ingest_processing(s, self.now())?;
@@ -383,6 +486,23 @@ impl Operator {
         }
         // Cached old replies never ingest snapshots or renew freshness.
         Ok(true)
+    }
+    pub(crate) fn refresh_structural(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        self.transport.send(&self.session.structural_request())?;
+        let deadline = Instant::now() + Duration::from_millis(250);
+        while Instant::now() < deadline {
+            self.check_guard()?;
+            if let Some(bytes) = self.transport.receive_until(deadline)? {
+                if !self.processing_frame(&bytes)? {
+                    self.telemetry(&audio::decode_reply(&bytes)?)?;
+                }
+                if self.session.structural_fresh(self.now()) {
+                    return Ok(());
+                }
+            }
+        }
+        Err("structural snapshot deadline".into())
     }
     pub(crate) fn refresh_processing(&mut self) -> Result<(), String> {
         self.check_guard()?;
@@ -489,7 +609,12 @@ impl Operator {
                 Ok(Some(b)) => {
                     if self.processing_frame(&b)? {
                         if self.session.pending.is_none() {
-                            self.refresh()?;
+                            // Structural map commits may deliberately close the old
+                            // authenticated session after its final. Preserve that
+                            // correlated completion independently of the next refresh.
+                            if !crate::structure::is_kind(kind) {
+                                self.refresh()?;
+                            }
                             return Ok(());
                         }
                     } else {
@@ -561,7 +686,7 @@ impl Operator {
         }
         // Pin the queued review's context before any refresh can observe a newer
         // revision. The frontend already checked its original queued revision.
-        let processing_context = if kind == "processing_set" {
+        let processing_context = if kind == "processing_set" || crate::structure::is_kind(kind) {
             Some((
                 self.session
                     .snapshot
@@ -579,8 +704,16 @@ impl Operator {
             self.refresh()?;
         }
         if let Some((revision, generation)) = processing_context {
-            crate::processing::validate_body(&body)?;
-            self.refresh_processing()?;
+            if kind == "processing_set" {
+                crate::processing::validate_body_version(
+                    &body,
+                    self.session.snapshot_request().version,
+                )?;
+                self.refresh_processing()?;
+            } else {
+                self.refresh_structural()?;
+                crate::structure::validate_body(kind, &body, self.session.structural.as_ref())?;
+            }
             self.refresh()?;
             if self.session.generation() != generation
                 || self
@@ -591,8 +724,10 @@ impl Operator {
             {
                 return Err("processing review context changed during paired refresh".into());
             }
-            if !self.session.processing_fresh(self.now()) {
-                return Err("fresh ready processing required".into());
+            if (kind == "processing_set" && !self.session.processing_fresh(self.now()))
+                || (crate::structure::is_kind(kind) && !self.session.structural_fresh(self.now()))
+            {
+                return Err("fresh paired module state required".into());
             }
         }
         let s = self.session.snapshot.as_ref().ok_or("snapshot")?;
@@ -633,8 +768,12 @@ impl Operator {
                 return Err("reviewed confirmation context changed during renewal".into());
             }
         }
-        if d.kind == "processing_set" {
-            self.refresh_processing()?;
+        if d.kind == "processing_set" || crate::structure::is_kind(&d.kind) {
+            if d.kind == "processing_set" {
+                self.refresh_processing()?;
+            } else {
+                self.refresh_structural()?;
+            }
             self.refresh()?;
             if self.session.generation() != d.generation
                 || self
@@ -716,7 +855,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         return Err("script exceeds64KiB/256commands".into());
     }
     let mut op = Operator {
-        transport: Transport::connect(Path::new(&args[0]))?,
+        transport: Box::new(Transport::connect(Path::new(&args[0]))?),
         session: Session::new(
             &args[1],
             args[2].parse().map_err(|_| "epoch")?,
@@ -996,7 +1135,7 @@ mod gp07_stage_tests {
         let body = json!({"input":"input-01", "config":processing.channels[0].target});
         session.ingest_processing(processing, 0).unwrap();
         let mut op = Operator {
-            transport: Transport { socket },
+            transport: Box::new(Transport { socket }),
             session,
             start: Instant::now() - Duration::from_millis(300),
             draft: None,

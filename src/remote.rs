@@ -1,0 +1,364 @@
+//! Explicit mutually authenticated QUIC connection to the same authority session.
+//! No listener, automatic pairing, media device or command replay.
+use crate::{local_audio::AuthorityConnection, provider};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+use std::{
+    net::{IpAddr, SocketAddr},
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, Instant},
+};
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Config {
+    pub bind: SocketAddr,
+    pub server: SocketAddr,
+    pub server_name: String,
+    pub certificate: PathBuf,
+    pub private_key: PathBuf,
+    pub ca: PathBuf,
+    pub server_certificate_sha256: String,
+    pub peer_id: String,
+}
+fn private_address(address: SocketAddr) -> bool {
+    match address.ip() {
+        IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
+        IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local(),
+    }
+}
+fn read_credential(path: &Path, private: bool) -> Result<Vec<u8>, String> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if !path.is_absolute() || !metadata.is_file() || metadata.len() > 65536 {
+        return Err("credential path/type/size".into());
+    }
+    if private && metadata.mode() & 0o077 != 0 {
+        return Err("private key must exclude group/other permissions".into());
+    }
+    std::fs::read(path).map_err(|e| e.to_string())
+}
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Identity {
+    source_epoch: String,
+    capability_generation: String,
+    map_generation: String,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+enum Permission {
+    Foh,
+    Monitor(u32),
+    PaConfiguration,
+    OutputRoutes,
+    Analysis,
+    Fx,
+}
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum Response {
+    Hello {
+        contract: String,
+        version: u8,
+        session: String,
+        writer: String,
+        peer_id: String,
+        policy_generation: String,
+        identity: Identity,
+        permissions: Vec<Permission>,
+        max_datagram: usize,
+    },
+    Reply {
+        session: String,
+        payload: Value,
+    },
+    Refused {
+        session: String,
+        reason: String,
+    },
+}
+pub struct Connection {
+    runtime: tokio::runtime::Runtime,
+    endpoint: quinn::Endpoint,
+    connection: quinn::Connection,
+    send: quinn::SendStream,
+    receive: quinn::RecvStream,
+    session: String,
+    capability_generation: String,
+    pub writer: String,
+    pub source_epoch: u64,
+}
+impl Connection {
+    pub fn connect(config: &Config, scope: &str) -> Result<Self, String> {
+        if !private_address(config.bind)
+            || !private_address(config.server)
+            || config.server.port() == 0
+            || config.server_name.is_empty()
+            || config.server_name.len() > 253
+            || !provider::id(&config.peer_id)
+            || config.server_certificate_sha256.len() != 64
+            || !config
+                .server_certificate_sha256
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err("explicit private remote endpoint/identity required".into());
+        }
+        let certificate = read_credential(&config.certificate, false)?;
+        let own_fingerprint = format!("{:x}", Sha256::digest(&certificate));
+        let key = PrivateKeyDer::try_from(read_credential(&config.private_key, true)?)
+            .map_err(str::to_string)?;
+        let mut roots = rustls::RootCertStore::empty();
+        roots
+            .add(CertificateDer::from(read_credential(&config.ca, false)?))
+            .map_err(|e| e.to_string())?;
+        let mut tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|e| e.to_string())?
+        .with_root_certificates(roots)
+        .with_client_auth_cert(vec![CertificateDer::from(certificate)], key)
+        .map_err(|e| e.to_string())?;
+        tls.alpn_protocols = vec![b"gigpies-remote/1".to_vec()];
+        tls.enable_early_data = false;
+        tls.resumption = rustls::client::Resumption::disabled();
+        let crypto =
+            quinn::crypto::rustls::QuicClientConfig::try_from(tls).map_err(|e| e.to_string())?;
+        let mut client = quinn::ClientConfig::new(Arc::new(crypto));
+        let mut transport = quinn::TransportConfig::default();
+        transport.max_concurrent_bidi_streams(1u8.into());
+        transport.max_concurrent_uni_streams(0u8.into());
+        transport.stream_receive_window(65540u32.into());
+        transport.receive_window(65540u32.into());
+        transport.send_window(65540);
+        transport.datagram_receive_buffer_size(Some(256 * 1232));
+        transport.datagram_send_buffer_size(256 * 1232);
+        transport.initial_mtu(1200);
+        transport.mtu_discovery_config(None);
+        transport.max_idle_timeout(Some(quinn::VarInt::from_u32(2000).into()));
+        transport.keep_alive_interval(Some(Duration::from_millis(500)));
+        client.transport_config(Arc::new(transport));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| e.to_string())?;
+        let (
+            endpoint,
+            connection,
+            send,
+            receive,
+            session,
+            capability_generation,
+            writer,
+            source_epoch,
+        ) = runtime.block_on(async {
+            let mut endpoint = quinn::Endpoint::client(config.bind).map_err(|e| e.to_string())?;
+            endpoint.set_default_client_config(client);
+            let connection = tokio::time::timeout(
+                Duration::from_secs(2),
+                endpoint
+                    .connect(config.server, &config.server_name)
+                    .map_err(|e| e.to_string())?,
+            )
+            .await
+            .map_err(|_| "remote handshake deadline")?
+            .map_err(|e| e.to_string())?;
+            let identity = connection
+                .peer_identity()
+                .ok_or("server certificate unavailable")?
+                .downcast::<Vec<CertificateDer<'static>>>()
+                .map_err(|_| "server certificate type")?;
+            if identity.first().is_none_or(|leaf| {
+                format!("{:x}", Sha256::digest(leaf.as_ref())) != config.server_certificate_sha256
+            }) {
+                connection.close(1u8.into(), b"server pin mismatch");
+                return Err("server leaf certificate not paired".to_string());
+            }
+            let mut session_bytes = [0; 8];
+            connection
+                .export_keying_material(&mut session_bytes, b"gigpies-remote-session-v1", b"")
+                .map_err(|_| "TLS session binding")?;
+            let expected_session = u64::from_be_bytes(session_bytes);
+            let (mut send, mut receive) =
+                tokio::time::timeout(Duration::from_secs(2), connection.open_bi())
+                    .await
+                    .map_err(|_| "remote stream deadline")?
+                    .map_err(|e| e.to_string())?;
+            write(
+                &mut send,
+                &json!({"kind":"open","contract":"GP-REMOTE","version":1}),
+                Instant::now() + Duration::from_secs(2),
+            )
+            .await?;
+            let response = read(&mut receive, Instant::now() + Duration::from_secs(2), false)
+                .await?
+                .ok_or("remote hello deadline")?;
+            let Response::Hello {
+                contract,
+                version,
+                session,
+                writer,
+                peer_id,
+                policy_generation,
+                identity,
+                permissions,
+                max_datagram,
+            } = response
+            else {
+                return Err("remote hello required".into());
+            };
+            if contract != "GP-REMOTE"
+                || version != 1
+                || expected_session == 0
+                || provider::counter(&session)? != expected_session
+                || peer_id != config.peer_id
+                || writer != format!("remote-{}-{expected_session:016x}", &own_fingerprint[..16])
+                || provider::counter(&policy_generation)? == 0
+                || provider::counter(&identity.capability_generation)? == 0
+                || provider::counter(&identity.map_generation)? == 0
+                || max_datagram == 0
+                || max_datagram > 1232
+            {
+                return Err("remote hello identity/binding".into());
+            }
+            let permitted = permissions.iter().any(|p| match p {
+                Permission::Foh => scope == "foh",
+                Permission::Monitor(n) => scope == format!("monitor{n}"),
+                Permission::PaConfiguration => scope == "pa_configuration",
+                Permission::OutputRoutes => scope == "output_routes",
+                _ => false,
+            });
+            if !permitted {
+                return Err("remote peer lacks requested scope permission".into());
+            }
+            let source_epoch = provider::counter(&identity.source_epoch)?;
+            if source_epoch == 0 {
+                return Err("zero remote source epoch".into());
+            }
+            Ok((
+                endpoint,
+                connection,
+                send,
+                receive,
+                session,
+                identity.capability_generation,
+                writer,
+                source_epoch,
+            ))
+        })?;
+        Ok(Self {
+            runtime,
+            endpoint,
+            connection,
+            send,
+            receive,
+            session,
+            capability_generation,
+            writer,
+            source_epoch,
+        })
+    }
+    fn receive_inner(
+        &mut self,
+        deadline: Instant,
+        available: bool,
+    ) -> Result<Option<Vec<u8>>, String> {
+        match self
+            .runtime
+            .block_on(read(&mut self.receive, deadline, available))?
+        {
+            None => Ok(None),
+            Some(Response::Reply { session, payload }) if session == self.session => {
+                serde_json::to_vec(&payload)
+                    .map(Some)
+                    .map_err(|e| e.to_string())
+            }
+            Some(Response::Refused { session, reason }) if session == self.session => {
+                Err(format!("remote refused: {reason}"))
+            }
+            _ => Err("remote session/response mismatch".into()),
+        }
+    }
+}
+impl Drop for Connection {
+    fn drop(&mut self) {
+        self.connection
+            .close(0u8.into(), b"Desk disconnected; no replay");
+        self.endpoint.close(0u8.into(), b"Desk stopped");
+    }
+}
+impl AuthorityConnection for Connection {
+    fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+        let payload = provider::parse(bytes)?;
+        if !payload["writer"].is_null() && payload["writer"] != self.writer {
+            return Err("authenticated writer mismatch".into());
+        }
+        self.runtime.block_on(write(&mut self.send, &json!({"kind":"command","session":self.session,"capability_generation":self.capability_generation,"payload":payload}), deadline))
+    }
+    fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        self.receive_inner(deadline, false)
+    }
+    fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+        self.receive_inner(Instant::now() + Duration::from_millis(1), true)
+    }
+}
+async fn write(
+    send: &mut quinn::SendStream,
+    value: &Value,
+    deadline: Instant,
+) -> Result<(), String> {
+    let bytes = serde_json::to_vec(value).map_err(|e| e.to_string())?;
+    if bytes.is_empty() || bytes.len() > provider::MAX_BYTES {
+        return Err("remote frame capacity".into());
+    }
+    tokio::time::timeout_at(deadline.into(), async {
+        send.write_all(&(bytes.len() as u32).to_be_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
+        send.write_all(&bytes).await.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "remote write deadline".to_string())?
+}
+async fn read(
+    receive: &mut quinn::RecvStream,
+    deadline: Instant,
+    available: bool,
+) -> Result<Option<Response>, String> {
+    let mut length = [0; 4];
+    match tokio::time::timeout_at(deadline.into(), receive.read_exact(&mut length[..1])).await {
+        Err(_) => return Ok(None),
+        Ok(result) => result.map_err(|e| e.to_string())?,
+    }
+    let deadline = if available {
+        Instant::now() + Duration::from_millis(200)
+    } else {
+        deadline
+    };
+    // Once any prefix arrives a partial-frame timeout is fatal; no frame replay.
+    tokio::time::timeout_at(deadline.into(), async {
+        receive
+            .read_exact(&mut length[1..])
+            .await
+            .map_err(|e| e.to_string())?;
+        let length = u32::from_be_bytes(length) as usize;
+        if length == 0 || length > provider::MAX_BYTES {
+            return Err("remote frame capacity".into());
+        }
+        let mut bytes = vec![0; length];
+        receive
+            .read_exact(&mut bytes)
+            .await
+            .map_err(|e| e.to_string())?;
+        let value = provider::parse(&bytes)?;
+        serde_json::from_value(value)
+            .map(Some)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "remote partial frame deadline".to_string())?
+}

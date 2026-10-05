@@ -27,6 +27,7 @@ fn exact_producer_replies_and_request_envelopes() {
     );
     let v: Value = serde_json::from_slice(&fixture("set-request")).unwrap();
     let r = audio::Request {
+        version: 1,
         context: reply("set-pending").context,
         kind: "processing_set".into(),
         body: v["body"].clone(),

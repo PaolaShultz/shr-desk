@@ -137,6 +137,8 @@ fn real_grant_controls_engine_review_and_no_replay_reconnect() {
         thread::sleep(Duration::from_millis(10));
     }
     let config = Config {
+        wire_version: 1,
+        remote: None,
         endpoint: dir.join("audio.sock"),
         show: show.into(),
         epoch: 10,

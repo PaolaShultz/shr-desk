@@ -278,3 +278,62 @@ delaying paired observations. The 250 ms gate and original revision pin remain.
 The native presenter uses direct framebuffer-pixel mapping for deterministic
 scaled texel selection and requests the adapter's supported resolution limits,
 so enlarged targets are not incorrectly capped at the 2048-pixel fallback limit.
+
+## Task0014 dynamic provider work (acceptance pending)
+
+Add `--dynamic` to explicitly select C-AUDIO:2, GP03-rendered:2 and
+GP07-processing:3. Default legacy1/1/2 remains supported; a selected session
+refuses a different version. Standalone GP02 file mode stays legacy-only.
+The producer supplies topology, common-clock observations and resource admission.
+Logical input IDs, physical socket labels and USB stream slots stay separate.
+F7 displays all inputs, measurement slots and output routes across pages, including
+unassigned silent outputs. Expected/reference mapping is never hardware evidence.
+Clock lock UNKNOWN remains unknown; no clock selector or configuration is added.
+
+Processing selection resolves stable authority IDs against processing readback,
+independently of array order. Inventory/map changes preserve stable selection where
+possible, discard local intents and require a refreshed worker generation. Unknown
+monitor scopes cannot alias monitor2 or FOH. Twelve-strip banking is presentation;
+a final partial bank wraps to the first bank. Wire scopes retain monitor1/monitor2
+and use the exact external enum object for additional monitors.
+
+For `pa_configuration` or `output_routes`, G requests the separate configured
+scope. F9 opens a detached editor from fresh structural readback. PA fields show
+owner JSON paths and values; U/I select numeric/boolean fields, J/K adjust one
+owner unit or toggle, and decimal entry plus Enter sets a local field. This does
+not perform DSP or advertise unavailable owner controls. Output-route fields cycle
+explicit advertised sources for each physical output with J/K, including unassigned
+silence. F4 opens the complete paged protected review; Enter confirms only after
+every page was presented. Esc discards. Z requests reviewed output mute; X requests
+reviewed explicit rearm under PA authority. Structural prepare requires confirmed
+quiescence; no automatic unmute follows patch/configuration/reconnect.
+General PA topology/enum editing is not yet provided by this numeric-field editor;
+full owner documents remain accepted only through the typed reviewed API.
+
+`local_audio::AuthorityConnection` carries framed bytes while Operator/Session
+retain leases, freshness, one pending request, retries and no-replay recovery.
+The successor uses GP14 immutable document segmentation:64KiB frame bound,
+8KiB UTF8 segments,1MiB aggregate admission, ordered indices, SHA256 identity and
+2s deadline. Partial/mixed/reordered/corrupt sets are never observations.
+
+`--remote-config FILE` explicitly chooses mutually authenticated QUIC for a real
+frontend and implies dynamic versions. The JSON has `bind`, `server` (private
+socket addresses), `server_name`, absolute DER `certificate`, `private_key`, `ca`
+paths, `server_certificate_sha256` and paired `peer_id`. Provision privately; no
+credential discovery, issuance or pairing occurs. The positional Unix endpoint and
+writer arguments retain CLI compatibility; remote mode uses only the configured
+QUIC endpoint and TLS-bound writer. CA validation plus pinned server leaf and TLS
+exporter session binding are required. Hello grants nothing; fresh authority and
+explicit scoped grants remain necessary. Remote mode does not start a separate
+legacy Unix health observer. UI timing never advances the audio clock.
+
+The normal suite includes legacy compatibility, scope, bank/context and immutable
+framing regressions. `gp14_supplied_producer_documents` consumes root-supplied
+profile files through `GP14_CORPUS`; draft delivery is not frozen acceptance.
+`gp14_high_channel_external_driver` and `gp14_structural_external_driver` are
+explicit ignored actual-provider drivers in `tests/gp07_frontend.rs`, bounded55s.
+They require `GP14_EXTERNAL_ENDPOINT`, `GP14_EPOCH`, optionally
+`GP14_REMOTE_CONFIG`; evidence paths are `GP14_DRIVER_EVIDENCE` and
+`GP14_STRUCTURE_EVIDENCE`. The host owns actual sample/module assertions. These
+drivers are not proof of acceptance until executed against verified artifacts.
+No normal run opens a physical endpoint/window; two-node runs require reservation.

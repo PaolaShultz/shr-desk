@@ -19,3 +19,13 @@ pub mod roles;
 pub mod modules;
 
 pub mod processing;
+
+pub mod scopes;
+
+pub mod topology;
+
+pub mod structure;
+
+pub mod pages;
+
+pub mod remote;

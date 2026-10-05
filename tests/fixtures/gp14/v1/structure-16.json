@@ -1,0 +1,286 @@
+{
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "epoch": "9",
+  "revision": "1",
+  "frame": "720",
+  "topology": {
+    "identity": "umc1820-ada8200-analog-48k-reference",
+    "mapping_evidence": "manufacturer-reference-unverified",
+    "map_revision": 3,
+    "sample_rate": 48000,
+    "max_block_frames": 4096,
+    "capture_channels": 18,
+    "playback_channels": 20,
+    "inputs": [
+      {
+        "id": "input-01",
+        "capture_slot": 0,
+        "physical_port": "umc1820-analog-in-1"
+      },
+      {
+        "id": "input-02",
+        "capture_slot": 1,
+        "physical_port": "umc1820-analog-in-2"
+      },
+      {
+        "id": "input-03",
+        "capture_slot": 2,
+        "physical_port": "umc1820-analog-in-3"
+      },
+      {
+        "id": "input-04",
+        "capture_slot": 3,
+        "physical_port": "umc1820-analog-in-4"
+      },
+      {
+        "id": "input-05",
+        "capture_slot": 4,
+        "physical_port": "umc1820-analog-in-5"
+      },
+      {
+        "id": "input-06",
+        "capture_slot": 5,
+        "physical_port": "umc1820-analog-in-6"
+      },
+      {
+        "id": "input-07",
+        "capture_slot": 6,
+        "physical_port": "umc1820-analog-in-7"
+      },
+      {
+        "id": "input-08",
+        "capture_slot": 7,
+        "physical_port": "umc1820-analog-in-8"
+      },
+      {
+        "id": "input-09",
+        "capture_slot": 10,
+        "physical_port": "ada8200-analog-in-1"
+      },
+      {
+        "id": "input-10",
+        "capture_slot": 11,
+        "physical_port": "ada8200-analog-in-2"
+      },
+      {
+        "id": "input-11",
+        "capture_slot": 12,
+        "physical_port": "ada8200-analog-in-3"
+      },
+      {
+        "id": "input-12",
+        "capture_slot": 13,
+        "physical_port": "ada8200-analog-in-4"
+      },
+      {
+        "id": "input-13",
+        "capture_slot": 14,
+        "physical_port": "ada8200-analog-in-5"
+      },
+      {
+        "id": "input-14",
+        "capture_slot": 15,
+        "physical_port": "ada8200-analog-in-6"
+      },
+      {
+        "id": "input-15",
+        "capture_slot": 16,
+        "physical_port": "ada8200-analog-in-7"
+      },
+      {
+        "id": "input-16",
+        "capture_slot": 17,
+        "physical_port": "ada8200-analog-in-8"
+      }
+    ],
+    "measurement_slots": [],
+    "monitors": 5,
+    "pa_outputs": 8,
+    "outputs": [
+      {
+        "id": "analog-out-01",
+        "playback_slot": 0,
+        "physical_port": "umc1820-analog-out-1",
+        "source": {
+          "kind": "pa",
+          "index": 1
+        }
+      },
+      {
+        "id": "analog-out-02",
+        "playback_slot": 1,
+        "physical_port": "umc1820-analog-out-2",
+        "source": {
+          "kind": "pa",
+          "index": 0
+        }
+      },
+      {
+        "id": "analog-out-03",
+        "playback_slot": 2,
+        "physical_port": "umc1820-analog-out-3",
+        "source": {
+          "kind": "pa",
+          "index": 2
+        }
+      },
+      {
+        "id": "analog-out-04",
+        "playback_slot": 3,
+        "physical_port": "umc1820-analog-out-4",
+        "source": {
+          "kind": "pa",
+          "index": 3
+        }
+      },
+      {
+        "id": "analog-out-05",
+        "playback_slot": 4,
+        "physical_port": "umc1820-analog-out-5",
+        "source": {
+          "kind": "pa",
+          "index": 4
+        }
+      },
+      {
+        "id": "analog-out-06",
+        "playback_slot": 5,
+        "physical_port": "umc1820-analog-out-6",
+        "source": {
+          "kind": "pa",
+          "index": 5
+        }
+      },
+      {
+        "id": "analog-out-07",
+        "playback_slot": 6,
+        "physical_port": "umc1820-analog-out-7",
+        "source": {
+          "kind": "pa",
+          "index": 6
+        }
+      },
+      {
+        "id": "analog-out-08",
+        "playback_slot": 7,
+        "physical_port": "umc1820-analog-out-8",
+        "source": {
+          "kind": "pa",
+          "index": 7
+        }
+      },
+      {
+        "id": "analog-out-09",
+        "playback_slot": 8,
+        "physical_port": "umc1820-analog-out-9",
+        "source": null
+      },
+      {
+        "id": "analog-out-10",
+        "playback_slot": 9,
+        "physical_port": "umc1820-analog-out-10",
+        "source": null
+      },
+      {
+        "id": "analog-out-11",
+        "playback_slot": 12,
+        "physical_port": "ada8200-analog-out-1",
+        "source": null
+      },
+      {
+        "id": "analog-out-12",
+        "playback_slot": 13,
+        "physical_port": "ada8200-analog-out-2",
+        "source": null
+      },
+      {
+        "id": "analog-out-13",
+        "playback_slot": 14,
+        "physical_port": "ada8200-analog-out-3",
+        "source": null
+      },
+      {
+        "id": "analog-out-14",
+        "playback_slot": 15,
+        "physical_port": "ada8200-analog-out-4",
+        "source": null
+      },
+      {
+        "id": "analog-out-15",
+        "playback_slot": 16,
+        "physical_port": "ada8200-analog-out-5",
+        "source": null
+      },
+      {
+        "id": "analog-out-16",
+        "playback_slot": 17,
+        "physical_port": "ada8200-analog-out-6",
+        "source": null
+      },
+      {
+        "id": "analog-out-17",
+        "playback_slot": 18,
+        "physical_port": "ada8200-analog-out-7",
+        "source": null
+      },
+      {
+        "id": "analog-out-18",
+        "playback_slot": 19,
+        "physical_port": "ada8200-analog-out-8",
+        "source": null
+      }
+    ]
+  },
+  "clock": {
+    "domain": "single-interface",
+    "sample_rate": 48000,
+    "epoch": 9,
+    "next_frame": 720,
+    "state": "running",
+    "adat_lock": "unknown",
+    "mapping_verified": false,
+    "fault": null
+  },
+  "outputs_quiesced": false,
+  "pa_configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":3,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":2,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":1,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[100.0,600.0,3000.0]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":-6.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":1},\"splits_hz\":[100.0,600.0,3000.0]}],\"sample_rate\":48000,\"version\":2}",
+  "pa_program_buses": [
+    2,
+    3
+  ],
+  "pa_status": {
+    "applied_frame": 0,
+    "committed": 1,
+    "epoch": 9,
+    "fault_latched": 0,
+    "generation": 1,
+    "input_channels": 2,
+    "max_block": 256,
+    "muted": 0,
+    "next_frame": 720,
+    "output_channels": 8,
+    "quiesced": 0,
+    "reserved0": 0,
+    "reserved1": 0,
+    "sample_rate": 48000,
+    "size": 80,
+    "version": 2
+  },
+  "pa_capabilities": {
+    "acoustic_protection_available": 0,
+    "max_block": 8192,
+    "max_delay_samples": 8388608,
+    "max_json_bytes": 1048576,
+    "max_nodes": 4096,
+    "max_operations": 65536,
+    "max_ports": 4096,
+    "max_rate": 192000,
+    "measurement_available": 0,
+    "min_block": 1,
+    "min_rate": 8000,
+    "physical_io_owned": 0,
+    "sample_format": 1,
+    "size": 64,
+    "true_peak_available": 0,
+    "version": 2
+  }
+}
