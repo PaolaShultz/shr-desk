@@ -19,7 +19,41 @@ fn wait(f: &mut Frontend, end: Instant, label: &str, p: impl Fn(&Frontend) -> bo
         thread::sleep(Duration::from_millis(5));
     }
 }
+fn assert_ui_ok(f: &Frontend) {
+    // pump reports semantic action failures through message, not enqueue's Result.
+    assert!(
+        f.message.is_empty()
+            || f.message == "Inventory changed: intents discarded; refreshing authority",
+        "frontend action failed: {}",
+        f.message
+    );
+    if let Some(u) = &f.state {
+        assert!(!u.status.starts_with("REFUSED/UNCERTAIN:"), "{}", u.status);
+    }
+}
+fn action(f: &mut Frontend, action: Action) {
+    eprintln!("GP15_ACTION {action:?}");
+    f.message.clear();
+    f.inject_controller(action).unwrap();
+    f.pump();
+    assert_ui_ok(f);
+}
+fn fresh_snapshot(f: &mut Frontend, end: Instant) {
+    wait(f, end, "fresh actual raw snapshot", |f| {
+        f.fresh() && f.state.as_ref().is_some_and(|u| u.snapshot.is_some())
+    });
+}
+fn actual_device(f: &Frontend) -> bool {
+    f.fresh()
+        && f.state.as_ref().is_some_and(|u| {
+            u.device_fresh
+                && u.device
+                    .as_ref()
+                    .is_some_and(|d| d.connected && d.observation.is_some())
+        })
+}
 fn tap(f: &mut Frontend, key: &str) {
+    f.message.clear();
     f.enqueue(Event::Key {
         key: key.into(),
         pressed: true,
@@ -32,12 +66,16 @@ fn tap(f: &mut Frontend, key: &str) {
     })
     .unwrap();
     f.pump();
+    assert_ui_ok(f);
 }
-fn review(f: &mut Frontend, end: Instant, action: Action) {
-    eprintln!("GP15_ACTION {:?}", action);
-    f.inject_controller(action).unwrap();
-    f.pump();
+fn review(f: &mut Frontend, end: Instant, requested: Action) {
+    fresh_snapshot(f, end);
+    wait(f, end, "fresh Brain before action", |f| {
+        f.fresh() && f.state.as_ref().is_some_and(|u| u.brain_fresh)
+    });
+    action(f, requested);
     wait(f, end, "complete review", |f| {
+        assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
     for _ in 0..f.review_pages() {
@@ -51,8 +89,10 @@ fn review(f: &mut Frontend, end: Instant, action: Action) {
         .map(|r| r.context.request_id.clone());
     tap(f, "Enter");
     wait(f, end, "correlated applied final", |f| {
+        assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| {
-            u.brain_fresh
+            f.fresh()
+                && u.brain_fresh
                 && u.brain_final.as_ref().is_some_and(|r| {
                     r.reason.is_none() && Some(r.context.request_id.clone()) != prior
                 })
@@ -79,7 +119,11 @@ fn attach(scope: &str, remote: shr_desk::remote::Config, epoch: u64, end: Instan
     assert!(!f.state.as_ref().unwrap().writer_granted());
     tap(&mut f, "G");
     wait(&mut f, end, "separate scope grant", |f| {
-        f.state.as_ref().is_some_and(|u| u.writer_granted())
+        assert_ui_ok(f);
+        f.fresh()
+            && f.state
+                .as_ref()
+                .is_some_and(|u| u.writer_granted() && u.snapshot.is_some() && u.brain_fresh)
     });
     if matches!(
         scope,
@@ -87,10 +131,12 @@ fn attach(scope: &str, remote: shr_desk::remote::Config, epoch: u64, end: Instan
     ) {
         tap(&mut f, "F3");
     }
+    fresh_snapshot(&mut f, end);
     f
 }
 fn confirm_structure(f: &mut Frontend, end: Instant) {
     wait(f, end, "structural complete review", |f| {
+        assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
     for _ in 0..f.review_pages() {
@@ -104,6 +150,7 @@ fn confirm_structure(f: &mut Frontend, end: Instant) {
         .map(|r| r.context.clone());
     tap(f, "Enter");
     wait(f, end, "structural source boundary", |f| {
+        assert_ui_ok(f);
         f.state
             .as_ref()
             .and_then(|u| u.structural_final.as_ref())
@@ -150,25 +197,50 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             None
         };
     }
-    routes.inject_controller(Action::StructureEdit).unwrap();
-    routes.pump();
-    routes
-        .inject_controller(Action::StructureImport(
-            serde_json::json!({"outputs":outputs}).to_string(),
-        ))
-        .unwrap();
-    routes.pump();
-    routes.inject_controller(Action::StructureApply).unwrap();
-    routes.pump();
+    action(&mut routes, Action::StructureEdit);
+    for (i, output) in outputs.iter().enumerate() {
+        let draft = routes
+            .structural_draft
+            .as_ref()
+            .expect("detached output draft");
+        assert_eq!(draft.fields[draft.selected], format!("/outputs/{i}/source"));
+        action(
+            &mut routes,
+            Action::StructureText(serde_json::to_string(&output.source).unwrap()),
+        );
+        if i + 1 < outputs.len() {
+            action(&mut routes, Action::StructureField(1));
+        }
+    }
+    let intended = serde_json::json!({"outputs":outputs});
+    assert_eq!(
+        routes.structural_draft.as_ref().unwrap().body().unwrap(),
+        intended
+    );
+    action(&mut routes, Action::StructureApply);
     confirm_structure(&mut routes, end);
+    wait(&mut routes, end, "fresh applied exact output patch", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                u.structural_fresh
+                    && u.structural.as_ref().is_some_and(|s| {
+                        serde_json::json!({"outputs":s.topology.outputs}) == intended
+                    })
+            })
+    });
     drop(routes);
     let mut pa = attach("pa_configuration", remote.clone(), epoch, end);
     wait(&mut pa, end, "actual PA state", |f| {
         f.state.as_ref().is_some_and(|u| u.structural_fresh)
     });
-    pa.inject_controller(Action::OutputRearm).unwrap();
-    pa.pump();
+    action(&mut pa, Action::OutputRearm);
     confirm_structure(&mut pa, end);
+    wait(&mut pa, end, "fresh rearmed output state", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                u.structural_fresh && u.structural.as_ref().is_some_and(|s| !s.outputs_quiesced)
+            })
+    });
     let mut mix = attach("foh", remote.clone(), epoch, end);
     for index in [
         0,
@@ -183,9 +255,10 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .len()
             - 1,
     ] {
-        mix.inject_controller(Action::Move(index as i32 - mix.selected as i32))
-            .unwrap();
-        mix.pump();
+        let delta = index as i32 - mix.selected as i32;
+        action(&mut mix, Action::Move(delta));
+        fresh_snapshot(&mut mix, end);
+        assert_eq!(mix.selected, index);
         let input = mix
             .state
             .as_ref()
@@ -209,9 +282,9 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .find(|p| p.target.input == input && p.target.parameter == "mute")
             .is_some_and(|p| p.target_value == true);
         if muted {
-            mix.inject_controller(Action::Mute).unwrap();
-            mix.pump();
+            action(&mut mix, Action::Mute);
             wait(&mut mix, end, "channel unmute review", |f| {
+                assert_ui_ok(f);
                 f.state.as_ref().is_some_and(|u| u.review.is_some())
             });
             for _ in 0..mix.review_pages() {
@@ -220,18 +293,41 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             }
             tap(&mut mix, "Enter");
             wait(&mut mix, end, "channel unmuted", |f| {
-                f.state
-                    .as_ref()
-                    .and_then(|u| u.snapshot.as_ref())
-                    .is_some_and(|s| {
-                        s.authority.parameters.iter().any(|p| {
-                            p.target.input == input
-                                && p.target.parameter == "mute"
-                                && p.target_value == false
+                assert_ui_ok(f);
+                f.fresh()
+                    && f.state
+                        .as_ref()
+                        .and_then(|u| u.snapshot.as_ref())
+                        .is_some_and(|s| {
+                            s.authority.parameters.iter().any(|p| {
+                                p.target.input == input
+                                    && p.target.parameter == "mute"
+                                    && p.target_value == false
+                            })
                         })
-                    })
             });
         }
+        fresh_snapshot(&mut mix, end);
+        let expected_fader = mix
+            .state
+            .as_ref()
+            .unwrap()
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .authority
+            .parameters
+            .iter()
+            .find(|p| {
+                p.target.input == input
+                    && p.target.parameter == "fader"
+                    && p.target.monitor.is_none()
+            })
+            .expect("actual FOH fader")
+            .target_value
+            .as_i64()
+            .unwrap()
+            - 1000;
         let revision = mix
             .state
             .as_ref()
@@ -242,40 +338,54 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .authority
             .revision
             .clone();
-        mix.inject_controller(Action::Adjust(-1000)).unwrap();
-        mix.pump();
+        action(&mut mix, Action::Adjust(-1000));
         wait(&mut mix, end, "actual FOH fader edit", |f| {
+            assert_ui_ok(f);
             f.fresh()
                 && f.state
                     .as_ref()
                     .and_then(|u| u.snapshot.as_ref())
-                    .is_some_and(|s| s.authority.revision != revision)
+                    .is_some_and(|s| {
+                        s.authority.revision != revision
+                            && s.authority.parameters.iter().any(|p| {
+                                p.target.input == input
+                                    && p.target.parameter == "fader"
+                                    && p.target.monitor.is_none()
+                                    && p.target_value == expected_fader
+                            })
+                    })
         });
         eprintln!(
             "GP15_MIX {}",
             serde_json::to_string(mix.state.as_ref().unwrap().snapshot.as_ref().unwrap()).unwrap()
         );
     }
+    eprintln!("GP15_ROUTES_READY");
     let mut monitor = attach("local_operator_monitor", remote.clone(), epoch, end);
-    wait(&mut monitor, end, "actual device configuration", |f| {
-        f.state.as_ref().is_some_and(|u| u.device_fresh)
-    });
-    monitor.inject_controller(Action::DeviceEdit).unwrap();
-    monitor.pump();
+    wait(
+        &mut monitor,
+        end,
+        "actual connected device configuration",
+        actual_device,
+    );
+    action(&mut monitor, Action::DeviceEdit);
     let mut config = monitor
         .device_draft
         .clone()
         .expect("draft from actual readback");
+    let original_config = config.clone();
     let left = config.monitor[0].slot;
     config.monitor[0].slot = config.monitor[1].slot;
     config.monitor[1].slot = left;
-    monitor
-        .inject_controller(Action::DeviceText(config.review().unwrap()))
-        .unwrap();
-    monitor.pump();
-    monitor.inject_controller(Action::DeviceApply).unwrap();
-    monitor.pump();
+    assert_ne!(
+        config, original_config,
+        "device mapping must actually change"
+    );
+    action(&mut monitor, Action::DeviceText(config.review().unwrap()));
+    assert_eq!(monitor.device_draft.as_ref(), Some(&config));
+    action(&mut monitor, Action::DeviceApply);
     wait(&mut monitor, end, "complete device mapping review", |f| {
+        assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
     for _ in 0..monitor.review_pages() {
@@ -288,6 +398,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         end,
         "device applied beyond accepted intent",
         |f| {
+            assert_ui_ok(f);
             f.state.as_ref().is_some_and(|u| {
                 u.device_final.as_ref().is_some_and(|r| {
                     r.state == "applied_device"
@@ -309,6 +420,26 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         )
         .unwrap()
     );
+    wait(
+        &mut monitor,
+        end,
+        "fresh applied actual device mapping",
+        |f| {
+            actual_device(f)
+                && f.state
+                    .as_ref()
+                    .unwrap()
+                    .device
+                    .as_ref()
+                    .unwrap()
+                    .observation
+                    .as_ref()
+                    .unwrap()
+                    .config
+                    == config
+        },
+    );
+    fresh_snapshot(&mut monitor, end);
     let count = monitor
         .state
         .as_ref()
@@ -528,12 +659,14 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .unwrap()
             .hold_generation_counter
             .clone();
+        tb.message.clear();
         tb.enqueue(Event::Key {
             key: "T".into(),
             pressed: true,
         })
         .unwrap();
         tb.pump();
+        assert_ui_ok(&tb);
         wait(&mut tb, end, "PTT applied", |f| {
             f.state
                 .as_ref()
@@ -692,8 +825,8 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                         .is_some_and(|b| b.held_generation.is_none())
             })
     });
-    pa.inject_controller(Action::OutputMute).unwrap();
-    pa.pump();
+    fresh_snapshot(&mut pa, end);
+    action(&mut pa, Action::OutputMute);
     confirm_structure(&mut pa, end);
     eprintln!("GP15_DRIVER_COMPLETE sample/owner assertions belong to coordinator");
 }
@@ -723,10 +856,10 @@ fn actual_mtls_frontend_readonly_restart_probe() {
         end,
         "fresh read-only Brain/device restart observation",
         |f| {
-            f.fresh()
+            actual_device(f)
                 && f.state
                     .as_ref()
-                    .is_some_and(|u| u.brain_fresh && u.device_fresh)
+                    .is_some_and(|u| u.brain_fresh && u.snapshot.is_some())
         },
     );
     let u = f.state.as_ref().unwrap();
