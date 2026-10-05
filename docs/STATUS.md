@@ -314,9 +314,15 @@ so they cannot fill the provider queue and delay paired observations.
 
 The unchanged legacy release provider produces the observed disconnect on a v2
 probe; explicit F8 GP03 reconnect then passes grant/review/confirm without replay.
-Nine Python publication tests, both warnings-denied Clippy feature sets, the
-default release build and the complete-index publication guard pass. The native
-release build is in progress; native runtime/CPU validation above has passed.
-Coordinator owns independent joint sample/REC/analysis/monitor/FX/PA acceptance
-and source publication. These are software-only
+Nine Python publication tests, both warnings-denied Clippy feature sets, formatting,
+default/native locked release builds and the complete-index publication guard pass.
+The final default real-provider driver completes all 17 edits in 14.4 seconds.
+Normal target output is about 3.7 GiB with 26 GiB free; debug/cache evidence remains.
+
+The coordinator independently accepted the same final driver in the actual joint
+host: 17 edits, 88 individual field actions and 4,621 rendered blocks; eight raw
+PCM24 stems each preserve 221,520 frames exactly. Independent direct-form-I EQ
+references cover 143,664 samples with maximum error 1.943e-16; monitors remain
+bit-exact, actual owner FX/PA comparisons pass, and reconnect causes no replay.
+Independent source review and publication remain coordinator-owned. These are software-only
 checks; no physical display, controller, audio, listening or combined-load claim.
