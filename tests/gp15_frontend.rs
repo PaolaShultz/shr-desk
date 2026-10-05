@@ -885,6 +885,23 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         Action::BrainSource(Source::Pfl { input: count - 1 }),
     );
     review(&mut monitor, end, Action::BrainArm);
+    assert!(
+        monitor
+            .state
+            .as_ref()
+            .and_then(|u| u.brain.as_ref())
+            .is_some_and(|b| b.monitor_mute)
+    );
+    // Source changes and arm preserve mute. Audible readiness requires an
+    // explicit unmute, using the same reviewed action and original deadline.
+    review(&mut monitor, end, Action::BrainMute);
+    assert!(
+        monitor
+            .state
+            .as_ref()
+            .and_then(|u| u.brain.as_ref())
+            .is_some_and(|b| !b.monitor_mute)
+    );
     wait(&mut monitor, end, "changed source prefill after arm", |f| {
         f.state
             .as_ref()
@@ -892,17 +909,42 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .is_some_and(|b| b.monitor_path_ready)
     });
     review(&mut monitor, end, Action::BrainSource(Source::None));
+    let final_monitor_revision = brain_revision(&monitor);
     tap(&mut tb, "F5");
     wait(&mut tb, end, "read-only reconnect no replay", |f| {
         f.fresh()
             && f.state.as_ref().is_some_and(|u| {
                 !u.writer_granted()
+                    && u.brain_fresh
                     && u.brain
                         .as_ref()
-                        .is_some_and(|b| b.held_generation.is_none())
+                        .zip(u.snapshot.as_ref())
+                        .is_some_and(|(b, raw)| {
+                            b.held_generation.is_none()
+                                && b.source == Source::None
+                                && b.revision == raw.authority.revision
+                                && b.revision.parse::<u64>().unwrap() >= final_monitor_revision
+                        })
             })
     });
-    fresh_snapshot(&mut pa, end);
+    observe_revision(&mut pa, end, final_monitor_revision);
+    wait(&mut pa, end, "fresh live PA structural authority", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                u.writer_granted()
+                    && u.brain_fresh
+                    && u.structural_fresh
+                    && u.structural
+                        .as_ref()
+                        .zip(u.snapshot.as_ref())
+                        .is_some_and(|(s, raw)| {
+                            s.revision == raw.authority.revision
+                                && u.brain
+                                    .as_ref()
+                                    .is_some_and(|b| b.revision == raw.authority.revision)
+                        })
+            })
+    });
     action(&mut pa, Action::OutputMute);
     confirm_structure(&mut pa, end);
     eprintln!("GP15_DRIVER_COMPLETE sample/owner assertions belong to coordinator");
