@@ -92,7 +92,15 @@ current lease (or grant lifetime). A no-first-byte timeout services that schedul
 partial frames still fail closed. Schedule inspection never advances retry count,
 changes first-send time or renews authority, and exhausted retries wait only until
 the remaining authority/operation bound. Ephemeral hold/heartbeat/close requests
-are never retransmitted by this scheduler.
+are never retransmitted by this scheduler. Before allocating a new GP15-session
+renewal request, an own matched Brain query anchors the current authority revision
+and raw readback must pair exactly. Coherent cached state or a queued older probe
+cannot authorize that new renewal. This read-only probe is bounded by the remaining
+lease and original operation deadline; it never rebases an existing request. Raw
+telemetry has no query ID, so same-revision raw pairing is not claimed as proof of
+a particular raw query response. Generic sessions without Brain retain their
+existing renewal observation behavior. Any terminal renewal refusal is reported
+as a failure with the lease unchanged, including a revision race after the probe.
 Brain snapshot queries carry bounded local FIFO probe IDs and timestamps taken
 before sending. Every strictly validated snapshot reply consumes one probe, even
 when its frame/revision equals the cached state; pending/final replies consume none.

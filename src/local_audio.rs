@@ -1064,10 +1064,34 @@ impl Operator {
         self.mutate_inner(kind, body)
     }
     pub(crate) fn mutate_inner(&mut self, kind: &str, body: Value) -> Result<(), String> {
+        let deadline = Instant::now() + Duration::from_millis(1900);
+        if kind == "renew" && self.session.brain.is_some() {
+            // Null-context raw telemetry cannot identify a solicited query. The
+            // matched GP15 probe anchors current authority revision; raw must pair
+            // exactly before a NEW renewal request gets its immutable ID/revision.
+            let lease_deadline = self.start
+                + Duration::from_millis(self.session.lease_deadline().ok_or("renew no lease")?);
+            self.refresh_brain_until(
+                deadline
+                    .min(lease_deadline)
+                    .min(Instant::now() + Duration::from_millis(250)),
+            )?;
+        }
         let r = self.session.begin(kind, body, self.now())?;
         self.check_guard()?;
-        self.transport.send(&r)?;
-        let deadline = Instant::now() + Duration::from_millis(1900);
+        self.transport.send_frame_until(
+            &r.encode()?,
+            deadline
+                .min(Instant::now() + Duration::from_millis(200))
+                .min(
+                    self.start
+                        + Duration::from_millis(
+                            self.session
+                                .pending_authority_deadline()
+                                .ok_or("pending authority unavailable")?,
+                        ),
+                ),
+        )?;
         loop {
             self.check_guard()?;
             if Instant::now() >= deadline {
@@ -1140,10 +1164,23 @@ impl Operator {
                                     .as_ref()
                                     .is_some_and(|p| p.request.context == reply.context)
                                 {
+                                    let renewal_refusal =
+                                        if kind == "renew" && reply.state == "final" {
+                                            reply
+                                                .outcome
+                                                .as_ref()
+                                                .filter(|o| o.kind != "applied")
+                                                .map(|o| format!("{}: {:?}", o.kind, o.body.reason))
+                                        } else {
+                                            None
+                                        };
                                     if let Err(e) = self.session.accept(reply, self.now()) {
                                         eprintln!("refused reply; pending retained: {e}");
                                     }
                                     if self.session.pending.is_none() {
+                                        if let Some(reason) = renewal_refusal {
+                                            return Err(format!("renewal refused: {reason}"));
+                                        }
                                         if !self.session.fresh(self.now()) {
                                             self.refresh()?;
                                         }
@@ -2404,6 +2441,103 @@ mod brain_fifo_tests {
         );
         assert!(op.session.pending.is_some());
     }
+    struct CurrentRevisionRenew {
+        raw: Value,
+        brain: Value,
+        replies: VecDeque<Vec<u8>>,
+        requests: Arc<Mutex<Vec<Value>>>,
+        race: bool,
+    }
+    impl AuthorityConnection for CurrentRevisionRenew {
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            self.requests.lock().unwrap().push(request.clone());
+            let reply = match request["kind"].as_str().unwrap() {
+                "brain_snapshot" => self.brain.clone(),
+                "snapshot" => self.raw.clone(),
+                "renew" => {
+                    let refused = self.race || request["expected_revision"] != "1";
+                    let mut reply: Value = serde_json::from_slice(include_bytes!(
+                        "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+                    ))
+                    .unwrap();
+                    for key in [
+                        "show_id",
+                        "module",
+                        "epoch",
+                        "writer",
+                        "lease",
+                        "request_id",
+                        "expected_revision",
+                    ] {
+                        reply["context"][key] = request[key].clone();
+                        reply["outcome"][key] = request[key].clone();
+                    }
+                    reply["snapshot"] = Value::Null;
+                    reply["outcome"]["body"]["granted_lease"] = Value::Null;
+                    reply["outcome"]["body"]["revision"] = json!(if self.race { "2" } else { "1" });
+                    if refused {
+                        reply["outcome"]["kind"] = json!("conflict");
+                        reply["outcome"]["body"]["reason"] = json!("stale_revision");
+                        reply["outcome"]["body"]["lease_remaining_ms"] = Value::Null;
+                        reply["outcome"]["body"]["scope"] = Value::Null;
+                    }
+                    reply
+                }
+                other => panic!("unexpected operation {other}"),
+            };
+            self.replies.push_back(serde_json::to_vec(&reply).unwrap());
+            Ok(())
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.replies.pop_front())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.replies.pop_front())
+        }
+    }
+    #[test]
+    fn gp15_renew_anchors_new_probe_and_raw_before_pinning_and_reports_later_conflict() {
+        for race in [false, true] {
+            let (mut op, peer, raw) = setup();
+            // An old progressing query reply must not satisfy the new renewal probe.
+            probe_connection(&mut op, &peer, false);
+            op.send_brain_probe(Instant::now() + Duration::from_millis(50))
+                .unwrap();
+            let old = probe_reply(&op, 48);
+            let mut current = probe_reply(&op, 96);
+            current["revision"] = json!("1");
+            current["snapshot"]["revision"] = json!("1");
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            op.transport = Box::new(CurrentRevisionRenew {
+                raw: raw_at(&raw, "1", "96"),
+                brain: current,
+                replies: VecDeque::from([serde_json::to_vec(&old).unwrap()]),
+                requests: requests.clone(),
+                race,
+            });
+            op.start = Instant::now() - Duration::from_millis(100);
+            assert!(op.session.brain_fresh(op.now()));
+            let expiry = op.session.lease_deadline();
+            let result = op.mutate_inner("renew", json!({}));
+            if race {
+                assert!(result.unwrap_err().contains("stale_revision"));
+                assert_eq!(op.session.lease_deadline(), expiry);
+            } else {
+                result.unwrap();
+                assert!(op.session.lease_deadline().unwrap() >= expiry.unwrap() + 100);
+            }
+            assert!(op.session.pending.is_none());
+            let requests = requests.lock().unwrap();
+            let kinds: Vec<_> = requests
+                .iter()
+                .map(|r| r["kind"].as_str().unwrap())
+                .collect();
+            assert_eq!(kinds, ["brain_snapshot", "snapshot", "renew"]);
+            assert_eq!(requests[2]["expected_revision"], "1");
+            assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, 2);
+        }
+    }
     struct RenewBackpressure {
         sent: Arc<Mutex<Vec<Vec<u8>>>>,
         replies: VecDeque<Vec<u8>>,
@@ -2465,6 +2599,7 @@ mod brain_fifo_tests {
     #[test]
     fn renew_backpressure_silence_wakes_identical_retry_before_lease_expiry() {
         let (mut op, _, raw) = setup();
+        op.session.brain = None; // This test isolates ordinary C-AUDIO retry/framing.
         op.start = Instant::now() - Duration::from_millis(500);
         let revision = op
             .session
@@ -2496,6 +2631,7 @@ mod brain_fifo_tests {
     #[test]
     fn renew_partial_prefix_timeout_is_fatal_without_request_retry() {
         let (mut op, _, _) = setup();
+        op.session.brain = None; // This test isolates ordinary C-AUDIO retry/framing.
         let (socket, mut server) = UnixStream::pair().unwrap();
         let child = std::thread::spawn(move || {
             let mut prefix = [0; 4];
