@@ -168,3 +168,12 @@ from a delayed acknowledgment or UI queue. Source changes require disarmed
 readback and separate arming before actual prefill readiness. FOH inclusion is a separately protected
 permission, never implied by ordinary talkback destinations. Provider-generated
 fixtures are retained with provenance; provisional bytes are not acceptance.
+
+GP15 device configuration intent also pins the observed Brain epoch and map,
+independently of the shared authority revision and Desk session generation. The
+frontend preserves that pin through its queue; Operator checks it before and after
+readback refresh, during review validity and at confirmation. Session admission
+and retries require the same fresh device identity. Replacement with an unchanged
+shared revision cannot reinterpret an old draft against the new device. These
+pins are local metadata; the producer wire envelope is unchanged, and the producer
+must independently reject replacement between its snapshot and application.

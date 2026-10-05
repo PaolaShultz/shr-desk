@@ -616,7 +616,7 @@ impl Request {
             {
                 return fail("device configuration authority");
             }
-            crate::provider::keys(&self.body, &["config"])?;
+            crate::provider::keys(&self.body, &["config", "device_identity"])?;
             let config = crate::brain_device::Config::decode(self.body["config"].clone())?;
             return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":"device_configure","body":{},"config":config})).map_err(|e|e.to_string());
         }
@@ -890,6 +890,25 @@ impl Session {
                 .device
                 .as_ref()
                 .is_some_and(|s| s.connected && s.observation.is_some())
+    }
+    /// The pin is local intent metadata; GP15-device wire bytes remain unchanged.
+    pub(crate) fn validate_device_intent(&self, body: &Value, now: u64) -> Result<(), String> {
+        provider::keys(body, &["config", "device_identity"])?;
+        let pin: (u64, u64) = serde_json::from_value(body["device_identity"].clone())
+            .map_err(|_| "device identity pin required")?;
+        if !self.device_fresh(now)
+            || self
+                .device
+                .as_ref()
+                .and_then(crate::brain_device::Snapshot::identity)
+                != Some(pin)
+        {
+            return fail(
+                "device epoch/map changed or stale; discard intent and review fresh configuration",
+            );
+        }
+        crate::brain_device::Config::decode(body["config"].clone())?;
+        Ok(())
     }
     pub(crate) fn invalidate_device(&mut self) {
         self.device_receipt = None;
@@ -1487,9 +1506,7 @@ impl Session {
                 if self.scope != "local_operator_monitor" || !self.device_fresh(now) {
                     return fail("fresh device observation and local operator lease required");
                 }
-                provider::keys(body, &["config"])?;
-                crate::brain_device::Config::decode(body["config"].clone())?;
-                Ok(())
+                self.validate_device_intent(body, now)
             }
             kind if crate::brain::is_kind(kind) => {
                 if kind == "brain_hold" && self.brain_closing.is_some() {
@@ -1642,6 +1659,13 @@ impl Session {
         }
     }
     pub fn retry(&mut self, now: u64) -> Option<Request> {
+        if self.pending.as_ref().is_some_and(|p| {
+            p.request.kind == "device_configure"
+                && self.validate_device_intent(&p.request.body, now).is_err()
+        }) {
+            self.pending.as_mut()?.state = PendingState::Uncertain;
+            return None;
+        }
         let p = self.pending.as_mut()?;
         if now < p.first_send {
             return None;

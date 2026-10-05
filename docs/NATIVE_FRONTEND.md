@@ -399,7 +399,7 @@ source. Source changes are disarmed; after fresh device readback, `B` requests
 separate arming; actual path readiness follows provider prefill. `M` toggles monitor mute, `D` dim and `+/-` adjust gain in 1 dB
 steps. Every configuration change opens the complete existing review workflow;
 Enter confirms only after every page was presented. Gains use integer centidB
-from -9000 through 0. Dim is the planned -20 dB behavior; provider readback remains
+from -9000 through 0. Dim is the -20 dB behavior; provider readback remains
 authoritative. PFL is post EQ/compressor before mute/fader/pan, centered; AFL is
 after all those controls, stereo. Performer monitor sends keep their raw
 post-mute tap.
@@ -445,3 +445,28 @@ and target in frames, queue/filter nominal latency in microseconds, error counte
 and nullable physical mapping uncertainty in milliframes. These are software
 observations; clock lock and physical mapping stay explicitly unverified unless
 supplied as actual producer observations.
+
+Device drafts, queued reviews and confirmation independently pin the actual Brain
+device epoch and map, in addition to authority revision and session generation.
+Replacement/restart or stale device readback discards the old intent; a fresh
+confirmed configuration requires a new explicit edit, review and confirmation.
+These local pins do not change the GP15-device wire schema.
+
+The ignored `actual_mtls_frontend_readonly_restart_probe` in `gp15_frontend`
+attaches to an explicitly restarted provider using `GP15_REMOTE_CONFIG` and
+`GP15_EPOCH`, with optional `GP15_SHOW`. It requests no grant and waits up to ten
+seconds for fresh Brain and actual device observations, then asserts no writer
+lease, held talkback, monitor arm or device arm. `GP15_EXPECT_BRAIN_EPOCH_MIN`
+is an optional inclusive minimum; pass the old Brain epoch plus one to require
+strict growth. `GP15_READONLY_RECOVERY` emits the exact observed snapshots.
+Run only under the coordinator's existing bounded reservation; compilation alone
+is not restart acceptance. The existing `GP15_FAULT_MODE` branch is unchanged.
+
+The talkback driver's numerical witness retains an earlier Main interval, then
+explicitly selects and rearms the last performer monitor used as its talkback
+destination. That pre-talkback monitor return uses unity gain, unmuted and undimmed,
+so the coordinator can compare it with the actual selected physical output.
+The driver retains that selection for at least one second held and 350 ms after
+release. The fault marker follows a one-second held witness; its existing closure
+and two-second no-resurrection checks remain. These are driver assertions;
+independent provider sample evidence is still required.

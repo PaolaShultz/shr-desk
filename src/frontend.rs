@@ -33,7 +33,7 @@ pub struct Config {
 #[derive(Clone, Debug)]
 pub enum Operation {
     EnableBrain,
-    ReviewDevice(Box<crate::brain_device::Config>),
+    ReviewDevice(Box<crate::brain_device::Config>, (u64, u64)),
     BrainPress(u64),
     ReviewBrain {
         kind: String,
@@ -353,7 +353,7 @@ fn worker(
                             "PENDING {}; awaiting provider confirmation",
                             match &r.operation {
                                 Operation::EnableProcessing => "capability query",
-                                Operation::ReviewDevice(_) => "device configuration review",
+                                Operation::ReviewDevice(..) => "device configuration review",
                                 Operation::EnableBrain => "Brain capability probe",
                                 Operation::BrainPress(_) => "talkback press",
                                 Operation::ReviewBrain { .. } => "Brain configuration review",
@@ -376,7 +376,7 @@ fn worker(
                     });
                 }
                 let local_result = match &r.operation {
-                    Operation::ReviewDevice(_)
+                    Operation::ReviewDevice(..)
                     | Operation::ReviewBrain { .. }
                     | Operation::ReviewStructure { .. }
                     | Operation::ReviewProcessing { .. }
@@ -404,13 +404,16 @@ fn worker(
                     }
                     match r.operation {
                         Operation::EnableProcessing | Operation::EnableBrain => unreachable!(),
-                        Operation::ReviewDevice(config) => {
+                        Operation::ReviewDevice(config, identity) => {
                             if !brain_enabled {
                                 return Err("Brain opt-in required".into());
                             }
                             brain_signal.release();
                             held = None;
-                            o.stage("device_configure", json!({"config":config}))?;
+                            o.stage(
+                                "device_configure",
+                                json!({"config":config,"device_identity":identity}),
+                            )?;
                             serial = serial.checked_add(1).ok_or("review counter exhausted")?;
                             review = Some((serial, o.reviewed().unwrap_or_default()));
                             Ok(())
@@ -792,7 +795,7 @@ pub struct Frontend {
     ptt_pressed: bool,
     brain_bus: usize,
     pub device_draft: Option<crate::brain_device::Config>,
-    device_draft_context: Option<(String, u64)>,
+    device_draft_context: Option<(String, u64, (u64, u64))>,
     device_entry: Option<String>,
     hold_midi: Option<crate::brain::HoldMidi>,
     pub selected: usize,
@@ -1091,15 +1094,20 @@ impl Frontend {
             self.processing_entry.clear();
             self.message = "Structural draft cancelled: authority/freshness changed".into();
         }
-        if self.device_draft_context.as_ref().is_some_and(|(r, g)| {
-            *g != self.provider.generation()
-                || !self.fresh()
-                || self
-                    .state
-                    .as_ref()
-                    .and_then(|u| u.snapshot.as_ref())
-                    .is_none_or(|s| &s.authority.revision != r)
-        }) {
+        if self
+            .device_draft_context
+            .as_ref()
+            .is_some_and(|(r, g, identity)| {
+                *g != self.provider.generation()
+                    || !self.device_identity_matches(*identity)
+                    || !self.fresh()
+                    || self
+                        .state
+                        .as_ref()
+                        .and_then(|u| u.snapshot.as_ref())
+                        .is_none_or(|s| &s.authority.revision != r)
+            })
+        {
             self.device_draft = None;
             self.device_draft_context = None;
             self.device_entry = None;
@@ -1527,6 +1535,16 @@ impl Frontend {
         let action = actions::key_action(key).ok_or("unmapped key")?;
         self.action(action)
     }
+    fn device_identity_matches(&self, identity: (u64, u64)) -> bool {
+        self.fresh()
+            && self.state.as_ref().is_some_and(|u| {
+                u.device_fresh
+                    && u.device
+                        .as_ref()
+                        .and_then(crate::brain_device::Snapshot::identity)
+                        == Some(identity)
+            })
+    }
     fn action(&mut self, action: Action) -> Result<(), String> {
         match action {
             Action::DeviceEdit => {
@@ -1557,6 +1575,10 @@ impl Frontend {
                         .revision
                         .clone(),
                     self.provider.generation(),
+                    u.device
+                        .as_ref()
+                        .and_then(crate::brain_device::Snapshot::identity)
+                        .ok_or("device identity unavailable")?,
                 ));
                 Ok(())
             }
@@ -1571,11 +1593,12 @@ impl Frontend {
             }
             Action::DeviceApply => {
                 let config = self.device_draft.clone().ok_or("device draft required")?;
-                let (revision, generation) = self
+                let (revision, generation, identity) = self
                     .device_draft_context
                     .as_ref()
                     .ok_or("device draft context")?;
                 if *generation != self.provider.generation()
+                    || !self.device_identity_matches(*identity)
                     || self
                         .state
                         .as_ref()
@@ -1584,7 +1607,7 @@ impl Frontend {
                 {
                     return Err("device draft context changed".into());
                 }
-                self.send(Operation::ReviewDevice(Box::new(config)))?;
+                self.send(Operation::ReviewDevice(Box::new(config), *identity))?;
                 self.device_draft = None;
                 self.device_draft_context = None;
                 Ok(())
@@ -2270,7 +2293,7 @@ impl Frontend {
                     line(
                         252,
                         format!(
-                            "Monitor {:+.2} dB / mute {} / dim {} (-20 dB planned) / armed {}",
+                            "Monitor {:+.2} dB / mute {} / dim {} (-20 dB) / armed {}",
                             f64::from(b.monitor_gain_cdb) / 100.,
                             b.monitor_mute,
                             b.monitor_dim,
@@ -3298,6 +3321,56 @@ mod processing_tests {
         assert!(!f.provider.brain_signal.live());
     }
     #[test]
+    fn device_restart_and_map_change_discard_old_drafts_before_review() {
+        for change_epoch in [true, false] {
+            let (mut f, rx) = brain_surface();
+            let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
+                include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+            )
+            .unwrap() else {
+                panic!()
+            };
+            let u = f.state.as_mut().unwrap();
+            u.device = Some(d);
+            u.device_fresh = true;
+            f.action(Action::DeviceEdit).unwrap();
+            let o = f
+                .state
+                .as_mut()
+                .unwrap()
+                .device
+                .as_mut()
+                .unwrap()
+                .observation
+                .as_mut()
+                .unwrap();
+            if change_epoch {
+                o.brain_epoch += 1;
+            } else {
+                o.brain_map += 1;
+            }
+            o.config.endpoint = "fake:replacement".into();
+            assert!(
+                f.action(Action::DeviceApply)
+                    .unwrap_err()
+                    .contains("context changed")
+            );
+            assert!(rx.try_recv().is_err());
+            f.pump();
+            assert!(f.device_draft.is_none());
+            f.action(Action::DeviceEdit).unwrap();
+            assert_eq!(
+                f.device_draft.as_ref().unwrap().endpoint,
+                "fake:replacement"
+            );
+            f.action(Action::DeviceApply).unwrap();
+            assert!(
+                rx.try_iter()
+                    .any(|r| matches!(r.operation, Operation::ReviewDevice(..)))
+            );
+        }
+    }
+    #[test]
     fn brain_actual_snapshot_scene_and_device_draft_are_truthful_and_fit() {
         let (mut f, rx) = brain_surface();
         let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
@@ -3319,7 +3392,7 @@ mod processing_tests {
         f.action(Action::DeviceApply).unwrap();
         assert!(
             rx.try_iter()
-                .any(|r| matches!(r.operation, Operation::ReviewDevice(_)))
+                .any(|r| matches!(r.operation, Operation::ReviewDevice(..)))
         );
         #[cfg(feature = "native")]
         if std::env::var_os("VK_DRIVER_FILES").is_some() {

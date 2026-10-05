@@ -144,6 +144,14 @@ pub struct Snapshot {
     pub pending: Option<u64>,
     pub bridge: Option<serde_json::Value>,
 }
+impl Snapshot {
+    pub fn identity(&self) -> Option<(u64, u64)> {
+        self.observation
+            .as_ref()
+            .filter(|_| self.connected)
+            .map(|o| (o.brain_epoch, o.brain_map))
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reply {

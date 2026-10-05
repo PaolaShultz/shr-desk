@@ -486,3 +486,28 @@ A reservation acknowledgment is not an actual run or acceptance result. Root own
 integrated mTLS/sample/owner assertions and publication; no software integration,
 physical audio, device mapping/clock lock, display, MIDI, DMX or deployment
 acceptance is inferred from these consumer fixtures and offline checks.
+
+## Task0015 device restart fence continuation
+
+Implemented and offline-validated: device drafts and queued reviews independently
+pin the actual Brain epoch/map as well as authority revision and session generation.
+Operator staging rechecks after device refresh and interleaved observation drain;
+confirmation and Session admission/retry refuse replacement or stale readback.
+Six focused device/UI/Operator checks and eight GP15 codec/session checks pass,
+including unchanged-revision restart/map replacement and fresh explicit review.
+The complete default158/native160 normal suites pass, with ten external opt-ins
+ignored in each at that run. Both warnings-denied Clippy feature sets pass.
+
+Subsequent root-requested changes affect only the ignored external driver: a
+read-only restart probe and an explicitly rearmed, unity-gain pre-talkback monitor
+witness for independent sample subtraction. The existing fault closure and
+no-resurrection path remains. These additions require actual coordinator runs;
+compilation is not network/restart/sample acceptance. Exact final artifact hashes
+and build outcomes are retained in the private continuation handoff.
+
+Public producer provenance and every Brain/device corpus hash match the latest
+private manifests, including heartbeat deadline155. Prior CPU-lavapipe four-size
+Brain/device scene validation and release hashes were verified from retained logs
+and the completed runner invocation. The shortened dim label changes no geometry;
+that explicit rendering run was not repeated. No physical device, network window,
+service, clock, audio/MIDI/DMX or deployment was exercised by this continuation.

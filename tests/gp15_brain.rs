@@ -271,7 +271,7 @@ fn actual_device_corpus_and_exact_configuration_envelope() {
         version: 2,
         context: c,
         kind: "device_configure".into(),
-        body: json!({"config":v["config"]}),
+        body: json!({"config":v["config"],"device_identity":[1,1]}),
     };
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&r.encode().unwrap()).unwrap(),
@@ -292,4 +292,62 @@ fn actual_device_corpus_and_exact_configuration_envelope() {
     let mut bad = v["config"].clone();
     bad["monitor"][1]["slot"] = bad["monitor"][0]["slot"].clone();
     assert!(brain_device::Config::decode(bad).is_err());
+}
+
+#[test]
+fn device_session_refuses_old_pin_before_admission_and_retry_after_restart() {
+    use shr_desk::audio::{PendingState, Session, decode_reply, decode_snapshot};
+    let raw = decode_snapshot(include_bytes!("fixtures/gp15/v1/raw-snapshot-16-1.json")).unwrap();
+    let grant: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/gp15/v1/grant-16-operator-request.json"
+    ))
+    .unwrap();
+    let mut s = Session::new_version(
+        &raw.authority.show_id,
+        raw.authority.epoch.parse().unwrap(),
+        grant["writer"].as_str().unwrap(),
+        "local_operator_monitor",
+        2,
+    )
+    .unwrap();
+    s.ingest_snapshot(raw, 0).unwrap();
+    s.begin("grant", json!({"scope":"local_operator_monitor"}), 0)
+        .unwrap();
+    s.accept(
+        decode_reply(include_bytes!(
+            "fixtures/gp15/v1/grant-16-operator-reply.json"
+        ))
+        .unwrap(),
+        1,
+    )
+    .unwrap();
+    s.input_released();
+    let mut device: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/gp15/device-v1/snapshot-unarmed.json"
+    ))
+    .unwrap();
+    s.dispatch_device(&serde_json::to_vec(&device).unwrap(), 2)
+        .unwrap();
+    let old = json!({"config":device["observation"]["config"],"device_identity":[device["observation"]["brain_epoch"],device["observation"]["brain_map"]]});
+    device["observation"]["brain_epoch"] = json!(999);
+    s.dispatch_device(&serde_json::to_vec(&device).unwrap(), 3)
+        .unwrap();
+    assert!(
+        s.begin("device_configure", old, 4)
+            .unwrap_err()
+            .contains("epoch/map")
+    );
+    assert!(s.pending.is_none());
+    let fresh = json!({"config":device["observation"]["config"],"device_identity":[device["observation"]["brain_epoch"],device["observation"]["brain_map"]]});
+    let request = s.begin("device_configure", fresh, 4).unwrap();
+    assert_eq!(
+        request.context.request_id.as_deref(),
+        Some("2"),
+        "refusal consumes no ID"
+    );
+    device["observation"]["brain_map"] = json!(999);
+    s.dispatch_device(&serde_json::to_vec(&device).unwrap(), 5)
+        .unwrap();
+    assert!(s.retry(104).is_none());
+    assert_eq!(s.pending.as_ref().unwrap().state, PendingState::Uncertain);
 }

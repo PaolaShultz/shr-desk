@@ -419,6 +419,15 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             shr_desk::native::offscreen_at(&monitor.scene(), w, h).unwrap()
         );
     }
+    let main_observe = Instant::now() + Duration::from_secs(1);
+    while Instant::now() < main_observe {
+        monitor.pump();
+        thread::sleep(Duration::from_millis(5));
+    }
+    eprintln!(
+        "GP15_MAIN {}",
+        serde_json::to_string(monitor.state.as_ref().unwrap().brain.as_ref().unwrap()).unwrap()
+    );
     let mut tb = attach("talkback_destinations", remote.clone(), epoch, end);
     let buses = tb
         .state
@@ -459,6 +468,56 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     .is_some_and(|b| b.revision == foh_revision && b.talkback_foh)
         })
     });
+    // Unity-gain pre-TB monitor return is the independent band-only witness.
+    review(
+        &mut monitor,
+        end,
+        Action::BrainSource(Source::Monitor { index: buses - 1 }),
+    );
+    review(&mut monitor, end, Action::BrainGain(0));
+    review(&mut monitor, end, Action::BrainArm);
+    wait(
+        &mut monitor,
+        end,
+        "pre-TB performer monitor witness ready",
+        |f| {
+            f.state
+                .as_ref()
+                .and_then(|u| u.brain.as_ref())
+                .is_some_and(|b| {
+                    b.source == Source::Monitor { index: buses - 1 }
+                        && b.monitor_armed
+                        && b.monitor_path_ready
+                        && b.monitor_gain_cdb == 0
+                        && !b.monitor_mute
+                        && !b.monitor_dim
+                })
+        },
+    );
+    let monitor_revision = monitor
+        .state
+        .as_ref()
+        .unwrap()
+        .brain
+        .as_ref()
+        .unwrap()
+        .revision
+        .clone();
+    wait(
+        &mut tb,
+        end,
+        "TB observes performer monitor witness revision",
+        |f| {
+            f.state
+                .as_ref()
+                .and_then(|u| u.brain.as_ref())
+                .is_some_and(|b| b.revision == monitor_revision)
+        },
+    );
+    eprintln!(
+        "GP15_PRE_TB_MONITOR {}",
+        serde_json::to_string(monitor.state.as_ref().unwrap().brain.as_ref().unwrap()).unwrap()
+    );
     for mode in ["key-up", "focus-loss", "controller-removal"] {
         let old = tb
             .state
@@ -482,6 +541,19 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                 .is_some_and(|b| b.held_generation.is_some() && b.hold_generation_counter != old)
         });
         if mode == "key-up" && std::env::var_os("GP15_FAULT_MODE").is_some() {
+            let observe = Instant::now() + Duration::from_secs(1);
+            while Instant::now() < observe {
+                tb.pump();
+                monitor.pump();
+                foh.pump();
+                assert!(
+                    tb.state
+                        .as_ref()
+                        .and_then(|u| u.brain.as_ref())
+                        .is_some_and(|b| b.held_generation.is_some())
+                );
+                thread::sleep(Duration::from_millis(5));
+            }
             eprintln!(
                 "GP15_FAULT_READY owned-duplex STOP/CONT or restart may now be injected by coordinator"
             );
@@ -528,7 +600,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .held_generation
             .clone();
         let hold =
-            Instant::now() + Duration::from_millis(if mode == "key-up" { 2100 } else { 220 });
+            Instant::now() + Duration::from_millis(if mode == "key-up" { 2100 } else { 1100 });
         while Instant::now() < hold {
             tb.pump();
             monitor.pump();
@@ -563,6 +635,19 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             "GP15_RELEASE {mode} {}",
             serde_json::to_string(tb.state.as_ref().unwrap().brain.as_ref().unwrap()).unwrap()
         );
+        let released_observe = Instant::now() + Duration::from_millis(350);
+        while Instant::now() < released_observe {
+            tb.pump();
+            monitor.pump();
+            foh.pump();
+            assert!(
+                tb.state
+                    .as_ref()
+                    .and_then(|u| u.brain.as_ref())
+                    .is_some_and(|b| b.held_generation.is_none())
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
         tb.enqueue(Event::Focus(true)).unwrap();
         tb.enqueue(Event::Key {
             key: "T".into(),
@@ -611,4 +696,70 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
     pa.pump();
     confirm_structure(&mut pa, end);
     eprintln!("GP15_DRIVER_COMPLETE sample/owner assertions belong to coordinator");
+}
+
+#[test]
+#[ignore = "actual restarted mTLS provider only; GP15_REMOTE_CONFIG + GP15_EPOCH; mutually ACKed reservation required"]
+fn actual_mtls_frontend_readonly_restart_probe() {
+    let end = Instant::now() + Duration::from_secs(10);
+    let path = std::env::var("GP15_REMOTE_CONFIG").expect("explicit remote config");
+    let mut remote: shr_desk::remote::Config =
+        serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    remote.bind.set_port(0);
+    let epoch = std::env::var("GP15_EPOCH").unwrap().parse().unwrap();
+    let mut f = Frontend::new(Config {
+        wire_version: 2,
+        remote: Some(remote),
+        endpoint: "/unused-explicit-remote".into(),
+        show: std::env::var("GP15_SHOW")
+            .unwrap_or_else(|_| "11111111-1111-4111-8111-111111111111".into()),
+        epoch,
+        writer: "desk-gp15-readonly-restart".into(),
+        scope: "local_operator_monitor".into(),
+    });
+    f.enable_brain_audio().unwrap();
+    wait(
+        &mut f,
+        end,
+        "fresh read-only Brain/device restart observation",
+        |f| {
+            f.fresh()
+                && f.state
+                    .as_ref()
+                    .is_some_and(|u| u.brain_fresh && u.device_fresh)
+        },
+    );
+    let u = f.state.as_ref().unwrap();
+    assert!(
+        !u.writer_granted(),
+        "read-only attachment must not acquire a grant"
+    );
+    assert!(u.writer_lease_remaining_ms.is_none());
+    let brain = u.brain.as_ref().unwrap();
+    let device = u.device.as_ref().unwrap();
+    let observation = device.observation.as_ref().unwrap();
+    assert!(
+        brain.held_generation.is_none(),
+        "restart retained a held gesture"
+    );
+    assert!(
+        !brain.monitor_armed,
+        "restart automatically armed monitoring"
+    );
+    assert_eq!(
+        observation.status["armed"], false,
+        "actual device must remain closed"
+    );
+    if let Ok(minimum) = std::env::var("GP15_EXPECT_BRAIN_EPOCH_MIN") {
+        let minimum: u64 = minimum.parse().expect("integer minimum Brain epoch");
+        assert!(
+            observation.brain_epoch >= minimum,
+            "Brain epoch did not reach required new minimum"
+        );
+    }
+    eprintln!(
+        "GP15_READONLY_RECOVERY {}",
+        serde_json::json!({"source_epoch":epoch,"raw":u.snapshot,"brain":brain,"device":device,
+            "writer_granted":u.writer_granted(),"writer_lease_remaining_ms":u.writer_lease_remaining_ms})
+    );
 }
