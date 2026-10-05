@@ -24,8 +24,17 @@ fn assert_ui_ok(f: &Frontend) {
     assert!(
         f.message.is_empty()
             || f.message == "Inventory changed: intents discarded; refreshing authority",
-        "frontend action failed: {}",
-        f.message
+        "frontend action failed: {}; state={:?}",
+        f.message,
+        f.state.as_ref().map(|u| (
+            &u.status,
+            &u.brain_status,
+            u.writer_lease_remaining_ms,
+            u.received.elapsed(),
+            u.fresh,
+            u.brain_fresh,
+            u.brain.as_ref().map(|b| (&b.revision, &b.held_generation))
+        ))
     );
     if let Some(u) = &f.state {
         assert!(!u.status.starts_with("REFUSED/UNCERTAIN:"), "{}", u.status);
@@ -679,6 +688,26 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         serde_json::to_string(monitor.state.as_ref().unwrap().brain.as_ref().unwrap()).unwrap()
     );
     for mode in ["key-up", "focus-loss", "controller-removal"] {
+        // Each new operator press needs a currently admitted UI state. The
+        // closed observation interval alone is not a freshness/lease barrier.
+        wait(
+            &mut tb,
+            end,
+            "fresh released authority before new PTT",
+            |f| {
+                f.fresh()
+                    && f.state.as_ref().is_some_and(|u| {
+                        u.brain_fresh
+                            && u.writer_granted()
+                            && u.snapshot.as_ref().zip(u.brain.as_ref()).is_some_and(
+                                |(raw, brain)| {
+                                    raw.authority.revision == brain.revision
+                                        && brain.held_generation.is_none()
+                                },
+                            )
+                    })
+            },
+        );
         let old = tb
             .state
             .as_ref()
