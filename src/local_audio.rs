@@ -1070,8 +1070,35 @@ impl Operator {
         let deadline = Instant::now() + Duration::from_millis(1900);
         loop {
             self.check_guard()?;
-            let mut idle = false;
-            match self.transport.receive_until(deadline) {
+            if Instant::now() >= deadline {
+                return Err("pending/uncertain deadline; no applied claim".into());
+            }
+            let authority_deadline = self.start
+                + Duration::from_millis(
+                    self.session
+                        .pending_authority_deadline()
+                        .ok_or("pending authority unavailable")?,
+                );
+            if Instant::now() >= authority_deadline {
+                return Err("pending authority expired; no further retry".into());
+            }
+            // Service the existing byte-identical retry schedule before blocking.
+            // A silent backpressure peer must not hide the100/250/500ms wakes.
+            if let Some(retry) = self.session.retry(self.now()) {
+                self.transport
+                    .send_frame_until(&retry.encode()?, deadline.min(authority_deadline))?;
+            }
+            let now = self.now();
+            let wake = self
+                .session
+                .retry_wake(now)
+                .ok_or("pending authority expired/uncertain; no further retry")?;
+            if wake <= now {
+                // At most the three existing retries can already be due.
+                continue;
+            }
+            let receive_deadline = deadline.min(self.start + Duration::from_millis(wake));
+            match self.transport.receive_until(receive_deadline) {
                 Ok(Some(b)) => {
                     if self.processing_frame(&b)? {
                         if self.session.pending.is_none() {
@@ -1128,25 +1155,23 @@ impl Operator {
                         }
                     }
                 }
-                Ok(None) => idle = true,
+                Ok(None) => {
+                    // Abstract/fake connections may return before their deadline.
+                    // Avoid spinning without delaying the next scheduled wake.
+                    let pause = receive_deadline
+                        .saturating_duration_since(Instant::now())
+                        .min(Duration::from_millis(10));
+                    if !pause.is_zero() {
+                        std::thread::sleep(pause);
+                    }
+                }
                 Err(e) => {
                     self.session.disconnect();
                     return Err(format!("uncertain operation; transport closed: {e}"));
                 }
             }
-            if let Some(retry) = self.session.retry(self.now()) {
-                self.check_guard()?;
-                self.transport
-                    .send_frame_until(&retry.encode()?, deadline)?;
-            }
-            if Instant::now() >= deadline {
-                return Err("pending/uncertain deadline; no applied claim".into());
-            }
-            // Buffered telemetry/cached replies must not delay the correlated reply.
-            // Deadlines and retry guards still apply to every iteration.
-            if idle {
-                std::thread::sleep(Duration::from_millis(10));
-            }
+            // No-first-byte timeout is a scheduler wake. Partial-frame timeout
+            // remains an error above and retires the session; it is never retried.
         }
     }
     fn wait(&mut self, ms: u64) -> Result<(), String> {
@@ -2378,6 +2403,123 @@ mod brain_fifo_tests {
                 .contains("unknown Brain reply correlation")
         );
         assert!(op.session.pending.is_some());
+    }
+    struct RenewBackpressure {
+        sent: Arc<Mutex<Vec<Vec<u8>>>>,
+        replies: VecDeque<Vec<u8>>,
+        started: Instant,
+    }
+    impl AuthorityConnection for RenewBackpressure {
+        fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+            let mut sent = self.sent.lock().unwrap();
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            assert_eq!(request["kind"], "renew");
+            let context: serde_json::Map<String, Value> = [
+                "show_id",
+                "module",
+                "epoch",
+                "writer",
+                "lease",
+                "request_id",
+                "expected_revision",
+            ]
+            .into_iter()
+            .map(|k| (k.into(), request[k].clone()))
+            .collect();
+            let mut reply: Value = serde_json::from_slice(include_bytes!(
+                "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+            ))
+            .unwrap();
+            reply["context"] = Value::Object(context.clone());
+            if sent.is_empty() {
+                reply["state"] = json!("backpressure");
+                reply["outcome"] = Value::Null;
+            } else {
+                assert_eq!(sent.len(), 1);
+                assert_eq!(bytes, sent[0], "retry must preserve every request byte");
+                assert!(
+                    self.started.elapsed() < Duration::from_millis(500),
+                    "retry missed its existing100ms wake"
+                );
+                for (k, v) in context {
+                    reply["outcome"][k] = v;
+                }
+                reply["outcome"]["body"]["granted_lease"] = Value::Null;
+            }
+            reply["snapshot"] = Value::Null;
+            sent.push(bytes.to_vec());
+            self.replies.push_back(serde_json::to_vec(&reply).unwrap());
+            Ok(())
+        }
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            if let Some(reply) = self.replies.pop_front() {
+                return Ok(Some(reply));
+            }
+            std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+            Ok(None)
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.replies.pop_front())
+        }
+    }
+    #[test]
+    fn renew_backpressure_silence_wakes_identical_retry_before_lease_expiry() {
+        let (mut op, _, raw) = setup();
+        op.start = Instant::now() - Duration::from_millis(500);
+        let revision = op
+            .session
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .authority
+            .revision
+            .clone();
+        let fresh =
+            audio::decode_reply(&serde_json::to_vec(&raw_at(&raw, &revision, "48")).unwrap())
+                .unwrap()
+                .snapshot
+                .unwrap();
+        op.session.ingest_snapshot(fresh, op.now()).unwrap();
+        let original_expiry = op.session.lease_deadline().unwrap();
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(RenewBackpressure {
+            sent: sent.clone(),
+            replies: VecDeque::new(),
+            started: Instant::now(),
+        });
+        op.mutate_inner("renew", json!({})).unwrap();
+        assert_eq!(sent.lock().unwrap().len(), 2);
+        assert!(op.session.pending.is_none());
+        assert!(op.session.lease_deadline().unwrap() >= original_expiry + 500);
+        assert!(op.now() < original_expiry);
+    }
+    #[test]
+    fn renew_partial_prefix_timeout_is_fatal_without_request_retry() {
+        let (mut op, _, _) = setup();
+        let (socket, mut server) = UnixStream::pair().unwrap();
+        let child = std::thread::spawn(move || {
+            let mut prefix = [0; 4];
+            server.read_exact(&mut prefix).unwrap();
+            let mut body = vec![0; u32::from_be_bytes(prefix) as usize];
+            server.read_exact(&mut body).unwrap();
+            server.write_all(&[0]).unwrap();
+            std::thread::sleep(Duration::from_millis(200));
+            server
+                .set_read_timeout(Some(Duration::from_millis(30)))
+                .unwrap();
+            let mut byte = [0];
+            let result = server.read(&mut byte);
+            assert!(
+                matches!(result, Err(ref e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)),
+                "partial reply must not trigger retransmission: {result:?}"
+            );
+        });
+        op.transport = Box::new(Transport { socket });
+        op.start = Instant::now();
+        assert!(op.mutate_inner("renew", json!({})).is_err());
+        assert!(op.session.lease_deadline().is_none());
+        assert!(op.session.pending.is_none());
+        child.join().unwrap();
     }
     fn probe_reply(op: &Operator, frame: u64) -> Value {
         let mut snapshot = op.session.brain.clone().unwrap();

@@ -86,7 +86,13 @@ reads limit only the first-byte probe to1ms; body and segmented snapshot assembl
 retain the original caller deadline rather than starting a new200ms allowance.
 The shared pages wrapper propagates that deadline through every segment and checks
 it before admission; ordinary pending-command reads/retries also retain their
-existing operation deadline.
+existing operation deadline. Ordinary mutation reads wake at the existing100/250/500ms
+identical-request retry offsets, capped by the original1900ms operation budget and
+current lease (or grant lifetime). A no-first-byte timeout services that schedule;
+partial frames still fail closed. Schedule inspection never advances retry count,
+changes first-send time or renews authority, and exhausted retries wait only until
+the remaining authority/operation bound. Ephemeral hold/heartbeat/close requests
+are never retransmitted by this scheduler.
 Brain snapshot queries carry bounded local FIFO probe IDs and timestamps taken
 before sending. Every strictly validated snapshot reply consumes one probe, even
 when its frame/revision equals the cached state; pending/final replies consume none.

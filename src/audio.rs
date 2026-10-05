@@ -637,6 +637,7 @@ impl Request {
         Ok(b)
     }
 }
+const RETRY_DELAYS_MS: [u64; 3] = [100, 250, 500];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PendingState {
     Sent,
@@ -1658,6 +1659,39 @@ impl Session {
             _ => fail("unsupported command"),
         }
     }
+    pub(crate) fn pending_authority_deadline(&self) -> Option<u64> {
+        let p = self.pending.as_ref()?;
+        if p.request.kind == "grant" {
+            p.first_send.checked_add(2000)
+        } else {
+            self.lease.as_ref().map(|lease| lease.deadline)
+        }
+    }
+    /// Next existing retry offset, or authority expiry once retries are exhausted.
+    /// Reading the schedule never consumes a retry or extends its first-send time.
+    pub(crate) fn retry_wake(&self, now: u64) -> Option<u64> {
+        let p = self.pending.as_ref()?;
+        if now < p.first_send
+            || p.state == PendingState::Uncertain
+            || matches!(
+                p.request.kind.as_str(),
+                "brain_hold" | "brain_heartbeat" | "brain_close"
+            )
+        {
+            return None;
+        }
+        let expires = self.pending_authority_deadline()?;
+        if now >= expires {
+            return None;
+        }
+        Some(
+            RETRY_DELAYS_MS
+                .get(p.retry)
+                .and_then(|delay| p.first_send.checked_add(*delay))
+                .unwrap_or(expires)
+                .min(expires),
+        )
+    }
     pub fn retry(&mut self, now: u64) -> Option<Request> {
         if self.pending.as_ref().is_some_and(|p| {
             p.request.kind == "device_configure"
@@ -1676,7 +1710,15 @@ impl Session {
             p.state = PendingState::Uncertain;
             return None;
         }
-        let delay = [100, 250, 500].get(p.retry)?;
+        if p.state == PendingState::Uncertain
+            || matches!(
+                p.request.kind.as_str(),
+                "brain_hold" | "brain_heartbeat" | "brain_close"
+            )
+        {
+            return None;
+        }
+        let delay = RETRY_DELAYS_MS.get(p.retry)?;
         if now - p.first_send < *delay {
             return None;
         }
@@ -1875,6 +1917,35 @@ mod exhaustion_tests {
         .unwrap();
         s.input_released();
         s
+    }
+    #[test]
+    fn retry_wake_preserves_offsets_first_send_and_expiry_without_advancing() {
+        let mut s = granted();
+        s.begin("renew", json!({}), 2).unwrap();
+        let original = s.pending.as_ref().unwrap().request.clone();
+        for (before, due, next) in [(2, 102, 252), (102, 252, 502), (252, 502, 2000)] {
+            assert_eq!(s.retry_wake(before), Some(due));
+            assert_eq!(s.retry_wake(before), Some(due));
+            assert_eq!(s.retry(due).unwrap(), original);
+            assert_eq!(s.pending.as_ref().unwrap().first_send, 2);
+            assert_eq!(s.retry_wake(due), Some(next));
+        }
+        assert!(s.retry(503).is_none());
+        assert_eq!(s.retry_wake(1999), Some(2000));
+        assert_eq!(s.retry_wake(2000), None);
+        assert!(s.retry(2000).is_none());
+        let mut s = granted();
+        s.begin("renew", json!({}), 2).unwrap();
+        s.pending.as_mut().unwrap().state = PendingState::Uncertain;
+        assert!(s.retry_wake(100).is_none());
+        assert!(s.retry(100).is_none());
+        let previous = granted();
+        let mut s = Session::new(&previous.show, previous.epoch, "grant-wake", "foh").unwrap();
+        s.ingest_snapshot(previous.snapshot.unwrap(), 2).unwrap();
+        s.begin("grant", json!({"scope":"foh"}), 2).unwrap();
+        assert_eq!(s.pending_authority_deadline(), Some(2002));
+        assert_eq!(s.retry_wake(2), Some(102));
+        assert!(s.retry_wake(2002).is_none());
     }
     #[test]
     fn request_exhaustion_does_not_wrap_or_create_pending() {

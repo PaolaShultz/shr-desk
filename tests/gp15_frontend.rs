@@ -778,6 +778,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     &u.status,
                     &u.brain_status,
                     u.writer_lease_remaining_ms,
+                    u.received.elapsed(),
                     u.fresh,
                     u.brain_fresh
                 )),
@@ -785,6 +786,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     &u.status,
                     &u.brain_status,
                     u.writer_lease_remaining_ms,
+                    u.received.elapsed(),
                     u.fresh,
                     u.brain_fresh
                 ))
