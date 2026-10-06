@@ -5,6 +5,25 @@ Task0012 processing source was published and synchronized. Task0013 four-band
 processing software acceptance is recorded below; source publication is coordinator-owned.
 No hardware verification or binary release.
 
+## Freshness and detached-draft review fixes — 2026-10-06
+
+Frontend publication retains raw, Brain, device and structural observation age,
+so a stalled worker cannot restart the 250 ms presentation freshness window.
+Focus/context loss retains detached processing, device and routing content and
+unfinished field text while revoking queued/held actions and reviews. Applying
+retained work requires fresh validation and a new review; replaced device identity
+requires explicitly reopening its editor. Reconnect never submits retained content.
+See [native frontend](NATIVE_FRONTEND.md) for recovery controls and limits.
+
+
+Local offline validation: **243 default / 245 native tests passed**,
+with 12/12 opt-ins intentionally skipped. Both warning-denied Clippy
+configurations, formatting and 9 Python tests passed. Reproduce with
+`CARGO_INCREMENTAL=0 cargo test --locked -j1 --all-targets`, then the same command
+with `--features native`, under the shared build lock. Historical, physical,
+external-artifact and explicit rendering campaigns were not run. No publication
+or physical/native-window activation was performed.
+
 ## Historical initial simulator baseline
 
 The following baseline and early scope retain their original evidence. Current
@@ -153,7 +172,6 @@ Real CLI is a bounded batch operator path, not a native controller binding.
 Final manifest/handoff are private task0008 pass3/P4-A evidence; no source commit,
 publication, sibling dependency or provider algorithm copy.
 
-
 ## Task0009 pass1 native frontend — historical implementation checkpoint
 
 Implemented source: optional native winit0.30.12/wgpu0.20.1/pollster0.3.0 backend,
@@ -175,7 +193,6 @@ confirmation/reconnect test remains under correction. GP09 consumer and full fin
 suite/Clippy/release validation remain pending; no window or hardware verification
 is claimed by this implementation checkpoint. GP09 source/data and executable have been root-accepted and hash-verified;
 consumer validation is in progress. DS05 real module health awaits its providers. Root owns publication guards and final source pushes.
-
 
 ## Task0009 pass2 native and read-only health — historical checkpoint
 
@@ -211,7 +228,6 @@ Clippy and new release builds remain to be completed after these source changes.
 waits for its independently accepted executable/activation manifest; an explicit
 ignored regression is prepared. Native release compilation is not a software
 completion claim. Root owns final source review, handback, commits and publication.
-
 
 ## Task0009 pass3 actual module-health validation
 
@@ -376,7 +392,6 @@ feature sets and both release builds. Actual weighted-PA/physical-route/high-cha
 operator and independent sample acceptance also remain pending with the coordinator.
 The current local continuation is a partial handoff, not task0014 completion.
 
-
 | Requirement at the preceding partial checkpoint | Consumer location | Then-remaining acceptance |
 |---|---|---|
 | Dynamic strips/banking and stable identity | frontend/provider/audio | Actual high-channel driver (final profiles decoded) |
@@ -392,7 +407,6 @@ and publication. This checkpoint does not mark task0014 complete. Physical devic
 USB-slot/socket mapping, ADAT lock, hardware throughput, windows and physical GPU
 acceptance remain separate and unverified. Current commands/results and exact local
 handoff source identities are recorded by the bounded worker before handback.
-
 
 ### Task0014 third continuation: deadline diagnosis
 

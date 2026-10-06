@@ -61,7 +61,15 @@ state1 coalesced are separate. Provider I/O runs on a joined worker; window inpu
 never waits for framing/retry/engine reply. UI exit sends no recall or release;
 engine holds persist. Slow LEDs cannot delay provider or input. LED data is a
 software mailbox only; no physical controller endpoint is opened or bound.
-Focus/overflow/device loss cancel reviews and fence queued/held input. A command
+Focus/overflow/device loss cancel reviews and fence queued/held input.
+Detached processing, device and routing drafts, including unfinished field text,
+survive focus, resize, disconnect and revision changes in memory. No queued command,
+review acknowledgment or held authorization survives. Fresh readback, a live grant
+and a new Apply/review/confirmation are required before sending. Processing drafts
+retain their original input identity; device drafts require reopening E to validate
+the current device epoch/map after replacement. Esc still explicitly cancels content;
+closing the process does not persist drafts. Reconnect and regrant remain available
+while composing. Retaining a draft never silently applies or rebases a submitted command. A command
 already sent may remain uncertain; it is never labelled applied by input. Mutations
 pin the displayed revision and confirmations name an already displayed review ID.
 Protected review uses a paged modal; all pages must be presented before Enter.
@@ -74,6 +82,9 @@ dispatched in wire FIFO order before newest-first raw snapshot coalescing. This
 preserves pending/final and priority-close correlation; a contract final cannot
 invalidate raw freshness after the batch has admitted its newest raw observation.
 Raw and contract revision equality remains required for coherent Brain freshness.
+Publication carries the existing raw, Brain, device and structural observation ages.
+Presentation adds elapsed time since publication to those ages under the unchanged
+250 ms limit; a worker stall cannot give an old observation another 250 ms lifetime.
 A valid final arriving before its raw readback keeps the same refresh operation
 open: it requests read-only snapshots and waits within the original total250ms
 and64-frame budget. Later drained batches retain FIFO contract ordering. The
@@ -280,7 +291,9 @@ editable: 24 mandatory atomic fields. The Channel scene groups each band in one
 row with separate confirmed settled, confirmed target and unsent draft columns;
 the selected field is named below. Apply lists every field in the protected review. Existing fader/pan/mute/hold/mode controls
 remain available outside a processing draft. Selection/page/bank/revision changes,
-role loss, focus/device loss, overflow and reconnect revoke drafts and reviews.
+role loss, focus/device loss, overflow and reconnect revoke reviews and queued
+commands while retaining detached draft content. Apply revalidates the original
+input against fresh readback and opens a new review.
 Reconnect uses fresh read-only authority and never replays settings.
 
 Producer fixtures are pinned in `tests/fixtures/gp07/v2/ACCEPTED.json`. Normal
@@ -511,8 +524,9 @@ supplied as actual producer observations.
 
 Device drafts, queued reviews and confirmation independently pin the actual Brain
 device epoch and map, in addition to authority revision and session generation.
-Replacement/restart or stale device readback discards the old intent; a fresh
-confirmed configuration requires a new explicit edit, review and confirmation.
+Replacement/restart or stale device readback invalidates executable intent while
+retaining draft content. Reopen E to validate the current device identity, then
+Apply and review the retained configuration before a new explicit confirmation.
 These local pins do not change the GP15-device wire schema.
 
 The ignored `actual_mtls_frontend_readonly_restart_probe` in `gp15_frontend`

@@ -421,11 +421,19 @@ fn run_driver(endpoint: &Path, epoch: u64, evidence: Option<&Path>, cpu: bool) {
     wait(
         &mut f,
         deadline,
-        "cancelled context",
+        "fenced context with retained draft",
+        Frontend::processing_ready,
+    );
+    assert!(f.processing_draft.is_some());
+    assert_eq!(snapshot(&f).revision, second.revision);
+    tap(&mut f, "Esc");
+    wait(
+        &mut f,
+        deadline,
+        "explicit draft cancellation",
         Frontend::processing_ready,
     );
     assert!(f.processing_draft.is_none());
-    assert_eq!(snapshot(&f).revision, second.revision);
     tap(&mut f, "E");
     field_keyboard(&mut f, 2, "-6");
     tap(&mut f, "F4");

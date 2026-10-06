@@ -83,6 +83,7 @@ pub struct Update {
     pub device: Option<crate::brain_device::Snapshot>,
     pub device_final: Option<crate::brain_device::Reply>,
     pub device_fresh: bool,
+    pub device_age_ms: Option<u64>,
     pub brain: Option<crate::brain::Snapshot>,
     pub brain_final: Option<crate::brain::Reply>,
     pub brain_fresh: bool,
@@ -97,8 +98,10 @@ pub struct Update {
     pub structural: Option<crate::structure::Snapshot>,
     pub structural_final: Option<crate::structure::Reply>,
     pub structural_fresh: bool,
+    pub structural_age_ms: Option<u64>,
     pub processing_final: Option<crate::processing::Reply>,
     pub fresh: bool,
+    pub snapshot_age_ms: Option<u64>,
     pub status: String,
     /// Result of the last explicit operation; health polls cannot replace it.
     pub last_operation: Option<String>,
@@ -108,6 +111,26 @@ pub struct Update {
     pub received: Instant,
 }
 impl Update {
+    fn observation_fresh(&self, valid: bool, age: Option<u64>) -> bool {
+        valid
+            && age.is_some_and(|age| {
+                Duration::from_millis(age).saturating_add(self.received.elapsed())
+                    <= Duration::from_millis(250)
+            })
+    }
+    fn raw_fresh(&self) -> bool {
+        self.observation_fresh(self.fresh, self.snapshot_age_ms)
+    }
+    fn brain_is_fresh(&self) -> bool {
+        self.raw_fresh() && self.observation_fresh(self.brain_fresh, self.brain_age_ms)
+    }
+    fn device_is_fresh(&self) -> bool {
+        self.raw_fresh() && self.observation_fresh(self.device_fresh, self.device_age_ms)
+    }
+    fn structure_is_fresh(&self) -> bool {
+        self.raw_fresh() && self.observation_fresh(self.structural_fresh, self.structural_age_ms)
+    }
+
     pub fn writer_granted(&self) -> bool {
         self.writer_lease_remaining_ms
             .is_some_and(|remaining| self.received.elapsed().as_millis() < u128::from(remaining))
@@ -406,6 +429,7 @@ fn worker(
             }
             held = None;
         }
+        let received = Instant::now();
         let update = Update {
             generation: g,
             last_operation: last_operation.clone(),
@@ -414,6 +438,7 @@ fn worker(
             device: op.as_ref().and_then(|o| o.session.device.clone()),
             device_final: op.as_ref().and_then(|o| o.session.device_final.clone()),
             device_fresh: op.as_ref().is_some_and(|o| o.session.device_fresh(o.now())),
+            device_age_ms: op.as_ref().and_then(|o| o.session.device_age(o.now())),
             brain: op.as_ref().and_then(|o| o.session.brain.clone()),
             brain_final: op.as_ref().and_then(|o| o.session.brain_final.clone()),
             brain_fresh: op.as_ref().is_some_and(|o| o.session.brain_fresh(o.now())),
@@ -432,14 +457,16 @@ fn worker(
                 .and_then(|o| o.session.structural.clone())
                 .or_else(|| structural_final.as_ref().and_then(|r| r.snapshot.clone())),
             structural_final: structural_final.clone(),
+            structural_age_ms: op.as_ref().and_then(|o| o.session.structural_age(o.now())),
             structural_fresh: op
                 .as_ref()
                 .is_some_and(|o| o.session.structural_fresh(o.now())),
             processing_final: op.as_ref().and_then(|o| o.session.processing_final.clone()),
             fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
+            snapshot_age_ms: op.as_ref().and_then(|o| o.session.snapshot_age(o.now())),
             status: status.clone(),
             review: review.clone(),
-            received: Instant::now(),
+            received,
         };
         publish_provider_update(&latest, update, operation_error.as_deref());
         #[cfg(test)]
@@ -555,6 +582,7 @@ fn worker(
                 o.guard(generation.clone(), g);
                 if affects_status {
                     last_operation = Some("PENDING; awaiting provider confirmation".into());
+                    let received = Instant::now();
                     *latest.update.lock().unwrap() = Some(Update {
                         generation: g,
                         last_operation: last_operation.clone(),
@@ -563,6 +591,7 @@ fn worker(
                         device: o.session.device.clone(),
                         device_final: o.session.device_final.clone(),
                         device_fresh: o.session.device_fresh(o.now()),
+                        device_age_ms: o.session.device_age(o.now()),
                         brain: o.session.brain.clone(),
                         brain_final: o.session.brain_final.clone(),
                         brain_fresh: o.session.brain_fresh(o.now()),
@@ -577,8 +606,10 @@ fn worker(
                         structural: o.session.structural.clone(),
                         structural_final: o.session.structural_final.clone(),
                         structural_fresh: o.session.structural_fresh(o.now()),
+                        structural_age_ms: o.session.structural_age(o.now()),
                         processing_final: o.session.processing_final.clone(),
                         fresh: o.session.fresh(o.now()),
+                        snapshot_age_ms: o.session.snapshot_age(o.now()),
                         status: format!(
                             "PENDING {}; awaiting provider confirmation",
                             match &r.operation {
@@ -602,7 +633,7 @@ fn worker(
                             }
                         ),
                         review: review.clone(),
-                        received: Instant::now(),
+                        received,
                     });
                 }
                 let local_result = match &r.operation {
@@ -788,6 +819,7 @@ fn worker(
             if ((review.is_some() && o.review_valid()) || status.starts_with("REFUSED/UNCERTAIN:"))
                 && generation.load(Ordering::Acquire) == g
             {
+                let received = Instant::now();
                 *latest.update.lock().unwrap() = Some(Update {
                     generation: g,
                     last_operation: last_operation.clone(),
@@ -796,6 +828,7 @@ fn worker(
                     device: o.session.device.clone(),
                     device_final: o.session.device_final.clone(),
                     device_fresh: o.session.device_fresh(o.now()),
+                    device_age_ms: o.session.device_age(o.now()),
                     brain: o.session.brain.clone(),
                     brain_final: o.session.brain_final.clone(),
                     brain_fresh: o.session.brain_fresh(o.now()),
@@ -810,11 +843,13 @@ fn worker(
                     structural: o.session.structural.clone(),
                     structural_final: o.session.structural_final.clone(),
                     structural_fresh: o.session.structural_fresh(o.now()),
+                    structural_age_ms: o.session.structural_age(o.now()),
                     processing_final: o.session.processing_final.clone(),
                     fresh: o.session.fresh(o.now()),
+                    snapshot_age_ms: o.session.snapshot_age(o.now()),
                     status: status.clone(),
                     review: review.clone(),
-                    received: Instant::now(),
+                    received,
                 });
             }
             if held.is_none() {
@@ -1187,13 +1222,7 @@ impl Frontend {
         self.blocked.extend(self.pressed.iter().cloned());
         self.pressed.clear();
         self.mode_picker = false;
-        self.processing_draft = None;
-        self.device_draft = None;
-        self.device_draft_context = None;
-        self.device_entry = None;
-        self.structural_draft = None;
-        self.structure_text_entry = false;
-        self.processing_entry.clear();
+        // Detached content survives; no review, queued action or held authorization does.
         self.state = None;
         self.leds = None;
         self.review_id = None;
@@ -1305,24 +1334,21 @@ impl Frontend {
                 || self.page != Page::Channel
                 || self.selected_input() != Some(d.input.as_str())
         }) {
-            self.processing_draft = None;
-            self.processing_entry.clear();
-            self.message = "Processing draft cancelled: context/revision/freshness changed".into();
+            self.message =
+                "Processing draft retained; fresh readback and new Apply/review required".into();
         }
         if self.structural_draft.as_ref().is_some_and(|d| {
             !self.fresh()
                 || !self.state.as_ref().is_some_and(|u| {
-                    u.structural_fresh
+                    u.structure_is_fresh()
                         && u.snapshot
                             .as_ref()
                             .is_some_and(|s| s.authority.revision == d.revision)
                 })
                 || d.generation != self.provider.generation()
         }) {
-            self.structural_draft = None;
-            self.structure_text_entry = false;
-            self.processing_entry.clear();
-            self.message = "Structural draft cancelled: authority/freshness changed".into();
+            self.message =
+                "Structural draft retained; fresh readback and new Apply/review required".into();
         }
         if self
             .device_draft_context
@@ -1338,9 +1364,8 @@ impl Frontend {
                         .is_none_or(|s| &s.authority.revision != r)
             })
         {
-            self.device_draft = None;
-            self.device_draft_context = None;
-            self.device_entry = None;
+            self.message =
+                "Device draft retained; reopen device editor to validate current identity".into();
         }
         while let Some(event) = self.queue.pop_front() {
             if let Event::Controller { action, generation } = event {
@@ -1418,9 +1443,7 @@ impl Frontend {
         };
     }
     pub fn fresh(&self) -> bool {
-        self.state
-            .as_ref()
-            .is_some_and(|s| s.fresh && s.received.elapsed() <= Duration::from_millis(250))
+        self.state.as_ref().is_some_and(|s| s.raw_fresh())
     }
     fn accept_update(&mut self, update: Update) {
         if let (Some(old), Some(new)) = (
@@ -1484,7 +1507,7 @@ impl Frontend {
         }
         self.state
             .as_ref()
-            .filter(|s| s.brain_fresh)
+            .filter(|s| s.brain_is_fresh())
             .and_then(|s| s.brain.as_ref())
             .ok_or("fresh Brain readback required".into())
     }
@@ -1514,6 +1537,13 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if key == "F8" {
+            return self.reconnect_legacy();
+        }
+        if key == "F5" {
+            self.fence();
+            return self.provider.send(None, Operation::Reconnect);
+        }
         if let Some(entry) = &mut self.device_entry {
             match key {
                 "Esc" => {
@@ -1683,16 +1713,6 @@ impl Frontend {
                 }
             }
         }
-        if key == "F8" {
-            return self.reconnect_legacy();
-        }
-        if key == "F5" {
-            self.fence();
-            return self.provider.send(None, Operation::Reconnect);
-        }
-        if matches!(key, "G" | "Q") && self.processing_draft.is_some() {
-            return Err("Apply or Cancel processing draft before writer changes".into());
-        }
         if key == "G" {
             return self.send(Operation::Grant);
         }
@@ -1775,7 +1795,7 @@ impl Frontend {
     fn device_identity_matches(&self, identity: (u64, u64)) -> bool {
         self.fresh()
             && self.state.as_ref().is_some_and(|u| {
-                u.device_fresh
+                u.device_is_fresh()
                     && u.device
                         .as_ref()
                         .and_then(crate::brain_device::Snapshot::identity)
@@ -1794,16 +1814,18 @@ impl Frontend {
                 let u = self
                     .state
                     .as_ref()
-                    .filter(|u| u.device_fresh)
+                    .filter(|u| u.device_is_fresh())
                     .ok_or("device stale/unavailable")?;
-                self.device_draft = Some(
-                    u.device
-                        .as_ref()
-                        .and_then(|d| d.observation.as_ref())
-                        .ok_or("actual device configuration absent")?
-                        .config
-                        .clone(),
-                );
+                if self.device_draft.is_none() {
+                    self.device_draft = Some(
+                        u.device
+                            .as_ref()
+                            .and_then(|d| d.observation.as_ref())
+                            .ok_or("actual device configuration absent")?
+                            .config
+                            .clone(),
+                    );
+                }
                 self.device_draft_context = Some((
                     u.snapshot
                         .as_ref()
@@ -1934,7 +1956,7 @@ impl Frontend {
                 let state = self
                     .state
                     .as_ref()
-                    .filter(|u| u.structural_fresh && self.fresh())
+                    .filter(|u| u.structure_is_fresh() && self.fresh())
                     .ok_or("fresh structural readback required")?;
                 self.structural_draft = Some(crate::structure::Draft::new(
                     state.structural.as_ref().ok_or("structural unavailable")?,
@@ -1974,7 +1996,7 @@ impl Frontend {
                 let snapshot = self
                     .state
                     .as_ref()
-                    .filter(|u| u.structural_fresh)
+                    .filter(|u| u.structure_is_fresh())
                     .and_then(|u| u.structural.as_ref())
                     .ok_or("fresh structural readback required")?;
                 self.structural_draft
@@ -1983,6 +2005,9 @@ impl Frontend {
                     .adjust(delta, snapshot)
             }
             Action::StructureApply => {
+                if !self.state.as_ref().is_some_and(Update::structure_is_fresh) {
+                    return Err("fresh structural readback required for new review".into());
+                }
                 if !self.processing_entry.is_empty() {
                     return Err("accept field before Apply".into());
                 }
@@ -2102,6 +2127,17 @@ impl Frontend {
                     .as_ref()
                     .ok_or("no local processing draft")?
                     .clone();
+                if self.selected_input() != Some(d.input.as_str())
+                    || !self
+                        .state
+                        .as_ref()
+                        .and_then(|u| u.processing.as_ref())
+                        .is_some_and(|s| s.channels.iter().any(|c| c.input == d.input))
+                {
+                    return Err(
+                        "retained draft input changed; select its original input or cancel".into(),
+                    );
+                }
                 self.send(Operation::ReviewProcessing {
                     input: d.input,
                     config: d.config,
@@ -2194,6 +2230,13 @@ impl Frontend {
                 self.send(Operation::Confirm(id))
             }
             Action::Cancel | Action::Back => {
+                self.processing_draft = None;
+                self.device_draft = None;
+                self.device_draft_context = None;
+                self.device_entry = None;
+                self.structural_draft = None;
+                self.structure_text_entry = false;
+                self.processing_entry.clear();
                 self.send_cancel();
                 Ok(())
             }
@@ -2529,7 +2572,7 @@ impl Frontend {
                             b.revision,
                             b.frame,
                             b.audible_path_ready,
-                            if u.brain_fresh && self.fresh() {
+                            if u.brain_is_fresh() && self.fresh() {
                                 "FRESH"
                             } else {
                                 "STALE"
@@ -2620,7 +2663,7 @@ impl Frontend {
                                 o.config.endpoint,
                                 o.brain_epoch,
                                 o.brain_map,
-                                if u.device_fresh && self.fresh() {
+                                if u.device_is_fresh() && self.fresh() {
                                     "FRESH"
                                 } else {
                                     "STALE"
@@ -3352,6 +3395,7 @@ mod tests {
             device: None,
             device_final: None,
             device_fresh: false,
+            device_age_ms: Some(0),
             brain: None,
             brain_final: None,
             brain_fresh: false,
@@ -3373,8 +3417,10 @@ mod tests {
             structural: None,
             structural_final: None,
             structural_fresh: false,
+            structural_age_ms: Some(0),
             processing_final: None,
             fresh: true,
+            snapshot_age_ms: Some(0),
             status: "review".into(),
             review: Some((42, review.clone())),
             received: Instant::now(),
@@ -3425,6 +3471,7 @@ mod tests {
             device: None,
             device_final: None,
             device_fresh: false,
+            device_age_ms: Some(0),
             brain: None,
             brain_final: None,
             brain_fresh: false,
@@ -3443,8 +3490,10 @@ mod tests {
             structural: None,
             structural_final: None,
             structural_fresh: false,
+            structural_age_ms: Some(0),
             processing_final: None,
             fresh: true,
+            snapshot_age_ms: Some(0),
             status: "layout fixture".into(),
             review: None,
             received: Instant::now(),
@@ -3503,6 +3552,7 @@ mod processing_tests {
         let u = f.state.as_mut().unwrap();
         u.brain = b.snapshot;
         u.brain_fresh = true;
+        u.brain_age_ms = Some(0);
         u.held_baseline_ready = true;
         u.held_transport_authenticated = true;
         u.writer_lease_remaining_ms = Some(2000);
@@ -3649,7 +3699,7 @@ mod processing_tests {
         assert!(rx.try_recv().is_err());
     }
     #[test]
-    fn device_restart_and_map_change_discard_old_drafts_before_review() {
+    fn device_restart_and_map_change_retain_content_but_require_new_identity_review() {
         for change_epoch in [true, false] {
             let (mut f, rx) = brain_surface();
             let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
@@ -3662,6 +3712,7 @@ mod processing_tests {
             u.device = Some(d);
             u.device_fresh = true;
             f.action(Action::DeviceEdit).unwrap();
+            let retained_endpoint = f.device_draft.as_ref().unwrap().endpoint.clone();
             let o = f
                 .state
                 .as_mut()
@@ -3685,12 +3736,9 @@ mod processing_tests {
             );
             assert!(rx.try_recv().is_err());
             f.pump();
-            assert!(f.device_draft.is_none());
+            assert_eq!(f.device_draft.as_ref().unwrap().endpoint, retained_endpoint);
             f.action(Action::DeviceEdit).unwrap();
-            assert_eq!(
-                f.device_draft.as_ref().unwrap().endpoint,
-                "fake:replacement"
-            );
+            assert_eq!(f.device_draft.as_ref().unwrap().endpoint, retained_endpoint);
             f.action(Action::DeviceApply).unwrap();
             assert!(
                 rx.try_iter()
@@ -3798,6 +3846,7 @@ mod processing_tests {
             device: None,
             device_final: None,
             device_fresh: false,
+            device_age_ms: Some(0),
             brain: None,
             brain_final: None,
             brain_fresh: false,
@@ -3816,14 +3865,167 @@ mod processing_tests {
             structural: None,
             structural_final: None,
             structural_fresh: false,
+            structural_age_ms: Some(0),
             processing_final: None,
             fresh: true,
+            snapshot_age_ms: Some(0),
             status: "fixture layout only".into(),
             review: None,
             received: Instant::now(),
         });
         f.page = Page::Channel;
         f
+    }
+    #[test]
+    fn detached_content_survives_focus_resize_disconnect_and_revision_changes() {
+        let (mut f, rx) = brain_surface();
+        f.brain_page = false;
+        f.action(Action::ProcessingEdit).unwrap();
+        f.processing_entry = "6.".into();
+        let config = f.processing_draft.as_ref().unwrap().config.clone();
+        let snapshot = crate::structure::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp14/v1/structure-16.json"
+        ))
+        .unwrap();
+        f.structural_draft =
+            Some(crate::structure::Draft::new(&snapshot, "output_routes", 1).unwrap());
+        let document = f.structural_draft.as_ref().unwrap().document.clone();
+        let crate::brain_device::Message::Snapshot(device) = crate::brain_device::decode(
+            include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+        )
+        .unwrap() else {
+            panic!()
+        };
+        f.device_draft = Some(device.observation.unwrap().config);
+        f.device_entry = Some("{unfinished".into());
+        let device_config = f.device_draft.clone();
+        for event in [
+            Event::Resize(1000, 700),
+            Event::Focus(false),
+            Event::Focus(true),
+            Event::Resize(0, 0),
+            Event::DeviceLost,
+        ] {
+            f.enqueue(event).unwrap();
+            assert_eq!(f.processing_draft.as_ref().unwrap().config, config);
+            assert_eq!(f.structural_draft.as_ref().unwrap().document, document);
+            assert_eq!(f.device_draft, device_config);
+            assert_eq!(f.processing_entry, "6.");
+            assert_eq!(f.device_entry.as_deref(), Some("{unfinished"));
+        }
+        assert!(rx.try_recv().is_err());
+        assert!(f.action(Action::ProcessingApply).is_err());
+        assert!(f.action(Action::StructureApply).is_err());
+        assert!(f.action(Action::DeviceApply).is_err());
+        f.key("F5").unwrap();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::Reconnect
+        ));
+        assert!(rx.try_recv().is_err());
+        let mut update = surface().state.unwrap();
+        update.generation = f.provider.generation();
+        update.snapshot.as_mut().unwrap().authority.revision = "5".into();
+        update.processing.as_mut().unwrap().revision = "5".into();
+        f.accept_update(update);
+        f.pump();
+        assert_eq!(f.processing_draft.as_ref().unwrap().config, config);
+        assert_eq!(f.structural_draft.as_ref().unwrap().document, document);
+        assert_eq!(f.device_draft, device_config);
+        assert!(f.state.as_ref().unwrap().review.is_none());
+        assert!(
+            rx.try_recv().is_err(),
+            "no automatic submission after recovery"
+        );
+        f.action(Action::Cancel).unwrap();
+        assert!(f.processing_draft.is_none());
+        assert!(f.structural_draft.is_none());
+        assert!(f.device_draft.is_none());
+        assert!(f.device_entry.is_none());
+        assert!(f.processing_entry.is_empty());
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::Cancel
+        ));
+    }
+    #[test]
+    fn retained_processing_draft_recovery_requests_new_review_only() {
+        let (mut f, rx) = brain_surface();
+        f.brain_page = false;
+        f.action(Action::ProcessingEdit).unwrap();
+        f.action(Action::ProcessingField(2)).unwrap();
+        f.action(Action::ProcessingText("6.1".into())).unwrap();
+        let config = f.processing_draft.as_ref().unwrap().config.clone();
+        let mut update = f.state.as_ref().unwrap().clone();
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert!(f.action(Action::ProcessingApply).is_err());
+        f.enqueue(Event::Focus(true)).unwrap();
+        update.generation = f.provider.generation();
+        update.received = Instant::now();
+        update.snapshot.as_mut().unwrap().authority.revision = "5".into();
+        update.processing.as_mut().unwrap().revision = "5".into();
+        update.review = None;
+        f.accept_update(update);
+        assert!(rx.try_recv().is_err());
+        f.action(Action::ProcessingApply).unwrap();
+        let request = rx.try_recv().unwrap();
+        assert_eq!(request.revision.as_deref(), Some("5"));
+        assert!(
+            matches!(request.operation, Operation::ReviewProcessing { config: sent, .. } if sent == config)
+        );
+        assert!(
+            rx.try_recv().is_err(),
+            "Apply requests review, never confirmation"
+        );
+    }
+    #[test]
+    fn publication_preserves_raw_brain_device_and_structure_observation_lifetimes() {
+        let (mut f, _) = brain_surface();
+        let crate::brain_device::Message::Snapshot(device) = crate::brain_device::decode(
+            include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+        )
+        .unwrap() else {
+            panic!()
+        };
+        let u = f.state.as_mut().unwrap();
+        u.device = Some(device);
+        u.device_fresh = true;
+        u.structural_fresh = true;
+        u.snapshot_age_ms = Some(240);
+        u.brain_age_ms = Some(240);
+        u.device_age_ms = Some(240);
+        u.structural_age_ms = Some(240);
+        u.received = Instant::now();
+        assert!(
+            u.raw_fresh() && u.brain_is_fresh() && u.device_is_fresh() && u.structure_is_fresh()
+        );
+        u.received = Instant::now() - Duration::from_millis(20);
+        assert!(
+            !u.raw_fresh()
+                && !u.brain_is_fresh()
+                && !u.device_is_fresh()
+                && !u.structure_is_fresh()
+        );
+        // A younger raw observation cannot extend older independent observations.
+        u.snapshot_age_ms = Some(0);
+        assert!(u.raw_fresh());
+        assert!(!u.brain_is_fresh() && !u.device_is_fresh() && !u.structure_is_fresh());
+        assert!(f.fresh());
+        let text = f
+            .scene()
+            .primitives
+            .into_iter()
+            .filter_map(|p| match p {
+                Primitive::Text { value, .. } => Some(value),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("observation STALE"));
+        assert!(
+            text.lines()
+                .any(|line| line.starts_with("DEVICE ") && line.contains(" / STALE / "))
+        );
     }
     #[test]
     fn confirmed_grant_survives_health_coalescing_but_expiry_and_disconnect_revoke_it() {
@@ -4049,7 +4251,7 @@ mod processing_tests {
         let generation = f.provider.generation();
         f.accept_update(update.clone());
         assert_eq!(f.selected, 0);
-        assert!(f.processing_draft.is_none());
+        assert_eq!(f.processing_draft.as_ref().unwrap().input, "input-08");
         assert!(f.queue.is_empty());
         assert!(f.state.is_none());
         assert!(f.provider.generation() > generation);
@@ -4165,8 +4367,9 @@ mod processing_tests {
         assert!(lines.iter().any(|s| s.contains("LOCAL DRAFT")));
         assert!(lines.iter().any(|s| s.contains("Band 1 gain +6.1 dB")));
         keyboard.key("Right").unwrap();
-        assert!(keyboard.processing_draft.is_none());
+        assert!(keyboard.processing_draft.is_some());
         assert!(keyboard.state.is_none());
+        assert!(keyboard.action(Action::ProcessingApply).is_err());
     }
     #[test]
     fn navigation_release_is_not_lost_to_generation_synchronization() {
@@ -4191,8 +4394,12 @@ mod processing_tests {
         f.state.as_mut().unwrap().processing_age_ms = Some(0);
         f.key("E").unwrap();
         f.key("K").unwrap();
+        let retained = f.processing_draft.as_ref().unwrap().config.clone();
+        f.processing_entry = "6.".into();
         f.enqueue(Event::Focus(false)).unwrap();
-        assert!(f.processing_draft.is_none());
+        assert_eq!(f.processing_draft.as_ref().unwrap().config, retained);
+        assert_eq!(f.processing_entry, "6.");
+        assert!(f.action(Action::ProcessingApply).is_err());
         let mut f = surface();
         f.require_role();
         assert!(f.key("E").is_err());

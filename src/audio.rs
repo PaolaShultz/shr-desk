@@ -1083,6 +1083,9 @@ impl Session {
         r.kind = "device_snapshot".into();
         r
     }
+    pub(crate) fn device_age(&self, now: u64) -> Option<u64> {
+        self.device_receipt.map(|t| now.saturating_sub(t))
+    }
     pub fn device_fresh(&self, now: u64) -> bool {
         self.fresh(now)
             && self
@@ -1419,6 +1422,9 @@ impl Session {
     }
     pub(crate) fn invalidate_structural_observation(&mut self) {
         self.structural_receipt = None;
+    }
+    pub(crate) fn structural_age(&self, now: u64) -> Option<u64> {
+        self.structural_receipt.map(|t| now.saturating_sub(t))
     }
     pub fn structural_fresh(&self, now: u64) -> bool {
         self.fresh(now)
