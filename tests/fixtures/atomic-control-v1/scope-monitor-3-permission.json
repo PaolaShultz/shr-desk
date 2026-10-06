@@ -1,6 +1,6 @@
 {
   "context": {
-    "authenticated_session": "95",
+    "authenticated_session": "121",
     "capability_generation": "1",
     "contract": "GP15-lease-maintenance",
     "epoch": "1",
@@ -14,10 +14,10 @@
     },
     "show_id": "11111111-1111-4111-8111-111111111111",
     "version": 1,
-    "writer": "remote-ec06e61d942db487-000000000000005f"
+    "writer": "remote-04fbddd58adb719e-0000000000000079"
   },
   "contract": "GP15-lease-maintenance",
-  "reason": "scope",
+  "reason": "permission",
   "result": null,
   "state": "refused",
   "version": 1

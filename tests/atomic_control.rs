@@ -183,14 +183,19 @@ fn exact_producer_atomic_corpus_reconciles_hashes_and_contexts() {
         let b = std::fs::read(root.join(name)).unwrap();
         assert_eq!(format!("{:x}", Sha256::digest(&b)), meta["sha256"]);
         assert_eq!(b.len() as u64, meta["bytes"].as_u64().unwrap());
-        if name == "maintain-scope.json" {
-            // Historical producer bytes: FOH is now admitted by the codec,
-            // but this old provider's explicit refusal still grants no authority.
+        if name.starts_with("scope-noncanonical-monitor-") {
+            // Producer refuses a noncanonical monitor scope. The consumer also
+            // rejects that malformed echoed context; it cannot convey authority.
+            assert!(maintenance::Reply::decode(&b).is_err(), "{name}");
+        } else if name == "maintain-scope.json" {
+            // Configured Monitor3 mismatches the existing talkback lease.
             let reply = maintenance::Reply::decode(&b).unwrap();
             assert_eq!(reply.state, "refused");
             assert_eq!(reply.reason.as_deref(), Some("scope"));
             assert!(reply.result.is_none());
-        } else if name.starts_with("maintain-request") {
+        } else if name.starts_with("maintain-request")
+            || (name.starts_with("scope-") && name.ends_with("-request.json"))
+        {
             let request: maintenance::Request = serde_json::from_slice(&b).unwrap();
             request.encode().unwrap();
         } else if name.starts_with("read-request") {
@@ -200,6 +205,18 @@ fn exact_producer_atomic_corpus_reconciles_hashes_and_contexts() {
             paired::Reply::decode(&b).unwrap_or_else(|e| panic!("{name}: {e}"));
         } else {
             maintenance::Reply::decode(&b).unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
+    }
+    for name in manifest["files"].as_object().unwrap().keys() {
+        if let Some(prefix) = name.strip_suffix("-maintained.json") {
+            let reply =
+                maintenance::Reply::decode(&std::fs::read(root.join(name)).unwrap()).unwrap();
+            let request: maintenance::Request = serde_json::from_slice(
+                &std::fs::read(root.join(format!("{prefix}-request.json"))).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(reply.context, request, "{name}");
+            assert_eq!(reply.state, "maintained", "{name}");
         }
     }
     for inputs in [16, 32, 48] {
@@ -359,6 +376,9 @@ fn maintenance_scope_codec_is_canonical_without_topology_caps() {
         reply.context.encode().unwrap();
     }
     for invalid in [
+        json!({"foh":null}),
+        json!({"monitor1":null}),
+        json!({"talkback_foh":null}),
         json!({"monitor":0}),
         json!({"monitor":1}),
         json!({"monitor":2}),

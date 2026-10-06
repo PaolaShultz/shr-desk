@@ -17,9 +17,23 @@ pub struct Request {
     pub capability_generation: String,
     pub map_generation: String,
     pub maintenance_id: String,
-    #[serde(with = "crate::scopes::one")]
+    #[serde(
+        serialize_with = "crate::scopes::one::serialize",
+        deserialize_with = "canonical_scope"
+    )]
     pub scope: String,
     pub lease: String,
+}
+// Reuse the established label codec, but keep the maintenance wire form exact.
+// Serde also accepts {"foh":null} for a unit variant; this contract requires "foh".
+fn canonical_scope<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    use serde::de::Error;
+    let value = serde_json::Value::deserialize(d)?;
+    let scope = crate::scopes::one::deserialize(value.clone()).map_err(D::Error::custom)?;
+    if crate::scopes::value(&scope).map_err(D::Error::custom)? != value {
+        return Err(D::Error::custom("noncanonical maintenance scope"));
+    }
+    Ok(scope)
 }
 pub(crate) fn identity(
     show: &str,

@@ -17,8 +17,12 @@
     "writer": "remote-ec06e61d942db487-000000000000005f"
   },
   "contract": "GP15-lease-maintenance",
-  "reason": "scope",
-  "result": null,
-  "state": "refused",
+  "reason": null,
+  "result": {
+    "lease_remaining_ms": 2000,
+    "revision": "0",
+    "source_frame": "0"
+  },
+  "state": "maintained",
   "version": 1
 }
