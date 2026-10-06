@@ -2994,6 +2994,133 @@ mod brain_fifo_tests {
         op.session.snapshot = Some(parsed);
         (op, peer, raw)
     }
+    /// Run only on request: cargo test --release --locked -j1 held_decode_stage_benchmark -- --ignored --nocapture
+    #[test]
+    #[ignore = "finite optimized offline decode-stage benchmark; no network/PCM; descriptive timings only"]
+    fn held_decode_stage_benchmark() {
+        use sha2::{Digest, Sha256};
+        use std::hint::black_box;
+        for inputs in [16usize, 32, 48] {
+            // Derive equal-five-bus shapes from the producer48x9 corpus. All
+            // transformations and frame preparation precede measurement, and the
+            // actual strict decoder validates the derived complete document.
+            let mut snapshot: Value = serde_json::from_slice(include_bytes!(
+                "../tests/fixtures/gp15/v1/raw-snapshot-48-9.json"
+            ))
+            .unwrap();
+            snapshot["authority"]["inputs"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(inputs);
+            snapshot["authority"]["monitors"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(5);
+            snapshot["authority"]["modes"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(6);
+            let selected_inputs = snapshot["authority"]["inputs"].as_array().unwrap().clone();
+            let selected_monitors = snapshot["authority"]["monitors"]
+                .as_array()
+                .unwrap()
+                .clone();
+            snapshot["authority"]["parameters"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|p| {
+                    selected_inputs.contains(&p["target"]["input"])
+                        && (p["target"]["parameter"] != "send"
+                            || selected_monitors.contains(&p["target"]["monitor"]))
+                });
+            snapshot["coefficients"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(inputs);
+            for coefficient in snapshot["coefficients"].as_array_mut().unwrap() {
+                for lane in ["current_nanogain", "ramp_target_nanogain", "held_nanogain"] {
+                    coefficient[lane].as_array_mut().unwrap().truncate(9);
+                }
+            }
+            snapshot["topology"]["inputs"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(inputs);
+            snapshot["topology"]["capture_channels"] = json!(inputs);
+            snapshot["topology"]["monitors"] = json!(5);
+            snapshot["topology"]["outputs"]
+                .as_array_mut()
+                .unwrap()
+                .truncate(7);
+            snapshot["topology"]["playback_channels"] = json!(7);
+            let parsed = audio::decode_snapshot(&serde_json::to_vec(&snapshot).unwrap()).unwrap();
+            assert_eq!(parsed.authority.inputs.len(), inputs);
+            assert_eq!(parsed.authority.monitors.len(), 5);
+            let (mut op, _, mut raw) = setup();
+            raw["snapshot"] = snapshot;
+            raw["outcome"]["body"]["revision"] = json!(parsed.authority.revision);
+            op.session.snapshot = Some(parsed);
+            let payload = serde_json::to_vec(&raw).unwrap();
+            audio::decode_reply(&payload).unwrap();
+            let envelope =
+                serde_json::to_vec(&json!({"kind":"reply", "session":"1", "payload":raw})).unwrap();
+            let frames: Vec<Vec<u8>> = if envelope.len() <= crate::provider::MAX_BYTES {
+                vec![envelope.clone()]
+            } else {
+                let identity = format!("{:x}", Sha256::digest(&envelope));
+                let count = envelope.len().div_ceil(8192);
+                envelope.chunks(8192).enumerate().map(|(index, chunk)| serde_json::to_vec(&json!({"contract":"GP14-snapshot-pages", "version":1,"identity":identity,"index":index,"count":count,"total_bytes":envelope.len(),"payload":std::str::from_utf8(chunk).unwrap()})).unwrap()).collect()
+            };
+            let mut measurements: [Vec<u128>; 7] = std::array::from_fn(|_| Vec::with_capacity(20));
+            for _ in 0..20 {
+                let owned_frames = frames.clone(); // transport already owns its received buffers
+                let (bytes, remote) =
+                    crate::remote::benchmark_snapshot_decode_stages(black_box(owned_frames));
+                assert_eq!(bytes, payload);
+                let started = Instant::now();
+                assert!(!op.processing_frame(black_box(&bytes)).unwrap());
+                let discriminator = started.elapsed().as_nanos();
+                let started = Instant::now();
+                let reply = audio::decode_reply(black_box(&bytes)).unwrap();
+                let decode = started.elapsed().as_nanos();
+                let started = Instant::now();
+                black_box(op.telemetry(black_box(&reply)).unwrap());
+                let ingest = started.elapsed().as_nanos();
+                let values = [
+                    remote[0],
+                    remote[1],
+                    remote[2],
+                    discriminator,
+                    decode,
+                    ingest,
+                    remote.iter().sum::<u128>() + discriminator + decode + ingest,
+                ];
+                for (samples, value) in measurements.iter_mut().zip(values) {
+                    samples.push(value);
+                }
+            }
+            let mut stages = serde_json::Map::new();
+            for (name, mut values) in [
+                "page_assembly",
+                "envelope_decode",
+                "payload_serialize",
+                "contract_discriminator",
+                "raw_reply_decode",
+                "telemetry_clone_ingest",
+                "sum_measured_stages",
+            ]
+            .into_iter()
+            .zip(measurements)
+            {
+                values.sort_unstable();
+                stages.insert(name.into(), json!({"min_us":values[0] as f64/1000.0,"median_us":values[10] as f64/1000.0,"p95_us":values[18] as f64/1000.0,"max_us":values[19] as f64/1000.0}));
+            }
+            eprintln!(
+                "HELD_DECODE_BENCH {}",
+                json!({"inputs":inputs,"monitors":5,"iterations":20,"debug_assertions":cfg!(debug_assertions),"payload_bytes":payload.len(),"envelope_bytes":envelope.len(),"frames":frames.len(),"stages":stages,"scope":"derived producer48x9; strict validated16/32/48x5; post-I/O CPU only, no network/PCM; no timing pass criterion"})
+            );
+        }
+    }
     struct PairedReadGate {
         peer: FakeAuthorityConnection,
         sent: Arc<Mutex<Vec<Value>>>,

@@ -568,3 +568,10 @@ and an exactly equal raw revision. A superseding revision requires a new Brain
 probe inside the same budget. Passive polling and already-fresh raw readback keep
 their existing query behavior. This removes a serial request dependency without
 changing freshness limits or claiming a measured round-trip latency.
+
+Authority validation reuses the typed semantic checks and a bounded counting
+serializer instead of allocating and reparsing canonical authority JSON. Wire
+admission still checks duplicate fields, nesting, integer values, exact target
+field shapes and required fields. Public typed snapshot ingestion retains the
+same version-specific serialized byte caps, including canonical nullable-option
+semantics. These CPU changes do not alter freshness or held-service deadlines.

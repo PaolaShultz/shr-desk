@@ -246,6 +246,27 @@ impl Snapshot {
         self.validate_version(1)
     }
     pub(crate) fn validate_version(&self, version: u8) -> Result<(), String> {
+        self.validate_version_inner(version, false)
+    }
+    /// Equivalent to validating this authority after its canonical JSON roundtrip,
+    /// without allocating and reparsing that JSON. Public typed ingest retains the
+    /// same serialized admission cap; optional Value::Null follows serde Option.
+    pub(crate) fn validate_canonical_version(&self, version: u8) -> Result<(), String> {
+        self.validate_version_inner(version, true)?;
+        canonical_size_within(
+            self,
+            if version == 1 {
+                MAX_BYTES
+            } else {
+                MAX_DOCUMENT_BYTES
+            },
+        )
+    }
+    fn validate_version_inner(
+        &self,
+        version: u8,
+        canonical_null_options: bool,
+    ) -> Result<(), String> {
         if !matches!(version, 1 | 2) {
             return Err("authority version".into());
         }
@@ -336,14 +357,20 @@ impl Snapshot {
         for p in &self.parameters {
             self.validate_target(&p.target)?;
             value(&p.target, &p.target_value)?;
-            if p.actual.is_some() {
+            let canonical_option = |v: &Option<Value>| {
+                v.as_ref()
+                    .is_some_and(|v| !canonical_null_options || !v.is_null())
+            };
+            if canonical_option(&p.actual) {
                 return Err("GP02 actual must be unavailable".into());
             }
             for v in [&p.proposal, &p.hold].into_iter().flatten() {
-                value(&p.target, v)?;
+                if !canonical_null_options || !v.is_null() {
+                    value(&p.target, v)?;
+                }
             }
             if p.owner.as_ref().is_some_and(|o| !id(o))
-                || p.hold.is_some() != p.owner.is_some()
+                || canonical_option(&p.hold) != p.owner.is_some()
                 || !seen.insert(p.target.clone())
             {
                 return Err("owner/hold or duplicate target".into());
@@ -369,17 +396,36 @@ impl Snapshot {
         x
     }
 }
-/// This read-only boundary consumes standalone Snapshot bodies from GP02.
-/// Mutable request/reply handling belongs to DS04 after GP03 acceptance.
-pub fn decode(bytes: &[u8]) -> Result<Snapshot, String> {
-    decode_version(bytes, 1)
+// Every semantically valid Value leaf is scalar integer/bool or canonical null.
+// Remaining authority fields have fixed typed nesting below the wire depth cap.
+fn canonical_size_within<T: Serialize>(value: &T, limit: usize) -> Result<(), String> {
+    struct Counter {
+        bytes: usize,
+        limit: usize,
+    }
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.bytes = self
+                .bytes
+                .checked_add(bytes.len())
+                .filter(|n| *n <= self.limit)
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "canonical authority byte admission",
+                    )
+                })?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(Counter { bytes: 0, limit }, value).map_err(|e| e.to_string())
 }
-pub(crate) fn decode_version(bytes: &[u8], version: u8) -> Result<Snapshot, String> {
-    let v = if version == 2 {
-        parse_document(bytes)?
-    } else {
-        parse(bytes)?
-    };
+/// Exact wire-only target shape checks, after duplicate/depth/integer parsing and
+/// before serde can normalize an explicitly present optional null field.
+pub(crate) fn validate_snapshot_shape(v: &Value) -> Result<(), String> {
     for list in ["parameters", "automation_bounds"] {
         if let Some(a) = v[list].as_array() {
             for p in a {
@@ -395,6 +441,20 @@ pub(crate) fn decode_version(bytes: &[u8], version: u8) -> Result<Snapshot, Stri
             }
         }
     }
+    Ok(())
+}
+/// This read-only boundary consumes standalone Snapshot bodies from GP02.
+/// Mutable request/reply handling belongs to DS04 after GP03 acceptance.
+pub fn decode(bytes: &[u8]) -> Result<Snapshot, String> {
+    decode_version(bytes, 1)
+}
+pub(crate) fn decode_version(bytes: &[u8], version: u8) -> Result<Snapshot, String> {
+    let v = if version == 2 {
+        parse_document(bytes)?
+    } else {
+        parse(bytes)?
+    };
+    validate_snapshot_shape(&v)?;
     let s: Snapshot = serde_json::from_value(v).map_err(|e| e.to_string())?;
     s.validate_version(version)?;
     Ok(s)
@@ -597,4 +657,121 @@ fn display(v: &Option<Value>) -> String {
     v.as_ref()
         .map(ToString::to_string)
         .unwrap_or_else(|| "unavailable".into())
+}
+
+#[cfg(test)]
+mod canonical_authority_tests {
+    use super::*;
+    use serde_json::json;
+    fn authority(version: u8) -> Snapshot {
+        let bytes: &[u8] = if version == 1 {
+            include_bytes!("../tests/fixtures/gp03/v1/e03-rendered.json")
+        } else {
+            include_bytes!("../tests/fixtures/gp15/v1/raw-snapshot-16-1.json")
+        };
+        let value: Value = serde_json::from_slice(bytes).unwrap();
+        serde_json::from_value(if version == 1 {
+            value["initial"]["authority"].clone()
+        } else {
+            value["authority"].clone()
+        })
+        .unwrap()
+    }
+    fn old_roundtrip(s: &Snapshot, version: u8) -> Result<Snapshot, String> {
+        let value = serde_json::to_value(s).unwrap();
+        decode_version(&serde_json::to_vec(&value).unwrap(), version)
+    }
+    #[test]
+    fn canonical_authority_matches_old_roundtrip_for_typed_nullable_values() {
+        for version in [1, 2] {
+            let original = authority(version);
+            assert!(old_roundtrip(&original, version).is_ok());
+            original.validate_canonical_version(version).unwrap();
+            for field in ["actual", "proposal", "hold"] {
+                for value in [Value::Null, json!(0), json!(0.5), json!({"nested":[1]})] {
+                    for owner in [None, Some("desk".to_string())] {
+                        let mut candidate = original.clone();
+                        let p = &mut candidate.parameters[0];
+                        match field {
+                            "actual" => p.actual = Some(value.clone()),
+                            "proposal" => p.proposal = Some(value.clone()),
+                            _ => p.hold = Some(value.clone()),
+                        }
+                        p.owner = owner;
+                        let owner_debug = p.owner.clone();
+                        assert_eq!(
+                            candidate.validate_canonical_version(version).is_ok(),
+                            old_roundtrip(&candidate, version).is_ok(),
+                            "v{version} {field} {value} owner={:?}",
+                            owner_debug
+                        );
+                    }
+                }
+            }
+            let mut null_actual = original.clone();
+            null_actual.parameters[0].actual = Some(Value::Null);
+            assert!(
+                null_actual.validate_version(version).is_err(),
+                "direct typed semantic entry not broadened"
+            );
+            null_actual.validate_canonical_version(version).unwrap();
+            assert!(original.validate_canonical_version(3).is_err());
+        }
+    }
+    #[test]
+    fn canonical_typed_authority_rejects_semantically_valid_oversize_snapshot() {
+        let mut candidate = authority(2);
+        candidate.inputs = (1..=48).map(|n| format!("input-{n:02}")).collect();
+        candidate.monitors = (1..=128).map(|n| format!("monitor-{n}")).collect();
+        candidate.modes = std::iter::once(("foh".into(), "manual".into()))
+            .chain((1..=128).map(|n| (format!("monitor{n}"), "manual".into())))
+            .collect();
+        candidate.automation_bounds.clear();
+        candidate.parameters.clear();
+        for input in &candidate.inputs {
+            for (parameter, monitor) in ["fader", "pan", "mute"]
+                .into_iter()
+                .map(|p| (p, None))
+                .chain(candidate.monitors.iter().map(|m| ("send", Some(m.clone()))))
+            {
+                let value = if parameter == "mute" {
+                    json!(false)
+                } else {
+                    json!(0)
+                };
+                candidate.parameters.push(Parameter {
+                    target: Target {
+                        parameter: parameter.into(),
+                        input: input.clone(),
+                        monitor,
+                    },
+                    actual: None,
+                    target_value: value.clone(),
+                    proposal: Some(value.clone()),
+                    hold: Some(value),
+                    owner: Some("d".repeat(64)),
+                });
+            }
+        }
+        candidate.validate_version(2).unwrap();
+        let bytes = serde_json::to_vec(&candidate).unwrap();
+        assert!(
+            bytes.len() > MAX_DOCUMENT_BYTES,
+            "fixture must cross actual1MiB cap"
+        );
+        assert!(decode_version(&bytes, 2).is_err());
+        assert!(
+            candidate.validate_canonical_version(2).is_err(),
+            "public typed admission must retain canonical byte bound"
+        );
+    }
+    #[test]
+    fn canonical_counting_writer_keeps_exact_version_byte_caps() {
+        for cap in [MAX_BYTES, MAX_DOCUMENT_BYTES] {
+            let exact = "x".repeat(cap - 2); // canonical JSON quotes add exactly two bytes
+            assert_eq!(serde_json::to_vec(&exact).unwrap().len(), cap);
+            canonical_size_within(&exact, cap).unwrap();
+            assert!(canonical_size_within(&(exact + "x"), cap).is_err());
+        }
+    }
 }

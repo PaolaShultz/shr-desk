@@ -398,6 +398,29 @@ async fn read_frame<R: tokio::io::AsyncRead + Unpin>(
     .map_err(|_| "remote partial frame deadline".to_string())?
 }
 
+/// Test-only measurement of the exact post-I/O remote receive stages.
+#[cfg(test)]
+pub(crate) fn benchmark_snapshot_decode_stages(frames: Vec<Vec<u8>>) -> (Vec<u8>, [u128; 3]) {
+    use std::hint::black_box;
+    let started = Instant::now();
+    let mut assembly = crate::pages::Assembly::default();
+    let mut whole = None;
+    for frame in frames {
+        whole = assembly.offer(black_box(frame), Instant::now()).unwrap();
+    }
+    let assembly_ns = started.elapsed().as_nanos();
+    let whole = whole.unwrap();
+    let started = Instant::now();
+    let Response::Reply { payload, .. } = decode_response(black_box(&whole)).unwrap() else {
+        panic!("benchmark reply envelope")
+    };
+    let envelope_ns = started.elapsed().as_nanos();
+    let started = Instant::now();
+    let bytes = serde_json::to_vec(black_box(&payload)).unwrap();
+    let serialization_ns = started.elapsed().as_nanos();
+    (bytes, [assembly_ns, envelope_ns, serialization_ns])
+}
+
 #[cfg(test)]
 mod envelope_tests {
     use super::*;

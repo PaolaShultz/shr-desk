@@ -122,8 +122,9 @@ impl RenderedSnapshot {
             }
         }
         // The nested authority intentionally remains the separately reviewed GP02 metadata body.
-        let bytes = serde_json::to_vec(&self.authority_value()).map_err(|e| e.to_string())?;
-        let a = provider::decode_version(&bytes, self.capability_version)?;
+        self.authority
+            .validate_canonical_version(self.capability_version)?;
+        let a = &self.authority;
         if a.page != 0
             || a.page_count != 1
             || a.parameters.len() != a.inputs.len() * (3 + a.monitors.len())
@@ -163,9 +164,6 @@ impl RenderedSnapshot {
             }
         }
         Ok(())
-    }
-    fn authority_value(&self) -> Value {
-        serde_json::to_value(&self.authority).expect("serializable authority")
     }
 }
 fn capability(name: &str, version: u8) -> Result<(), String> {
@@ -291,10 +289,7 @@ fn validate_snapshot_value(v: &Value) -> Result<(), String> {
         fields.extend(["topology", "clock", "resources"]);
     }
     provider::keys(v, &fields)?;
-    provider::decode_version(
-        &serde_json::to_vec(&v["authority"]).map_err(|e| e.to_string())?,
-        v["capability_version"].as_u64().ok_or("version")? as u8,
-    )?;
+    provider::validate_snapshot_shape(&v["authority"])?;
     for c in v["coefficients"].as_array().ok_or("coefficients array")? {
         provider::keys(
             c,
@@ -363,11 +358,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
             ],
         )?;
         if !v["outcome"]["body"]["snapshot"].is_null() {
-            provider::decode_version(
-                &serde_json::to_vec(&v["outcome"]["body"]["snapshot"])
-                    .map_err(|e| e.to_string())?,
-                v["capability_version"].as_u64().ok_or("version")? as u8,
-            )?;
+            provider::validate_snapshot_shape(&v["outcome"]["body"]["snapshot"])?;
         }
     }
     if !v["outcome"]["body"]["preview"].is_null() {
@@ -434,6 +425,9 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
             return fail("outcome identity/kind");
         }
         provider::counter(&o.body.revision)?;
+        if let Some(s) = &o.body.snapshot {
+            s.validate_canonical_version(r.capability_version)?;
+        }
         if let Some(s) = &o.body.snapshot
             && (s.show_id != r.context.show_id
                 || s.epoch != r.context.epoch
@@ -2373,5 +2367,92 @@ mod brain_safety_tests {
                 .begin("brain_talkback_foh", json!({"enabled":true}), 0)
                 .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod canonical_wire_regressions {
+    use super::*;
+    fn rendered() -> Value {
+        serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp15/v1/raw-snapshot-16-1.json"
+        ))
+        .unwrap()
+    }
+    #[test]
+    fn optimized_authority_path_preserves_strict_wire_and_typed_rejection() {
+        let base = rendered();
+        for variant in 0..8 {
+            let mut value = base.clone();
+            match variant {
+                0 => {
+                    value["authority"]["parameters"][0]["target"]["monitor"] = Value::Null;
+                }
+                1 => {
+                    value["authority"]["parameters"][0]["unexpected"] = json!(1);
+                }
+                2 => {
+                    value["authority"].as_object_mut().unwrap().remove("age_ms");
+                }
+                3 => {
+                    value["authority"]["parameters"][0]["target_value"] = json!(0.5);
+                }
+                4 => {
+                    value["authority"]["revision"] = json!("01");
+                }
+                5 => {
+                    value["coefficients"][0]["current_nanogain"] = json!([]);
+                }
+                6 => {
+                    value["topology"]["inputs"][0]["id"] = json!("input-99");
+                }
+                _ => {
+                    let mut deep = json!(0);
+                    for _ in 0..14 {
+                        deep = json!([deep]);
+                    }
+                    value["authority"]["parameters"][0]["proposal"] = deep;
+                }
+            }
+            assert!(
+                decode_snapshot(&serde_json::to_vec(&value).unwrap()).is_err(),
+                "variant{variant}"
+            );
+        }
+        let bytes = serde_json::to_string(&base).unwrap();
+        let duplicate = bytes.replacen(
+            "\"revision\":\"0\"",
+            "\"revision\":\"0\",\"revision\":\"0\"",
+            1,
+        );
+        assert_ne!(bytes, duplicate);
+        assert!(decode_snapshot(duplicate.as_bytes()).is_err());
+        let mut typed = decode_snapshot(bytes.as_bytes()).unwrap();
+        typed.authority.parameters[0].target_value = json!({"not":"scalar"});
+        assert!(typed.validate().is_err());
+    }
+    #[test]
+    fn outcome_authority_keeps_shape_semantics_and_version_validation() {
+        let mut reply: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+        ))
+        .unwrap();
+        reply["outcome"]["body"]["snapshot"] = rendered()["authority"].clone();
+        decode_reply(&serde_json::to_vec(&reply).unwrap()).unwrap();
+        for variant in 0..3 {
+            let mut bad = reply.clone();
+            match variant {
+                0 => {
+                    bad["outcome"]["body"]["snapshot"]["parameters"][0]["target"]["monitor"] =
+                        Value::Null
+                }
+                1 => {
+                    bad["outcome"]["body"]["snapshot"]["parameters"][0]["target_value"] =
+                        json!(12001)
+                }
+                _ => bad["outcome"]["body"]["snapshot"]["durability"] = json!("persistent"),
+            }
+            assert!(decode_reply(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
     }
 }
