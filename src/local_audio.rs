@@ -261,7 +261,80 @@ struct Draft {
 /// construction and preserve bounded whole-frame deadlines. This seam carries
 /// bytes only: leases, freshness, correlation and no-replay stay in `Session`.
 /// `None` means no frame before the deadline, never a partial decoded message.
+/// Opt-in fixed-size cumulative transport counters. Stage microseconds are:
+/// send, first byte await, remaining frame await, assembly, envelope decode,
+/// payload serialization, outbound envelope serialization, write await,
+/// outbound command parse/envelope construction.
+/// Await includes runtime/QUIC scheduling, not just wire time.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TransportTiming {
+    pub session: u64,
+    pub send_attempts: u64,
+    pub completed_sends: u64,
+    pub completed_reply_documents: u64,
+    pub micros: [u64; 9],
+    pub frames: u64,
+    pub bytes: u64,
+    pub overflow: bool,
+    /// RX then TX: MAX_DATA, MAX_STREAM_DATA, DATA_BLOCKED, STREAM_DATA_BLOCKED.
+    pub flow: [u64; 8],
+    pub rtt_us: u64,
+    pub lost_packets: u64,
+    /// Connection-wide RX then TX UDP datagram counters.
+    pub udp_datagrams: [u64; 2],
+}
+pub(crate) fn trace_timing_enabled() -> bool {
+    std::env::var_os("SHR_DESK_TRACE_TIMING").is_some_and(|v| v == "1")
+}
+pub(crate) fn trace_add(value: &mut u64, amount: u64, overflow: &mut bool) {
+    match value.checked_add(amount) {
+        Some(next) => *value = next,
+        None => {
+            *value = u64::MAX;
+            *overflow = true;
+        }
+    }
+}
+pub(crate) fn trace_us(duration: Duration) -> u64 {
+    duration.as_micros().min(u64::MAX as u128) as u64
+}
+#[derive(Clone, Copy, Debug, Default)]
+struct ProbeFrameTiming {
+    bytes: u64,
+    // receive wall, contract discriminator/dispatch, raw decode, telemetry/ingest
+    micros: [u64; 4],
+    kind: u8,
+    receive_start_us: u64,
+    transport_before: Option<TransportTiming>,
+    transport_after: Option<TransportTiming>,
+}
+#[derive(Debug, Default)]
+struct ProbeTiming {
+    totals: [u64; 4],
+    sends_us: u64,
+    decision_us: u64,
+    empty_receive_us: u64,
+    frames: u64,
+    overwritten: u64,
+    overflow: bool,
+    tail: [ProbeFrameTiming; 4],
+}
+impl ProbeTiming {
+    fn record(&mut self, frame: ProbeFrameTiming) {
+        for (total, amount) in self.totals.iter_mut().zip(frame.micros) {
+            trace_add(total, amount, &mut self.overflow);
+        }
+        if self.frames >= 4 {
+            trace_add(&mut self.overwritten, 1, &mut self.overflow);
+        }
+        self.tail[(self.frames % 4) as usize] = frame;
+        trace_add(&mut self.frames, 1, &mut self.overflow);
+    }
+}
 pub trait AuthorityConnection: Send {
+    fn timing_snapshot(&self) -> Option<TransportTiming> {
+        None
+    }
     fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String>;
     fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String>;
     fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String>;
@@ -333,6 +406,7 @@ struct BrainProbes {
 pub struct Operator {
     brain_probes: BrainProbes,
     last_brain_send: Option<Instant>,
+    trace_timing: bool,
     transport: Box<dyn AuthorityConnection>,
     pub(crate) session: Session,
     start: Instant,
@@ -427,6 +501,7 @@ impl Operator {
             brain_signal: None,
             brain_probes: BrainProbes::default(),
             last_brain_send: None,
+            trace_timing: trace_timing_enabled(),
         })
     }
     pub(crate) fn cancel(&mut self) {
@@ -752,8 +827,13 @@ impl Operator {
         held_mode: bool,
     ) -> Result<(), BrainOperationError> {
         let began = Instant::now();
+        let mut timing = self.trace_timing.then(ProbeTiming::default);
+        let transport_before = timing
+            .as_ref()
+            .and_then(|_| self.transport.timing_snapshot());
         let budget = deadline.saturating_duration_since(began);
         self.probe_guard(held_mode)?;
+        let send_started = timing.as_ref().map(|_| Instant::now());
         let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
         if held_mode && !self.session.fresh(self.now()) {
@@ -766,6 +846,9 @@ impl Operator {
             self.transport
                 .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
         }
+        if let (Some(t), Some(start)) = (&mut timing, send_started) {
+            trace_add(&mut t.sends_us, trace_us(start.elapsed()), &mut t.overflow);
+        }
         let mut loops = 0usize;
         let mut processed = 0usize;
         for _ in 0..64 {
@@ -777,12 +860,47 @@ impl Operator {
             if *remaining == 0 {
                 break;
             }
+            let receive_started = timing.as_ref().map(|_| Instant::now());
+            let frame_transport_before = timing
+                .as_ref()
+                .and_then(|_| self.transport.timing_snapshot());
             if let Some(bytes) = self.transport.receive_until(deadline)? {
-                *remaining -= 1;
-                if !self.processing_frame(&bytes)? {
-                    let r = audio::decode_reply(&bytes)?;
-                    self.telemetry(&r)?;
+                let mut frame = ProbeFrameTiming {
+                    bytes: bytes.len() as u64,
+                    receive_start_us: receive_started
+                        .map_or(0, |start| trace_us(start.saturating_duration_since(began))),
+                    transport_before: frame_transport_before,
+                    transport_after: timing
+                        .as_ref()
+                        .and_then(|_| self.transport.timing_snapshot()),
+                    ..Default::default()
+                };
+                if let Some(start) = receive_started {
+                    frame.micros[0] = trace_us(start.elapsed());
                 }
+                let dispatch_started = timing.as_ref().map(|_| Instant::now());
+                *remaining -= 1;
+                let contract = self.processing_frame(&bytes)?;
+                if let Some(start) = dispatch_started {
+                    frame.micros[1] = trace_us(start.elapsed());
+                }
+                frame.kind = if contract { 1 } else { 2 };
+                if !contract {
+                    let decode_started = timing.as_ref().map(|_| Instant::now());
+                    let r = audio::decode_reply(&bytes)?;
+                    if let Some(start) = decode_started {
+                        frame.micros[2] = trace_us(start.elapsed());
+                    }
+                    let ingest_started = timing.as_ref().map(|_| Instant::now());
+                    self.telemetry(&r)?;
+                    if let Some(start) = ingest_started {
+                        frame.micros[3] = trace_us(start.elapsed());
+                    }
+                }
+                if let Some(t) = &mut timing {
+                    t.record(frame);
+                }
+                let decision_started = timing.as_ref().map(|_| Instant::now());
                 processed += 1;
                 // Validate bytes/correlation before observing concurrent cancellation:
                 // a focus change must never hide malformed or partial wire data.
@@ -805,7 +923,11 @@ impl Operator {
                             })
                     })
                 {
+                    let started = timing.as_ref().map(|_| Instant::now());
                     probe = self.send_brain_probe(deadline)?;
+                    if let (Some(t), Some(start)) = (&mut timing, started) {
+                        trace_add(&mut t.sends_us, trace_us(start.elapsed()), &mut t.overflow);
+                    }
                 }
                 if let Some(brain) = &self.session.brain
                     && (!self.session.fresh(self.now())
@@ -816,8 +938,12 @@ impl Operator {
                     && requested_revision.as_ref() != Some(&brain.revision)
                 {
                     requested_revision = Some(brain.revision.clone());
+                    let started = timing.as_ref().map(|_| Instant::now());
                     self.transport
                         .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+                    if let (Some(t), Some(start)) = (&mut timing, started) {
+                        trace_add(&mut t.sends_us, trace_us(start.elapsed()), &mut t.overflow);
+                    }
                 }
                 if self.session.brain_fresh(self.now())
                     && self
@@ -835,6 +961,19 @@ impl Operator {
                 {
                     return Ok(());
                 }
+                if let (Some(t), Some(start)) = (&mut timing, decision_started) {
+                    trace_add(
+                        &mut t.decision_us,
+                        trace_us(start.elapsed()),
+                        &mut t.overflow,
+                    );
+                }
+            } else if let (Some(t), Some(start)) = (&mut timing, receive_started) {
+                trace_add(
+                    &mut t.empty_receive_us,
+                    trace_us(start.elapsed()),
+                    &mut t.overflow,
+                );
             }
         }
         self.probe_guard(held_mode)?;
@@ -844,19 +983,66 @@ impl Operator {
         let matched = self.brain_probes.matched.as_ref();
         // Only validated numeric identities/revisions and bounded scalar state:
         // never include a packet, credential, destination list or unbounded queue.
-        Err(format!(
+        let mut failure = format!(
             "Brain paired observation deadline: elapsed_ms={} budget_ms={} processed={} loops={} probe={} probe_age_ms={:?} probe_generation={:?} generation={} matched_id={:?} matched_age_ms={:?} matched_revision={:?} matched_generation={:?} raw_revision={:?} raw_age_ms={:?} raw_fresh={} brain_revision={:?} brain_age_ms={:?} brain_fresh={} requested_revision={:?} pending={}",
-            at.saturating_duration_since(began).as_millis(), budget.as_millis(),
-            processed, loops, probe,
-            pending.map(|p| at.saturating_duration_since(p.1).as_millis()).or_else(|| matched.filter(|m| m.0 == probe).map(|m| at.saturating_duration_since(m.1).as_millis())),
-            pending.map(|p| p.2).or_else(|| matched.filter(|m| m.0 == probe).map(|_| self.session.generation())),
-            self.session.generation(), matched.map(|m| m.0),
+            at.saturating_duration_since(began).as_millis(),
+            budget.as_millis(),
+            processed,
+            loops,
+            probe,
+            pending
+                .map(|p| at.saturating_duration_since(p.1).as_millis())
+                .or_else(|| matched
+                    .filter(|m| m.0 == probe)
+                    .map(|m| at.saturating_duration_since(m.1).as_millis())),
+            pending.map(|p| p.2).or_else(|| matched
+                .filter(|m| m.0 == probe)
+                .map(|_| self.session.generation())),
+            self.session.generation(),
+            matched.map(|m| m.0),
             matched.map(|m| at.saturating_duration_since(m.1).as_millis()),
-            matched.map(|m| m.2.revision.as_str()), matched.map(|_| self.session.generation()),
-            self.session.snapshot.as_ref().map(|r| r.authority.revision.as_str()), self.session.snapshot_age(now), self.session.fresh(now),
-            self.session.brain.as_ref().map(|b| b.revision.as_str()), self.session.brain_age(now), self.session.brain_fresh(now),
-            requested_revision, self.brain_probes.pending.len(),
-        ).into())
+            matched.map(|m| m.2.revision.as_str()),
+            matched.map(|_| self.session.generation()),
+            self.session
+                .snapshot
+                .as_ref()
+                .map(|r| r.authority.revision.as_str()),
+            self.session.snapshot_age(now),
+            self.session.fresh(now),
+            self.session.brain.as_ref().map(|b| b.revision.as_str()),
+            self.session.brain_age(now),
+            self.session.brain_fresh(now),
+            requested_revision,
+            self.brain_probes.pending.len(),
+        );
+        if let Some(t) = timing {
+            use std::fmt::Write;
+            let _ = write!(
+                failure,
+                " timing_totals_us={:?} sends_us={} decision_us={} empty_receive_us={} frames={} overwritten={} overflow={} transport_before={transport_before:?} transport_after={:?}",
+                t.totals,
+                t.sends_us,
+                t.decision_us,
+                t.empty_receive_us,
+                t.frames,
+                t.overwritten,
+                t.overflow,
+                self.transport.timing_snapshot()
+            );
+            for (slot, frame) in t.tail.iter().enumerate() {
+                let _ = write!(
+                    failure,
+                    " tail{slot}=(bytes={},kind={},start_us={},stages_us={:?},before={:?},after={:?})",
+                    frame.bytes,
+                    frame.kind,
+                    frame.receive_start_us,
+                    frame.micros,
+                    frame.transport_before,
+                    frame.transport_after
+                );
+            }
+        }
+        Err(failure.into())
     }
     pub(crate) fn held_send_anchor(&self) -> Option<Instant> {
         self.last_brain_send
@@ -1787,6 +1973,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         brain_signal: None,
         brain_probes: BrainProbes::default(),
         last_brain_send: None,
+        trace_timing: trace_timing_enabled(),
     };
     op.refresh()?;
     let session_deadline = Instant::now() + Duration::from_secs(30);
@@ -2087,6 +2274,7 @@ mod gp07_stage_tests {
             brain_signal: None,
             brain_probes: BrainProbes::default(),
             last_brain_send: None,
+            trace_timing: trace_timing_enabled(),
         };
         assert!(!op.session.processing_fresh(op.now()));
         if change_before_stage {
@@ -4134,6 +4322,31 @@ mod brain_fifo_tests {
         assert!(sent.lock().unwrap().iter().all(|r| r["writer"].is_null()));
     }
     #[test]
+    fn paired_trace_is_opt_in_bounded_and_reports_unavailable_transport() {
+        for enabled in [false, true] {
+            let (mut op, peer, _) = setup();
+            probe_connection(&mut op, &peer, false);
+            op.trace_timing = enabled;
+            let error = op
+                .refresh_brain_budget(Instant::now() + Duration::from_millis(100), &mut 0, false)
+                .unwrap_err()
+                .message();
+            assert_eq!(error.contains("timing_totals_us="), enabled);
+            if enabled {
+                for field in [
+                    "transport_before=None",
+                    "transport_after=None",
+                    "overwritten=0",
+                    "overflow=false",
+                    "tail3=",
+                ] {
+                    assert!(error.contains(field), "missing {field}");
+                }
+            }
+            assert!(error.len() < 8000);
+        }
+    }
+    #[test]
     fn probe_partial_send_unmatched_reply_and_overflow_poison_provenance() {
         let (mut op, peer, _) = setup();
         probe_connection(&mut op, &peer, true);
@@ -4193,5 +4406,34 @@ mod brain_fifo_tests {
         op.processing_frame(&serde_json::to_vec(&probe_reply(&op, frame)).unwrap())
             .unwrap();
         assert!(op.brain_probes.matched.is_some());
+    }
+}
+
+#[cfg(test)]
+mod timing_trace_tests {
+    use super::*;
+    #[test]
+    fn trace_tail_and_cumulative_counters_are_bounded_and_overflow_is_distinct() {
+        let mut trace = ProbeTiming::default();
+        for n in 0..64 {
+            trace.record(ProbeFrameTiming {
+                bytes: n,
+                micros: [1, 2, 3, 4],
+                ..Default::default()
+            });
+        }
+        assert_eq!(trace.frames, 64);
+        assert_eq!(trace.overwritten, 60);
+        assert_eq!(trace.totals, [64, 128, 192, 256]);
+        assert_eq!(trace.tail.map(|f| f.bytes), [60, 61, 62, 63]);
+        assert!(!trace.overflow);
+        trace.totals[0] = u64::MAX;
+        trace.record(ProbeFrameTiming {
+            micros: [1, 0, 0, 0],
+            ..Default::default()
+        });
+        assert_eq!(trace.overwritten, 61);
+        assert!(trace.overflow);
+        assert_eq!(trace.totals[0], u64::MAX);
     }
 }

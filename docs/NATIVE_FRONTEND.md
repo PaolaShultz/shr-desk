@@ -575,3 +575,38 @@ admission still checks duplicate fields, nesting, integer values, exact target
 field shapes and required fields. Public typed snapshot ingestion retains the
 same version-specific serialized byte caps, including canonical nullable-option
 semantics. These CPU changes do not alter freshness or held-service deadlines.
+
+
+Set `SHR_DESK_TRACE_TIMING=1` before creating a Desk connection to opt into
+bounded control timing diagnostics (disabled by default, sampled once per owner).
+The existing first paired-observation deadline failure includes cumulative
+microsecond counters and a four-frame ring; overwritten records and arithmetic
+overflow have separate counters. No per-frame log or payload is retained.
+Operator stages are receive wall time, contract discrimination/dispatch, raw
+strict decode, and telemetry ingestion. Send time includes encoding; completed decision-span
+time includes any follow-up send and therefore must not be added to send time.
+The remote counters separate first-byte await, remaining prefix/body await,
+page assembly, strict envelope decode, payload serialization, outbound envelope
+serialization, command parse/envelope construction and write await. Write await
+ends at local stream-buffer completion, not actual packet transmission. Outbound
+sub-stages overlap the total send counter. Await includes
+runtime scheduling and QUIC progress, not only network delay. The unchanged
+release benchmark remains available for isolated CPU measurements.
+
+Transport snapshots expose Quinn's actual connection-wide RX/TX MAX_DATA,
+MAX_STREAM_DATA, DATA_BLOCKED and STREAM_DATA_BLOCKED counters, RTT and lost
+packets, plus RX/TX UDP datagram counters. Before/after values can corroborate a stall, but cannot attribute it to
+one request or prove flow-control causation. Send Pending counts are not measured.
+`None` means the transport supplies no timing data, rather than measured zero.
+The ring is indexed modulo four (the frame count identifies its oldest slot).
+The terminal deadline-break decision span is not included in decision time.
+Counters start after authenticated hello: the numeric TLS-bound session ID
+identifies the connection, send attempts count validated commands entering the
+write path, and completed sends count successful local stream writes. A partial
+write increments attempts without completion. Completed reply documents count
+only fully assembled, correctly session-bound `Reply` envelopes whose payload
+serialization succeeded, not pages, refusals or wrong-session responses. These
+counters saturate with the same overflow flag.
+Only the existing failure path formats these fixed numeric records; successful
+frames produce no trace I/O. No wire fields, flow-control windows, deadlines,
+permission checks or retry behavior change.

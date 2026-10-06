@@ -1,6 +1,11 @@
 //! Explicit mutually authenticated QUIC connection to the same authority session.
 //! No listener, automatic pairing, media device or command replay.
-use crate::{local_audio::AuthorityConnection, provider};
+use crate::{
+    local_audio::{
+        AuthorityConnection, TransportTiming, trace_add, trace_timing_enabled, trace_us,
+    },
+    provider,
+};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -93,6 +98,7 @@ pub struct Connection {
     capability_generation: String,
     pub writer: String,
     pub source_epoch: u64,
+    timing: Option<TransportTiming>,
 }
 impl Connection {
     pub fn connect(config: &Config, scope: &str) -> Result<Self, String> {
@@ -256,6 +262,14 @@ impl Connection {
                 source_epoch,
             ))
         })?;
+        let timing = if trace_timing_enabled() {
+            Some(TransportTiming {
+                session: provider::counter(&session)?,
+                ..Default::default()
+            })
+        } else {
+            None
+        };
         Ok(Self {
             runtime,
             endpoint,
@@ -266,6 +280,7 @@ impl Connection {
             capability_generation,
             writer,
             source_epoch,
+            timing,
         })
     }
     fn receive_inner(
@@ -273,15 +288,25 @@ impl Connection {
         deadline: Instant,
         available: bool,
     ) -> Result<Option<Vec<u8>>, String> {
-        match self
-            .runtime
-            .block_on(read(&mut self.receive, deadline, available))?
-        {
+        match self.runtime.block_on(read_timed(
+            &mut self.receive,
+            deadline,
+            available,
+            &mut self.timing,
+        ))? {
             None => Ok(None),
             Some(Response::Reply { session, payload }) if session == self.session => {
-                serde_json::to_vec(&payload)
+                let started = self.timing.as_ref().map(|_| Instant::now());
+                let result = serde_json::to_vec(&payload)
                     .map(Some)
-                    .map_err(|e| e.to_string())
+                    .map_err(|e| e.to_string());
+                add_stage(&mut self.timing, 5, started);
+                if result.is_ok()
+                    && let Some(t) = &mut self.timing
+                {
+                    trace_add(&mut t.completed_reply_documents, 1, &mut t.overflow);
+                }
+                result
             }
             Some(Response::Refused { session, reason }) if session == self.session => {
                 Err(format!("remote refused: {reason}"))
@@ -298,12 +323,48 @@ impl Drop for Connection {
     }
 }
 impl AuthorityConnection for Connection {
+    fn timing_snapshot(&self) -> Option<TransportTiming> {
+        let mut timing = self.timing?;
+        let stats = self.connection.stats();
+        timing.flow = [
+            stats.frame_rx.max_data,
+            stats.frame_rx.max_stream_data,
+            stats.frame_rx.data_blocked,
+            stats.frame_rx.stream_data_blocked,
+            stats.frame_tx.max_data,
+            stats.frame_tx.max_stream_data,
+            stats.frame_tx.data_blocked,
+            stats.frame_tx.stream_data_blocked,
+        ];
+        timing.rtt_us = trace_us(stats.path.rtt);
+        timing.lost_packets = stats.path.lost_packets;
+        timing.udp_datagrams = [stats.udp_rx.datagrams, stats.udp_tx.datagrams];
+        Some(timing)
+    }
     fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+        let started = self.timing.as_ref().map(|_| Instant::now());
         let payload = provider::parse(bytes)?;
         if !payload["writer"].is_null() && payload["writer"] != self.writer {
             return Err("authenticated writer mismatch".into());
         }
-        self.runtime.block_on(write(&mut self.send, &json!({"kind":"command","session":self.session,"capability_generation":self.capability_generation,"payload":payload}), deadline))
+        let envelope = json!({"kind":"command","session":self.session,"capability_generation":self.capability_generation,"payload":payload});
+        add_stage(&mut self.timing, 8, started);
+        if let Some(t) = &mut self.timing {
+            trace_add(&mut t.send_attempts, 1, &mut t.overflow);
+        }
+        let result = self.runtime.block_on(write_timed(
+            &mut self.send,
+            &envelope,
+            deadline,
+            &mut self.timing,
+        ));
+        add_stage(&mut self.timing, 0, started);
+        if result.is_ok()
+            && let Some(t) = &mut self.timing
+        {
+            trace_add(&mut t.completed_sends, 1, &mut t.overflow);
+        }
+        result
     }
     fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
         self.receive_inner(deadline, false)
@@ -320,25 +381,56 @@ async fn write(
     value: &Value,
     deadline: Instant,
 ) -> Result<(), String> {
-    let bytes = serde_json::to_vec(value).map_err(|e| e.to_string())?;
+    write_timed(send, value, deadline, &mut None).await
+}
+async fn write_timed(
+    send: &mut quinn::SendStream,
+    value: &Value,
+    deadline: Instant,
+    timing: &mut Option<TransportTiming>,
+) -> Result<(), String> {
+    let started = timing.as_ref().map(|_| Instant::now());
+    let encoded = serde_json::to_vec(value).map_err(|e| e.to_string());
+    add_stage(timing, 6, started);
+    let bytes = encoded?;
     if bytes.is_empty() || bytes.len() > provider::MAX_BYTES {
         return Err("remote frame capacity".into());
     }
-    tokio::time::timeout_at(deadline.into(), async {
+    let started = timing.as_ref().map(|_| Instant::now());
+    let result = tokio::time::timeout_at(deadline.into(), async {
         send.write_all(&(bytes.len() as u32).to_be_bytes())
             .await
             .map_err(|e| e.to_string())?;
         send.write_all(&bytes).await.map_err(|e| e.to_string())
     })
     .await
-    .map_err(|_| "remote write deadline".to_string())?
+    .map_err(|_| "remote write deadline".to_string());
+    add_stage(timing, 7, started);
+    result?
 }
 async fn read<R: tokio::io::AsyncRead + Unpin>(
     receive: &mut R,
     deadline: Instant,
     available: bool,
 ) -> Result<Option<Response>, String> {
-    let Some(first) = read_frame(receive, deadline, available).await? else {
+    read_timed(receive, deadline, available, &mut None).await
+}
+fn add_stage(timing: &mut Option<TransportTiming>, stage: usize, started: Option<Instant>) {
+    if let (Some(t), Some(start)) = (timing, started) {
+        trace_add(
+            &mut t.micros[stage],
+            trace_us(start.elapsed()),
+            &mut t.overflow,
+        );
+    }
+}
+async fn read_timed<R: tokio::io::AsyncRead + Unpin>(
+    receive: &mut R,
+    deadline: Instant,
+    available: bool,
+    timing: &mut Option<TransportTiming>,
+) -> Result<Option<Response>, String> {
+    let Some(first) = read_frame_timed(receive, deadline, available, timing).await? else {
         return Ok(None);
     };
     // The producer segments the complete remote Response, outside its payload.
@@ -346,10 +438,16 @@ async fn read<R: tokio::io::AsyncRead + Unpin>(
     let mut assembly = crate::pages::Assembly::default();
     let mut frame = first;
     loop {
-        if let Some(bytes) = assembly.offer(frame, Instant::now())? {
-            return decode_response(&bytes).map(Some);
+        let started = timing.as_ref().map(|_| Instant::now());
+        let offered = assembly.offer(frame, Instant::now());
+        add_stage(timing, 3, started);
+        if let Some(bytes) = offered? {
+            let started = timing.as_ref().map(|_| Instant::now());
+            let decoded = decode_response(&bytes).map(Some);
+            add_stage(timing, 4, started);
+            return decoded;
         }
-        frame = read_frame(receive, deadline, false)
+        frame = read_frame_timed(receive, deadline, false, timing)
             .await?
             .ok_or("remote snapshot assembly deadline")?;
     }
@@ -358,10 +456,11 @@ fn decode_response(bytes: &[u8]) -> Result<Response, String> {
     let value = provider::parse_document(bytes)?;
     serde_json::from_value(value).map_err(|e| e.to_string())
 }
-async fn read_frame<R: tokio::io::AsyncRead + Unpin>(
+async fn read_frame_timed<R: tokio::io::AsyncRead + Unpin>(
     receive: &mut R,
     deadline: Instant,
     available: bool,
+    timing: &mut Option<TransportTiming>,
 ) -> Result<Option<Vec<u8>>, String> {
     use tokio::io::AsyncReadExt;
     let mut length = [0; 4];
@@ -370,15 +469,19 @@ async fn read_frame<R: tokio::io::AsyncRead + Unpin>(
     } else {
         deadline
     };
-    match tokio::time::timeout_at(probe_deadline.into(), receive.read_exact(&mut length[..1])).await
-    {
+    let started = timing.as_ref().map(|_| Instant::now());
+    let first =
+        tokio::time::timeout_at(probe_deadline.into(), receive.read_exact(&mut length[..1])).await;
+    add_stage(timing, 1, started);
+    match first {
         Err(_) => return Ok(None),
         Ok(result) => {
             result.map_err(|e| e.to_string())?;
         }
     }
     // Once any prefix arrives a partial-frame timeout is fatal; no frame replay.
-    tokio::time::timeout_at(deadline.into(), async {
+    let started = timing.as_ref().map(|_| Instant::now());
+    let result = tokio::time::timeout_at(deadline.into(), async {
         receive
             .read_exact(&mut length[1..])
             .await
@@ -395,7 +498,14 @@ async fn read_frame<R: tokio::io::AsyncRead + Unpin>(
         Ok(Some(bytes))
     })
     .await
-    .map_err(|_| "remote partial frame deadline".to_string())?
+    .map_err(|_| "remote partial frame deadline".to_string());
+    add_stage(timing, 2, started);
+    let result = result?;
+    if let (Some(t), Ok(Some(bytes))) = (timing, &result) {
+        trace_add(&mut t.frames, 1, &mut t.overflow);
+        trace_add(&mut t.bytes, bytes.len() as u64, &mut t.overflow);
+    }
+    result
 }
 
 /// Test-only measurement of the exact post-I/O remote receive stages.
@@ -424,6 +534,56 @@ pub(crate) fn benchmark_snapshot_decode_stages(frames: Vec<Vec<u8>>) -> (Vec<u8>
 #[cfg(test)]
 mod envelope_tests {
     use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn timing_trace_preserves_decode_and_partial_frame_failure() {
+        use tokio::io::AsyncWriteExt;
+        for enabled in [false, true] {
+            let bytes = br#"{"kind":"reply","session":"trace-test","payload":{"n":7}}"#;
+            let (mut writer, mut receive) = tokio::io::duplex(1024);
+            writer
+                .write_all(&(bytes.len() as u32).to_be_bytes())
+                .await
+                .unwrap();
+            writer.write_all(bytes).await.unwrap();
+            let mut timing = enabled.then(TransportTiming::default);
+            let result = read_timed(
+                &mut receive,
+                Instant::now() + Duration::from_millis(100),
+                false,
+                &mut timing,
+            )
+            .await
+            .unwrap();
+            let Some(Response::Reply { session, payload }) = result else {
+                panic!("reply")
+            };
+            assert_eq!(session, "trace-test");
+            assert_eq!(payload["n"], 7);
+            if let Some(t) = timing {
+                assert_eq!(t.frames, 1);
+                assert_eq!(t.bytes, bytes.len() as u64);
+                assert!(!t.overflow);
+            }
+            let before_failure = timing;
+            writer.write_all(&[0]).await.unwrap();
+            let error = read_timed(
+                &mut receive,
+                Instant::now() + Duration::from_millis(5),
+                false,
+                &mut timing,
+            )
+            .await
+            .unwrap_err();
+            assert!(error.contains("partial frame deadline"));
+            assert_eq!(timing.is_some(), enabled);
+            if let (Some(before), Some(after)) = (before_failure, timing) {
+                assert!(after.micros[2] > before.micros[2]);
+                assert_eq!(after.frames, before.frames);
+                assert_eq!(after.bytes, before.bytes);
+            }
+        }
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn available_partial_frame_and_page_assembly_keep_original_deadline() {
         use tokio::io::AsyncWriteExt;
