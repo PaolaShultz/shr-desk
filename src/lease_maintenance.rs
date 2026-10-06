@@ -17,6 +17,7 @@ pub struct Request {
     pub capability_generation: String,
     pub map_generation: String,
     pub maintenance_id: String,
+    #[serde(with = "crate::scopes::one")]
     pub scope: String,
     pub lease: String,
 }
@@ -54,10 +55,7 @@ impl Request {
         if self.contract != CONTRACT
             || self.version != 1
             || self.kind != "maintain"
-            || !matches!(
-                self.scope.as_str(),
-                "local_operator_monitor" | "talkback_destinations" | "talkback_foh"
-            )
+            || !crate::scopes::valid(&self.scope)
         {
             return Err("maintenance contract/scope".into());
         }

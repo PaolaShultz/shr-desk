@@ -656,6 +656,13 @@ Authenticated Brain sessions use additive `GP15-lease-maintenance:1` and
 `GP15-paired-readback:1`. Maintenance extends only the already granted scope and
 lease; it does not change the revision, configuration, held generation or heartbeat.
 All three Brain scopes use it, including passive monitor/FOH and active talkback.
+After explicit GP15 paired-mode selection, the same attachment also uses atomic
+maintenance for FOH, every monitor, PA configuration and output routes. Dynamic
+monitor scopes use the existing canonical tagged wire form. Both passive and
+pre-command renewal avoid topology reads solely to maintain the lease; command
+review/readback requirements remain. Generic authenticated identity alone leaves
+non-Brain clients on legacy revision renewal. Refusal or unsupported GP15 support
+never falls back, and a replacement attachment starts with paired mode disabled.
 The local expiry is anchored to the first send plus 2000 ms. Retries preserve exact
 bytes and the original operation/lease deadline at the existing 100/250/500 ms
 wakes. Up to 64 validated terminal replies are retained to discard exact late

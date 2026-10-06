@@ -182,12 +182,24 @@ must independently reject replacement between its snapshot and application.
 ### Atomic GP15 additive operations
 
 `GP15-lease-maintenance:1` renews the current authenticated live lease for exactly
-one existing Brain scope without an expected revision or topology query. Replies
+one existing canonical C-AUDIO scope without an expected revision or topology query:
+FOH, each monitor, PA configuration, output routes and the three Brain scopes.
+Dynamic monitors retain the existing externally tagged `{"monitor": N}` wire form
+(u16 N >= 3); named monitor1/monitor2 remain unchanged. A scope label is not a grant
+or evidence that a monitor exists in the configured topology. Replies
 are strictly correlated to an immutable maintenance ID and first send; only a
 confirmed result extends conservative local expiry to that first send + 2000 ms.
 It grants no authority and establishes neither held proof nor observation freshness.
 An explicit terminal busy refusal can use a new ID within the original budget;
 unknown outcomes and cancellation cannot. Unsupported versions fail closed.
+
+The three Brain scopes retain atomic maintenance. Other scopes select it only after
+explicit GP15 paired mode is requested for this attachment. A generic authenticated
+transport identity does not opt in. Both passive and pre-command renewals use the
+same decision, with no topology query solely for maintenance. Ordinary clients
+retain revision-based renewal. Failed explicit GP15 selection never authorizes
+writes or legacy fallback; a new attachment must select GP15 again. Current
+scope-specific permission and exact echoed attachment/lease context remain required.
 
 `GP15-paired-readback:1` has an independent authenticated connection query nonce.
 The producer returns one committed raw/Brain revision and frame. The consumer

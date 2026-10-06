@@ -1010,6 +1010,11 @@ impl Operator {
         remaining: &mut usize,
         held: bool,
     ) -> Result<(), String> {
+        // Selecting GP15 is not successful readback. A failed explicit probe
+        // remains terminal even on the renewal path that deliberately skips refresh.
+        if let Some(reason) = &self.brain_probes.first_fault {
+            return Err(reason.clone());
+        }
         self.probe_guard(held)
             .map_err(BrainOperationError::message)?;
         let identity = self
@@ -2068,13 +2073,17 @@ impl Operator {
             next_frame = self.transport.receive_until(deadline)?;
         }
     }
-    pub(crate) fn mutate(&mut self, kind: &str, body: Value) -> Result<(), String> {
-        if kind == "renew"
-            && matches!(
+    fn uses_atomic_maintenance(&self) -> bool {
+        // Explicit GP15 selection belongs to this Operator attachment. A generic
+        // authenticated/held identity alone must not change legacy renewal.
+        self.paired_enabled
+            || matches!(
                 self.scope.as_str(),
                 "local_operator_monitor" | "talkback_destinations" | "talkback_foh"
             )
-        {
+    }
+    pub(crate) fn mutate(&mut self, kind: &str, body: Value) -> Result<(), String> {
+        if kind == "renew" && self.uses_atomic_maintenance() {
             return self.mutate_inner(kind, body);
         }
         self.refresh()?;
@@ -2086,12 +2095,7 @@ impl Operator {
     }
     pub(crate) fn mutate_inner(&mut self, kind: &str, body: Value) -> Result<(), String> {
         let deadline = Instant::now() + Duration::from_millis(1900);
-        if kind == "renew"
-            && matches!(
-                self.scope.as_str(),
-                "local_operator_monitor" | "talkback_destinations" | "talkback_foh"
-            )
-        {
+        if kind == "renew" && self.uses_atomic_maintenance() {
             return self.maintain(deadline, &mut 64, false);
         }
         self.mutate_ordinary_inner(kind, body, deadline)
@@ -4637,6 +4641,304 @@ mod brain_fifo_tests {
             cancel,
         });
         sent
+    }
+    fn scope_setup(scope: &str) -> Operator {
+        let (mut op, _, _) = setup();
+        let raw = op.session.snapshot.clone().unwrap();
+        let mut session =
+            Session::new_version(&raw.authority.show_id, 1, "talkback", scope, 2).unwrap();
+        session.ingest_snapshot(raw, 0).unwrap();
+        session
+            .begin(
+                "grant",
+                json!({"scope":crate::scopes::value(scope).unwrap()}),
+                0,
+            )
+            .unwrap();
+        let mut grant: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+        ))
+        .unwrap();
+        grant["outcome"]["body"]["scope"] = crate::scopes::value(scope).unwrap();
+        session
+            .accept(
+                audio::decode_reply(&serde_json::to_vec(&grant).unwrap()).unwrap(),
+                0,
+            )
+            .unwrap();
+        op.session = session;
+        op.scope = scope.into();
+        op
+    }
+    #[test]
+    fn atomic_pa_passive_renewal_ignores_unrelated_heartbeat_revision_churn() {
+        let mut op = scope_setup("pa_configuration");
+        op.paired_enabled = true;
+        let (reference, _, _) = setup();
+        let mut request = reference
+            .session
+            .clone()
+            .begin_maintenance(&atomic_identity(&op), 500)
+            .unwrap();
+        request.scope = "pa_configuration".into();
+        let sent = atomic_peer(
+            &mut op,
+            vec![serde_json::to_vec(&request).unwrap()],
+            vec![Some(maintenance_reply(&request, None))],
+            false,
+            None,
+        );
+        let before = op.session.snapshot.clone();
+        op.start = Instant::now() - Duration::from_millis(500);
+        op.mutate("renew", json!({})).unwrap();
+        assert_eq!(sent.lock().unwrap().len(), 1);
+        assert_eq!(
+            op.session.snapshot, before,
+            "revision999 maintenance is not topology"
+        );
+    }
+    const MAINTENANCE_SCOPES: &[&str] = &[
+        "foh",
+        "monitor1",
+        "monitor2",
+        "monitor3",
+        "monitor65535",
+        "pa_configuration",
+        "output_routes",
+        "local_operator_monitor",
+        "talkback_destinations",
+        "talkback_foh",
+    ];
+    #[test]
+    fn atomic_all_scopes_route_both_entrypoints_without_topology() {
+        for scope in MAINTENANCE_SCOPES {
+            for inner in [false, true] {
+                let mut op = scope_setup(scope);
+                op.paired_enabled = true;
+                let request = op
+                    .session
+                    .clone()
+                    .begin_maintenance(&atomic_identity(&op), 500)
+                    .unwrap();
+                let sent = atomic_peer(
+                    &mut op,
+                    vec![request.encode().unwrap()],
+                    vec![Some(maintenance_reply(&request, None))],
+                    false,
+                    None,
+                );
+                let before = op.session.snapshot.clone();
+                op.start = Instant::now() - Duration::from_millis(500);
+                if inner {
+                    op.mutate_inner("renew", json!({}))
+                } else {
+                    op.mutate("renew", json!({}))
+                }
+                .unwrap();
+                assert_eq!(sent.lock().unwrap().len(), 1, "{scope}:{inner}");
+                assert_eq!(op.session.snapshot, before);
+                assert!(!op.session.fresh(op.now()));
+            }
+        }
+    }
+    #[test]
+    fn atomic_all_scopes_precommand_renewal_uses_maintenance_between_command_readbacks() {
+        for scope in MAINTENANCE_SCOPES {
+            let mut op = scope_setup(scope);
+            op.paired_enabled = true;
+            let identity = atomic_identity(&op);
+            let mut model = op.session.clone();
+            let mut expected = Vec::new();
+            let mut responses = Vec::new();
+            for nonce in 1..=2 {
+                let request = model.paired_request(&identity, nonce).unwrap();
+                let mut raw = model.snapshot.clone().unwrap();
+                raw.frame = (nonce * 48).to_string();
+                raw.authority.revision = "999".into();
+                let (reference, _, _) = setup();
+                let mut brain = reference.session.brain.unwrap();
+                brain.frame = raw.frame.clone();
+                brain.revision = raw.authority.revision.clone();
+                let reply = serde_json::to_vec(&json!({"contract":"GP15-paired-readback", "version":1,
+                    "state":"snapshot", "reason":null, "context":request, "raw":raw, "brain":brain})).unwrap();
+                model
+                    .accept_paired(
+                        crate::paired_readback::Reply::decode(&reply).unwrap(),
+                        &request,
+                        500,
+                        model.generation(),
+                        500,
+                    )
+                    .unwrap();
+                expected.push(request.encode().unwrap());
+                responses.push(Some(reply));
+                if nonce == 1 {
+                    let request = model.begin_maintenance(&identity, 500).unwrap();
+                    let reply = maintenance_reply(&request, None);
+                    model
+                        .accept_maintenance(
+                            crate::lease_maintenance::Reply::decode(&reply).unwrap(),
+                            500,
+                        )
+                        .unwrap();
+                    expected.push(request.encode().unwrap());
+                    responses.push(Some(reply));
+                }
+            }
+            let request = model.begin("release", json!({}), 500).unwrap();
+            let mut reply: Value = serde_json::from_slice(include_bytes!(
+                "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+            ))
+            .unwrap();
+            let context = serde_json::to_value(&request.context).unwrap();
+            reply["context"] = context.clone();
+            for (k, v) in context.as_object().unwrap() {
+                reply["outcome"][k] = v.clone();
+            }
+            reply["outcome"]["body"]["revision"] = json!("999");
+            for k in ["scope", "granted_lease", "lease_remaining_ms"] {
+                reply["outcome"]["body"][k] = Value::Null;
+            }
+            expected.push(request.encode().unwrap());
+            responses.push(Some(serde_json::to_vec(&reply).unwrap()));
+            // Release retires authority and requires its ordinary final readback.
+            let request = model.paired_request(&identity, 3).unwrap();
+            let mut final_pair: Value =
+                serde_json::from_slice(responses[2].as_ref().unwrap()).unwrap();
+            final_pair["context"] = serde_json::to_value(&request).unwrap();
+            final_pair["raw"]["frame"] = json!("144");
+            final_pair["brain"]["frame"] = json!("144");
+            expected.push(request.encode().unwrap());
+            responses.push(Some(serde_json::to_vec(&final_pair).unwrap()));
+            let sent = atomic_peer(&mut op, expected, responses, false, None);
+            op.start = Instant::now() - Duration::from_millis(500);
+            op.mutate("release", json!({})).unwrap();
+            assert_eq!(
+                sent.lock().unwrap().len(),
+                5,
+                "three command readbacks, one maintenance, one release: {scope}"
+            );
+        }
+    }
+    #[test]
+    fn atomic_all_scopes_refuse_cancel_and_unsupported_without_fallback() {
+        for scope in MAINTENANCE_SCOPES {
+            for mode in [
+                "permission",
+                "scope",
+                "lease",
+                "identity",
+                "version",
+                "cancel",
+            ] {
+                for inner in [false, true] {
+                    let mut op = scope_setup(scope);
+                    op.paired_enabled = true;
+                    let identity = atomic_identity(&op);
+                    let request = op.session.clone().begin_maintenance(&identity, 0).unwrap();
+                    let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+                    op.guard(guard.clone(), 1);
+                    let response = if mode == "version" {
+                        let mut value: Value =
+                            serde_json::from_slice(&maintenance_reply(&request, None)).unwrap();
+                        value["version"] = json!(2);
+                        serde_json::to_vec(&value).unwrap()
+                    } else {
+                        maintenance_reply(&request, (mode != "cancel").then_some(mode))
+                    };
+                    let sent = atomic_peer(
+                        &mut op,
+                        vec![request.encode().unwrap()],
+                        vec![Some(response)],
+                        false,
+                        (mode == "cancel").then_some(guard),
+                    );
+                    assert!(
+                        if inner {
+                            op.mutate_inner("renew", json!({}))
+                        } else {
+                            op.mutate("renew", json!({}))
+                        }
+                        .is_err(),
+                        "{scope}:{mode}:{inner}"
+                    );
+                    assert_eq!(sent.lock().unwrap().len(), 1);
+                    assert_eq!(op.session.lease_deadline(), None);
+                    assert!(op.session.begin_maintenance(&identity, op.now()).is_err());
+                }
+            }
+        }
+    }
+    #[test]
+    fn atomic_generic_identity_preserves_legacy_revision_renewal() {
+        for scope in &MAINTENANCE_SCOPES[..7] {
+            for inner in [false, true] {
+                let mut op = scope_setup(scope);
+                let request = op.session.clone().begin("renew", json!({}), 0).unwrap();
+                let mut reply: Value = serde_json::from_slice(include_bytes!(
+                    "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+                ))
+                .unwrap();
+                let context = serde_json::to_value(&request.context).unwrap();
+                reply["context"] = context.clone();
+                for (k, v) in context.as_object().unwrap() {
+                    reply["outcome"][k] = v.clone();
+                }
+                reply["outcome"]["kind"] = json!("conflict");
+                reply["outcome"]["body"]["reason"] = json!("stale_revision");
+                reply["outcome"]["body"]["revision"] = json!("999");
+                for k in ["scope", "granted_lease", "lease_remaining_ms"] {
+                    reply["outcome"]["body"][k] = Value::Null;
+                }
+                let sent = atomic_peer(
+                    &mut op,
+                    vec![request.encode().unwrap()],
+                    vec![Some(serde_json::to_vec(&reply).unwrap())],
+                    false,
+                    None,
+                );
+                assert!(op.transport.held_identity().is_some());
+                assert!(!op.uses_atomic_maintenance());
+                let error = if inner {
+                    op.mutate_inner("renew", json!({}))
+                } else {
+                    op.mutate("renew", json!({}))
+                }
+                .unwrap_err();
+                assert!(error.contains("stale_revision"), "{scope}:{inner}:{error}");
+                assert_eq!(sent.lock().unwrap().len(), 1);
+            }
+        }
+    }
+    #[test]
+    fn atomic_failed_explicit_opt_in_never_falls_back_and_new_attachment_resets_mode() {
+        let mut op = scope_setup("pa_configuration");
+        let request = op.session.paired_request(&atomic_identity(&op), 1).unwrap();
+        let sent = atomic_peer(
+            &mut op,
+            vec![request.encode().unwrap()],
+            vec![Some(
+                br#"{"contract":"GP15-paired-readback","version":2}"#.to_vec(),
+            )],
+            false,
+            None,
+        );
+        assert!(
+            op.refresh_brain_until(Instant::now() + Duration::from_millis(250))
+                .is_err()
+        );
+        assert!(op.paired_enabled);
+        assert!(op.mutate("renew", json!({})).is_err());
+        assert!(op.mutate_inner("renew", json!({})).is_err());
+        assert_eq!(sent.lock().unwrap().len(), 1);
+        op.session.disconnect();
+        assert!(op.mutate_inner("renew", json!({})).is_err());
+        let replacement = scope_setup("pa_configuration");
+        assert!(
+            !replacement.paired_enabled,
+            "a new attachment must opt in explicitly"
+        );
+        assert!(!replacement.uses_atomic_maintenance());
     }
     #[test]
     fn atomic_maintenance_retries_exact_bytes_and_anchors_original_send_without_topology() {

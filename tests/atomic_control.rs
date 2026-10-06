@@ -48,7 +48,7 @@ fn strict_atomic_shapes_counters_nulls_and_limits() {
         ("/context/version", json!(2)),
         ("/context/maintenance_id", json!("01")),
         ("/context/lease", json!("0")),
-        ("/context/scope", json!("foh")),
+        ("/context/scope", json!({"monitor":2})),
         ("/result/lease_remaining_ms", json!(1999)),
         ("/result/source_frame", json!("18446744073709551616")),
     ] {
@@ -184,9 +184,12 @@ fn exact_producer_atomic_corpus_reconciles_hashes_and_contexts() {
         assert_eq!(format!("{:x}", Sha256::digest(&b)), meta["sha256"]);
         assert_eq!(b.len() as u64, meta["bytes"].as_u64().unwrap());
         if name == "maintain-scope.json" {
-            // The consumer cannot originate this unsupported scope, even to
-            // obtain its refusal; it must never treat that response as authority.
-            assert!(maintenance::Reply::decode(&b).is_err());
+            // Historical producer bytes: FOH is now admitted by the codec,
+            // but this old provider's explicit refusal still grants no authority.
+            let reply = maintenance::Reply::decode(&b).unwrap();
+            assert_eq!(reply.state, "refused");
+            assert_eq!(reply.reason.as_deref(), Some("scope"));
+            assert!(reply.result.is_none());
         } else if name.starts_with("maintain-request") {
             let request: maintenance::Request = serde_json::from_slice(&b).unwrap();
             request.encode().unwrap();
@@ -223,10 +226,17 @@ fn exact_producer_atomic_corpus_reconciles_hashes_and_contexts() {
 }
 
 #[test]
-fn all_three_existing_scopes_maintain_without_fresh_topology_and_cancel_retires_authority() {
+fn all_existing_scopes_maintain_without_fresh_topology_and_cancel_retires_authority() {
     let raw =
         audio::decode_snapshot(include_bytes!("fixtures/gp15/v1/raw-snapshot-16-1.json")).unwrap();
     for scope in [
+        "foh",
+        "monitor1",
+        "monitor2",
+        "monitor3",
+        "monitor65535",
+        "pa_configuration",
+        "output_routes",
         "local_operator_monitor",
         "talkback_destinations",
         "talkback_foh",
@@ -234,12 +244,18 @@ fn all_three_existing_scopes_maintain_without_fresh_topology_and_cancel_retires_
         let mut session =
             audio::Session::new_version(&raw.authority.show_id, 1, "talkback", scope, 2).unwrap();
         session.ingest_snapshot(raw.clone(), 0).unwrap();
-        session.begin("grant", json!({"scope":scope}), 0).unwrap();
+        session
+            .begin(
+                "grant",
+                json!({"scope":shr_desk::scopes::value(scope).unwrap()}),
+                0,
+            )
+            .unwrap();
         let mut grant: Value = serde_json::from_slice(include_bytes!(
             "fixtures/gp15/v1/grant-16-talkback-reply.json"
         ))
         .unwrap();
-        grant["outcome"]["body"]["scope"] = json!(scope);
+        grant["outcome"]["body"]["scope"] = shr_desk::scopes::value(scope).unwrap();
         session
             .accept(audio::decode_reply(&bytes(&grant)).unwrap(), 0)
             .unwrap();
@@ -257,7 +273,59 @@ fn all_three_existing_scopes_maintain_without_fresh_topology_and_cancel_retires_
             "only one outstanding operation"
         );
         let reply: maintenance::Reply = serde_json::from_value(json!({"contract":maintenance::CONTRACT,"version":1,"state":"maintained","reason":null,"context":request,"result":{"revision":"999","source_frame":"4800","lease_remaining_ms":2000}})).unwrap();
-        session.accept_maintenance(reply, 750).unwrap();
+        for field in [
+            "show_id",
+            "epoch",
+            "authenticated_session",
+            "writer",
+            "capability_generation",
+            "map_generation",
+            "maintenance_id",
+            "scope",
+            "lease",
+        ] {
+            let mut altered = serde_json::to_value(&reply).unwrap();
+            altered["context"][field] = match field {
+                "show_id" => json!("22222222-2222-4222-8222-222222222222"),
+                "writer" => json!("other-writer"),
+                "scope" => json!(if scope == "foh" {
+                    "pa_configuration"
+                } else {
+                    "foh"
+                }),
+                _ => json!("999"),
+            };
+            let mismatch = maintenance::Reply::decode(&bytes(&altered)).unwrap();
+            let mut candidate = session.clone();
+            assert!(
+                candidate.accept_maintenance(mismatch, 750).is_err(),
+                "{scope}:{field}"
+            );
+            assert_eq!(candidate.lease_deadline(), Some(2000));
+        }
+        for reason in ["permission", "identity", "scope", "lease"] {
+            let mut refused = reply.clone();
+            refused.state = "refused".into();
+            refused.reason = Some(reason.into());
+            refused.result = None;
+            let mut candidate = session.clone();
+            assert_eq!(
+                candidate
+                    .accept_maintenance(refused, 750)
+                    .unwrap()
+                    .as_deref(),
+                Some(reason)
+            );
+            assert_eq!(candidate.lease_deadline(), None, "{scope}:{reason}");
+        }
+        let mut expired = session.clone();
+        assert!(expired.accept_maintenance(reply.clone(), 2000).is_err());
+        assert!(expired.begin_maintenance(&identity, 2000).is_err());
+        session.accept_maintenance(reply.clone(), 750).unwrap();
+        assert!(
+            session.accept_maintenance(reply, 751).is_err(),
+            "no double extension"
+        );
         assert_eq!(session.lease_deadline(), Some(2500));
         assert!(!session.fresh(750), "maintenance never freshens topology");
         let request = session.begin_maintenance(&identity, 1000).unwrap();
@@ -266,5 +334,44 @@ fn all_three_existing_scopes_maintain_without_fresh_topology_and_cancel_retires_
         assert!(session.accept_maintenance(late, 1001).is_err());
         assert_eq!(session.lease_deadline(), None);
         assert!(session.begin_maintenance(&identity, 1001).is_err());
+    }
+}
+
+#[test]
+fn maintenance_scope_codec_is_canonical_without_topology_caps() {
+    for (label, wire) in [
+        ("foh", json!("foh")),
+        ("monitor1", json!("monitor1")),
+        ("monitor2", json!("monitor2")),
+        ("monitor3", json!({"monitor":3})),
+        ("monitor65535", json!({"monitor":65535})),
+        ("pa_configuration", json!("pa_configuration")),
+        ("output_routes", json!("output_routes")),
+        ("local_operator_monitor", json!("local_operator_monitor")),
+        ("talkback_destinations", json!("talkback_destinations")),
+        ("talkback_foh", json!("talkback_foh")),
+    ] {
+        let mut v = maintenance_value();
+        v["context"]["scope"] = wire.clone();
+        let reply = maintenance::Reply::decode(&bytes(&v)).unwrap();
+        assert_eq!(reply.context.scope, label);
+        assert_eq!(serde_json::to_value(&reply.context).unwrap()["scope"], wire);
+        reply.context.encode().unwrap();
+    }
+    for invalid in [
+        json!({"monitor":0}),
+        json!({"monitor":1}),
+        json!({"monitor":2}),
+        json!({"monitor":65536}),
+        json!({"monitor":3.0}),
+        json!({"monitor":"3"}),
+        json!("monitor3"),
+        json!("monitor03"),
+        json!("unknown"),
+        json!({"monitor":3,"extra":0}),
+    ] {
+        let mut v = maintenance_value();
+        v["context"]["scope"] = invalid.clone();
+        assert!(maintenance::Reply::decode(&bytes(&v)).is_err(), "{invalid}");
     }
 }
