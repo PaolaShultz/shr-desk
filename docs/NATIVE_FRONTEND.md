@@ -678,3 +678,18 @@ output. Its 50 ms freshness assertion is unchanged. This ordering is diagnostic
 hygiene, not evidence that provider closure preceded any later consumer failure;
 independent continuous provider sample checks remain required. Focused offline
 checks are implemented; combined campaign and hardware verification are separate.
+
+### Monitor device observation at admission
+
+Every reviewed `brain_monitor_set` whose resulting state is armed (including gain,
+dim and mute edits while armed) pins the UI's observed device epoch, map and complete
+configuration before queueing. Review and confirmation refresh the actual device
+after their raw/Brain reads, then recheck that pin and the original revision and
+session generation. Refresh cannot adopt a replacement device or configuration.
+Aged background cache may be refreshed; missing, disconnected, duplicate-stale or
+changed observations refuse the operation. Device freshness remains 250 ms and
+is conservatively anchored no later than query send; decoding and cancellation
+remain inside the existing bounded read. The same device pin and freshness gate
+protect byte-identical pending retries. Failure never replays a new mutation;
+replacement requires a new explicit review/rearm. These are local safety checks;
+GP15 and atomic maintenance/paired-readback wire contracts are unchanged.

@@ -36,6 +36,7 @@ pub enum Operation {
     ReviewDevice(Box<crate::brain_device::Config>, (u64, u64)),
     BrainPress(u64),
     ReviewBrain {
+        device: Option<Box<crate::audio::MonitorDevicePin>>,
         kind: String,
         body: Value,
     },
@@ -482,12 +483,19 @@ fn worker(
                             heartbeat = o.held_send_anchor().ok_or("hold send anchor missing")?;
                             Ok(())
                         }
-                        Operation::ReviewBrain { kind, body } => {
+                        Operation::ReviewBrain { kind, body, device } => {
                             if !brain_enabled {
                                 return Err("Brain explicit opt-in required".into());
                             }
                             brain_signal.release();
                             held = None;
+                            if crate::audio::monitor_armed(&kind, &body) {
+                                o.session.validate_monitor_device(
+                                    device
+                                        .as_deref()
+                                        .ok_or("reviewed monitor device required")?,
+                                )?;
+                            }
                             o.stage(&kind, body)?;
                             serial = serial.checked_add(1).ok_or("review counter exhausted")?;
                             review = Some((serial, o.reviewed().unwrap_or_default()));
@@ -1338,12 +1346,19 @@ impl Frontend {
             .and_then(|s| s.brain.as_ref())
             .ok_or("fresh Brain readback required".into())
     }
-    fn send(&mut self, operation: Operation) -> Result<(), String> {
+    fn send(&mut self, mut operation: Operation) -> Result<(), String> {
         if self.role_required && !self.provider.authorization.load(Ordering::Acquire) {
             return Err("live GP09 role lease required; keyboard-only read-only surface".into());
         }
         if !self.fresh() {
             return Err("provider stale/unavailable; operation refused".into());
+        }
+        if let Operation::ReviewBrain { kind, body, device } = &mut operation
+            && crate::audio::monitor_armed(kind, body)
+        {
+            *device = Some(Box::new(crate::audio::MonitorDevicePin::capture(
+                self.state.as_ref().and_then(|u| u.device.as_ref()),
+            )?));
         }
         let revision = self
             .state
@@ -1734,7 +1749,7 @@ impl Frontend {
             }
             Action::BrainSource(source) => {
                 let b = self.brain_confirmed()?.clone();
-                self.send(Operation::ReviewBrain{kind:"brain_monitor_set".into(),body:json!({"source":source,"gain_cdb":b.monitor_gain_cdb,"mute":b.monitor_mute,"dim":b.monitor_dim,"armed":false})})
+                self.send(Operation::ReviewBrain{device:None,kind:"brain_monitor_set".into(),body:json!({"source":source,"gain_cdb":b.monitor_gain_cdb,"mute":b.monitor_mute,"dim":b.monitor_dim,"armed":false})})
             }
             Action::BrainArm | Action::BrainDim | Action::BrainMute | Action::BrainGain(_) => {
                 let b = self.brain_confirmed()?.clone();
@@ -1743,7 +1758,7 @@ impl Frontend {
                 } else {
                     b.monitor_gain_cdb
                 };
-                self.send(Operation::ReviewBrain{kind:"brain_monitor_set".into(),body:json!({"source":b.source,"gain_cdb":gain,"mute":if matches!(action,Action::BrainMute){!b.monitor_mute}else{b.monitor_mute},"dim":if matches!(action,Action::BrainDim){!b.monitor_dim}else{b.monitor_dim},"armed":if matches!(action,Action::BrainArm){true}else{b.monitor_armed}})})
+                self.send(Operation::ReviewBrain{device:None,kind:"brain_monitor_set".into(),body:json!({"source":b.source,"gain_cdb":gain,"mute":if matches!(action,Action::BrainMute){!b.monitor_mute}else{b.monitor_mute},"dim":if matches!(action,Action::BrainDim){!b.monitor_dim}else{b.monitor_dim},"armed":if matches!(action,Action::BrainArm){true}else{b.monitor_armed}})})
             }
             Action::TalkbackConfigure {
                 monitors,
@@ -1753,6 +1768,7 @@ impl Frontend {
                 self.brain_confirmed()?;
                 self.talkback_release();
                 self.send(Operation::ReviewBrain {
+                    device: None,
                     kind: "brain_talkback_set".into(),
                     body: json!({"monitors":monitors,"gain_cdb":gain_cdb,"mute":mute}),
                 })
@@ -1761,6 +1777,7 @@ impl Frontend {
                 self.brain_confirmed()?;
                 self.talkback_release();
                 self.send(Operation::ReviewBrain {
+                    device: None,
                     kind: "brain_talkback_foh".into(),
                     body: json!({"enabled":enabled}),
                 })
@@ -3437,6 +3454,57 @@ mod processing_tests {
         std::thread::sleep(Duration::from_millis(105));
         f.pump();
         assert!(!f.provider.brain_signal.live());
+    }
+    #[test]
+    fn every_armed_monitor_action_pins_the_ui_device_before_queueing() {
+        for action in [
+            Action::BrainArm,
+            Action::BrainGain(-1800),
+            Action::BrainDim,
+            Action::BrainMute,
+        ] {
+            let (mut f, rx) = brain_surface();
+            let crate::brain_device::Message::Snapshot(d) = crate::brain_device::decode(
+                include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+            )
+            .unwrap() else {
+                panic!()
+            };
+            let pin = crate::audio::MonitorDevicePin::capture(Some(&d)).unwrap();
+            let u = f.state.as_mut().unwrap();
+            u.device = Some(d);
+            u.device_fresh = false; // Worker refreshes; the queued identity must not change.
+            u.brain.as_mut().unwrap().monitor_armed = true;
+            f.action(action).unwrap();
+            let request = rx.try_recv().unwrap();
+            let Operation::ReviewBrain { body, device, .. } = request.operation else {
+                panic!()
+            };
+            assert_eq!(body["armed"], true);
+            assert_eq!(device.as_deref(), Some(&pin));
+            f.state
+                .as_mut()
+                .unwrap()
+                .device
+                .as_mut()
+                .unwrap()
+                .observation
+                .as_mut()
+                .unwrap()
+                .brain_epoch += 1;
+            assert_ne!(
+                device.as_deref(),
+                Some(
+                    &crate::audio::MonitorDevicePin::capture(
+                        f.state.as_ref().unwrap().device.as_ref()
+                    )
+                    .unwrap()
+                )
+            );
+        }
+        let (mut f, rx) = brain_surface();
+        assert!(f.action(Action::BrainArm).is_err());
+        assert!(rx.try_recv().is_err());
     }
     #[test]
     fn device_restart_and_map_change_discard_old_drafts_before_review() {

@@ -142,6 +142,8 @@ fn present_review(f: &mut Frontend, end: Instant) {
     });
 }
 fn review(f: &mut Frontend, end: Instant, requested: Action) {
+    // Device freshness is established by production review/confirmation after
+    // topology reads; a driver-side wait here cannot guarantee admission safety.
     fresh_snapshot(f, end);
     wait(f, end, "fresh Brain before action", |f| {
         f.fresh() && f.state.as_ref().is_some_and(|u| u.brain_fresh)

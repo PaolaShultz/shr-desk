@@ -642,8 +642,34 @@ pub enum PendingState {
     Accepted,
     Uncertain,
 }
+/// Local reviewed device context; never serialized into the GP15 wire request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MonitorDevicePin {
+    identity: (u64, u64),
+    config: crate::brain_device::Config,
+}
+impl MonitorDevicePin {
+    pub fn capture(device: Option<&crate::brain_device::Snapshot>) -> Result<Self, String> {
+        let device = device.ok_or("actual monitor device observation required")?;
+        Ok(Self {
+            identity: device
+                .identity()
+                .ok_or("connected monitor device required")?,
+            config: device
+                .observation
+                .as_ref()
+                .ok_or("monitor device observation required")?
+                .config
+                .clone(),
+        })
+    }
+}
+pub(crate) fn monitor_armed(kind: &str, body: &Value) -> bool {
+    kind == "brain_monitor_set" && body["armed"] == true
+}
 #[derive(Clone, Debug)]
 pub struct Pending {
+    monitor_device: Option<MonitorDevicePin>,
     pub request: Request,
     pub first_send: u64,
     pub state: PendingState,
@@ -1066,6 +1092,17 @@ impl Session {
                 .device
                 .as_ref()
                 .is_some_and(|s| s.connected && s.observation.is_some())
+    }
+    pub(crate) fn validate_monitor_device(&self, pin: &MonitorDevicePin) -> Result<(), String> {
+        if MonitorDevicePin::capture(self.device.as_ref()).as_ref() != Ok(pin) {
+            return fail(
+                "reviewed monitor device epoch/map/config changed; explicit fresh review required",
+            );
+        }
+        Ok(())
+    }
+    pub(crate) fn anchor_device_receipt(&mut self, sent: u64) {
+        self.device_receipt = self.device_receipt.map(|receipt| receipt.min(sent));
     }
     /// The pin is local intent metadata; GP15-device wire bytes remain unchanged.
     pub(crate) fn validate_device_intent(&self, body: &Value, now: u64) -> Result<(), String> {
@@ -1765,6 +1802,7 @@ impl Session {
         };
         request.encode()?;
         self.pending = Some(Pending {
+            monitor_device: None,
             request: request.clone(),
             first_send: now,
             state: PendingState::Sent,
@@ -1816,6 +1854,11 @@ impl Session {
         };
         request.encode()?;
         self.pending = Some(Pending {
+            monitor_device: if monitor_armed(kind, &request.body) {
+                Some(MonitorDevicePin::capture(self.device.as_ref())?)
+            } else {
+                None
+            },
             request: request.clone(),
             first_send: now,
             state: PendingState::Sent,
@@ -2019,8 +2062,11 @@ impl Session {
     }
     pub fn retry(&mut self, now: u64) -> Option<Request> {
         if self.pending.as_ref().is_some_and(|p| {
-            p.request.kind == "device_configure"
-                && self.validate_device_intent(&p.request.body, now).is_err()
+            (p.request.kind == "device_configure"
+                && self.validate_device_intent(&p.request.body, now).is_err())
+                || p.monitor_device.as_ref().is_some_and(|pin| {
+                    !self.device_fresh(now) || self.validate_monitor_device(pin).is_err()
+                })
         }) {
             self.pending.as_mut()?.state = PendingState::Uncertain;
             return None;
@@ -2395,6 +2441,7 @@ mod structural_reply_tests {
         request.context.request_id = Some("1".into());
         request.context.expected_revision = Some(snapshot.revision.clone());
         let pending = Pending {
+            monitor_device: None,
             request: request.clone(),
             first_send: 0,
             state: PendingState::Sent,
@@ -2526,6 +2573,7 @@ mod actual_structural_exchange_tests {
                 }
                 if session.pending.is_none() {
                     session.pending = Some(Pending {
+                        monitor_device: None,
                         request: Request {
                             version: 2,
                             context: reply.context.clone(),
@@ -2679,6 +2727,82 @@ mod brain_safety_tests {
         assert!(s.needs_snapshot);
         s.invalidate_brain_observation();
         assert!(!s.brain_fresh(2));
+    }
+    #[test]
+    fn monitor_retry_pins_device_and_keeps_original_freshness_boundary() {
+        for fault in [
+            "none",
+            "epoch",
+            "map",
+            "config",
+            "identity",
+            "disconnected",
+            "missing",
+            "stale",
+        ] {
+            let mut s = session("local_operator_monitor");
+            s.dispatch_device(
+                include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+                0,
+            )
+            .unwrap();
+            let body = json!({"source":{"kind":"main"},"gain_cdb":-1800,"mute":false,"dim":false,"armed":true});
+            let request = s.begin("brain_monitor_set", body, 0).unwrap();
+            let wire: Value = serde_json::from_slice(&request.encode().unwrap()).unwrap();
+            assert_eq!(wire["body"].as_object().unwrap().len(), 5);
+            match fault {
+                "epoch" => {
+                    s.device
+                        .as_mut()
+                        .unwrap()
+                        .observation
+                        .as_mut()
+                        .unwrap()
+                        .brain_epoch += 1
+                }
+                "map" => {
+                    s.device
+                        .as_mut()
+                        .unwrap()
+                        .observation
+                        .as_mut()
+                        .unwrap()
+                        .brain_map += 1
+                }
+                "config" => {
+                    s.device
+                        .as_mut()
+                        .unwrap()
+                        .observation
+                        .as_mut()
+                        .unwrap()
+                        .config
+                        .period_frames = 96
+                }
+                "identity" => {
+                    s.device
+                        .as_mut()
+                        .unwrap()
+                        .observation
+                        .as_mut()
+                        .unwrap()
+                        .config
+                        .device_id = "replacement".into()
+                }
+                "disconnected" => s.device.as_mut().unwrap().connected = false,
+                "missing" => s.device = None,
+                _ => (),
+            }
+            let now = if fault == "stale" { 251 } else { 100 };
+            if fault == "none" {
+                assert_eq!(s.retry(now).unwrap(), request);
+                assert_eq!(s.retry(250).unwrap(), request);
+                assert!(s.retry(251).is_none());
+            } else {
+                assert!(s.retry(now).is_none(), "{fault}");
+            }
+            assert_eq!(s.pending.as_ref().unwrap().state, PendingState::Uncertain);
+        }
     }
     #[test]
     fn brain_source_arm_requires_separate_readback_and_monitor_readiness() {
