@@ -263,7 +263,24 @@ fn worker(
                 Err(e) => status = format!("UNAVAILABLE: {e}"),
             }
         }
-        if let Ok(r) = rx.recv_timeout(Duration::from_millis(if held.is_some() { 5 } else { 40 })) {
+        if let Some(o) = &mut op {
+            o.guard(generation.clone(), g);
+            service_worker_hold(
+                o,
+                &brain_signal,
+                &mut held,
+                &mut heartbeat,
+                &mut brain_status,
+            );
+        }
+        let receive_wait = if held.is_some() {
+            (heartbeat + Duration::from_millis(20))
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(5))
+        } else {
+            Duration::from_millis(40)
+        };
+        if let Ok(r) = rx.recv_timeout(receive_wait) {
             // A recovery request can wake recv after its generation was revoked.
             // Synchronize before comparing so a fresh reconnect is never discarded.
             let current = generation.load(Ordering::Acquire);
@@ -293,6 +310,29 @@ fn worker(
             {
                 status = "ROLE UNAVAILABLE: new provider writes refused".into();
                 continue;
+            }
+            if held.is_some() && matches!(r.operation, Operation::BrainPress(_)) {
+                // Reject before the common revision refresh can block this hold.
+                status = "PTT repeated press refused; existing gesture unchanged".into();
+                continue;
+            }
+            // A held lane must never enter an unbounded ordinary action. End the
+            // gesture before configuration/review/renew/reconnect work begins.
+            if held.is_some()
+                && !matches!(
+                    r.operation,
+                    Operation::InputReleased | Operation::BrainPress(_)
+                )
+            {
+                brain_signal.release();
+                if let Some(o) = &mut op
+                    && let Err(e) = o.close_brain()
+                {
+                    status = format!("held close failed: {e}");
+                    held = None;
+                    continue;
+                }
+                held = None;
             }
             if !matches!(r.operation, Operation::InputReleased) {
                 operation_error = None;
@@ -389,7 +429,9 @@ fn worker(
                     _ => None,
                 };
                 let result = (|| {
-                    if let Some(revision) = &r.revision {
+                    if !matches!(r.operation, Operation::InputReleased)
+                        && let Some(revision) = &r.revision
+                    {
                         o.refresh()?;
                         if o.session
                             .snapshot
@@ -433,7 +475,7 @@ fn worker(
                             .ok_or("PTT generation exhausted")?;
                             o.brain_edge("brain_hold", next)?;
                             held = Some((intent, next));
-                            heartbeat = Instant::now();
+                            heartbeat = o.held_send_anchor().ok_or("hold send anchor missing")?;
                             Ok(())
                         }
                         Operation::ReviewBrain { kind, body } => {
@@ -581,111 +623,77 @@ fn worker(
                     received: Instant::now(),
                 });
             }
-            if authorization.load(Ordering::Acquire)
-                && o.session.renewal_due(o.now())
-                && let Err(e) = o.mutate("renew", json!({}))
-            {
-                status = format!("LEASE UNCERTAIN: {e}");
-            }
-            if brain_enabled {
-                if held.is_none() && device_poll.elapsed() >= Duration::from_millis(180) {
-                    if let Err(e) = o.refresh_device() {
-                        brain_status = format!("device unavailable: {e}");
+            if held.is_none() {
+                if authorization.load(Ordering::Acquire)
+                    && o.session.renewal_due(o.now())
+                    && let Err(e) = o.mutate("renew", json!({}))
+                {
+                    status = format!("LEASE UNCERTAIN: {e}");
+                }
+                if brain_enabled {
+                    if device_poll.elapsed() >= Duration::from_millis(180) {
+                        if let Err(e) = o.refresh_device() {
+                            brain_status = format!("device unavailable: {e}");
+                        }
+                        device_poll = Instant::now();
                     }
-                    device_poll = Instant::now();
+                    if brain_poll.elapsed() >= Duration::from_millis(40) {
+                        match o.refresh_brain() {
+                            Ok(()) => brain_status = "actual readback received".into(),
+                            Err(e) => {
+                                brain_status = format!("STALE: {e}");
+                                brain_signal.release();
+                                held = None;
+                                let _ = o.close_brain();
+                            }
+                        }
+                        brain_poll = Instant::now();
+                    }
                 }
-                if held.is_some() && !brain_signal.live() {
-                    brain_signal.release();
-                    let _ = o.close_brain();
-                    held = None;
+                if config.wire_version == 2
+                    && matches!(config.scope.as_str(), "pa_configuration" | "output_routes")
+                    && let Err(error) = o.refresh_structural()
+                {
+                    status = format!("Structural state unavailable: {error}");
                 }
-                if brain_poll.elapsed() >= Duration::from_millis(40) {
-                    match o.refresh_brain() {
-                        Ok(()) => brain_status = "actual readback received".into(),
+                if processing_enabled && processing_poll.elapsed() >= Duration::from_millis(80) {
+                    match o.refresh_processing() {
+                        Ok(()) => processing_status = "capability confirmed".into(),
                         Err(e) => {
-                            brain_status = format!("STALE: {e}");
-                            brain_signal.release();
-                            held = None;
-                            let _ = o.close_brain();
+                            // A bounded read-only poll may overlap a context fence or
+                            // lose its observation to a deadline. Keep polling without
+                            // replaying mutations; explicit unsupported replies disable it.
+                            processing_status = format!("STALE/UNAVAILABLE: {e}");
+                            if e.starts_with("processing unavailable:") {
+                                processing_enabled = false;
+                            }
                         }
                     }
-                    brain_poll = Instant::now();
+                    processing_poll = Instant::now();
                 }
-                if let Some((intent, n)) = held {
-                    let refused = o.session.pending.is_none()
-                        && (o
-                            .session
-                            .brain_final
-                            .as_ref()
-                            .is_some_and(|r| r.reason.is_some())
-                            || o.session.brain.as_ref().is_none_or(|b| {
-                                b.held_generation.as_deref() != Some(n.to_string().as_str())
-                            }));
-                    if refused
-                        || !brain_signal.live_id(intent)
-                        || !o.session.brain_fresh(o.now())
-                        || o.session.lease_deadline().is_none_or(|d| o.now() >= d)
-                    {
-                        brain_signal.release();
-                        let _ = o.close_brain();
-                        held = None;
-                    } else if heartbeat.elapsed()
-                        >= Duration::from_millis(crate::brain::HEARTBEAT_MS)
-                        && o.session.pending.is_none()
-                    {
-                        if let Err(e) = o.brain_edge("brain_heartbeat", n) {
-                            brain_status = e;
-                            brain_signal.release();
-                            held = None;
-                            let _ = o.close_brain();
-                        }
-                        heartbeat = Instant::now();
-                    }
+                if o.session.structural_final.is_some() {
+                    structural_final = o.session.structural_final.clone();
                 }
-            }
-            if config.wire_version == 2
-                && matches!(config.scope.as_str(), "pa_configuration" | "output_routes")
-                && let Err(error) = o.refresh_structural()
-            {
-                status = format!("Structural state unavailable: {error}");
-            }
-            if processing_enabled && processing_poll.elapsed() >= Duration::from_millis(80) {
-                match o.refresh_processing() {
-                    Ok(()) => processing_status = "capability confirmed".into(),
-                    Err(e) => {
-                        // A bounded read-only poll may overlap a context fence or
-                        // lose its observation to a deadline. Keep polling without
-                        // replaying mutations; explicit unsupported replies disable it.
-                        processing_status = format!("STALE/UNAVAILABLE: {e}");
-                        if e.starts_with("processing unavailable:") {
-                            processing_enabled = false;
-                        }
-                    }
+                if generation.load(Ordering::Acquire) != g {
+                    // The next loop cancels the old context and installs its new guard.
+                    // A healthy read-only connection/lease survives ordinary focus loss.
+                    continue;
                 }
-                processing_poll = Instant::now();
-            }
-            if o.session.structural_final.is_some() {
-                structural_final = o.session.structural_final.clone();
-            }
-            if generation.load(Ordering::Acquire) != g {
-                // The next loop cancels the old context and installs its new guard.
-                // A healthy read-only connection/lease survives ordinary focus loss.
-                continue;
-            }
-            let refreshed = refresh_worker_context(o, &generation, g);
-            if matches!(refreshed, Ok(false)) {
-                continue;
-            }
-            if let Err(e) = refreshed {
-                status = format!("STALE/UNCERTAIN: {e}; F5 reconnect, no replay");
-                review = None;
-                o.cancel();
-                o.session.disconnect();
-                op = None;
-            } else if review.is_some() && !o.review_valid() {
-                review = None;
-                o.cancel();
-                status = "review invalidated by provider context/revision; review again".into();
+                let refreshed = refresh_worker_context(o, &generation, g);
+                if matches!(refreshed, Ok(false)) {
+                    continue;
+                }
+                if let Err(e) = refreshed {
+                    status = format!("STALE/UNCERTAIN: {e}; F5 reconnect, no replay");
+                    review = None;
+                    o.cancel();
+                    o.session.disconnect();
+                    op = None;
+                } else if review.is_some() && !o.review_valid() {
+                    review = None;
+                    o.cancel();
+                    status = "review invalidated by provider context/revision; review again".into();
+                }
             }
         }
         if generation.load(Ordering::Acquire) != g {
@@ -727,6 +735,37 @@ fn worker(
         let _ = o.close_brain();
     }
     // Persistent mixer holds remain engine-owned; only ephemeral talkback closes.
+}
+
+/// Runs before dequeuing any event, including stale/repeated events. The same
+/// service is exercised by the delayed-transport worker regressions.
+pub(crate) fn service_worker_hold(
+    operator: &mut Operator,
+    signal: &crate::brain::HoldSignal,
+    held: &mut Option<(u64, u64)>,
+    heartbeat: &mut Instant,
+    status: &mut String,
+) {
+    if let Some((intent, generation)) = *held {
+        if !signal.live_id(intent) {
+            signal.release();
+            let _ = operator.close_brain();
+            *held = None;
+        } else if heartbeat.elapsed() >= Duration::from_millis(20) {
+            match operator.service_held(generation) {
+                Ok(sent) => {
+                    *heartbeat = sent;
+                    *status = "held service readback received".into();
+                }
+                Err(error) => {
+                    *status = format!("held service stopped: {error}");
+                    signal.release();
+                    *held = None;
+                    let _ = operator.close_brain();
+                }
+            }
+        }
+    }
 }
 
 /// False means a pure guard cancellation: the worker retains the connection and

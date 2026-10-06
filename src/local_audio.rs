@@ -332,6 +332,7 @@ struct BrainProbes {
 }
 pub struct Operator {
     brain_probes: BrainProbes,
+    last_brain_send: Option<Instant>,
     transport: Box<dyn AuthorityConnection>,
     pub(crate) session: Session,
     start: Instant,
@@ -425,6 +426,7 @@ impl Operator {
             guard: None,
             brain_signal: None,
             brain_probes: BrainProbes::default(),
+            last_brain_send: None,
         })
     }
     pub(crate) fn cancel(&mut self) {
@@ -734,6 +736,13 @@ impl Operator {
         self.finish_brain_operation(result)
     }
     fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), BrainOperationError> {
+        self.refresh_brain_budget(deadline, &mut 64)
+    }
+    fn refresh_brain_budget(
+        &mut self,
+        deadline: Instant,
+        remaining: &mut usize,
+    ) -> Result<(), BrainOperationError> {
         let began = Instant::now();
         let budget = deadline.saturating_duration_since(began);
         self.brain_guard()?;
@@ -747,7 +756,11 @@ impl Operator {
             if Instant::now() >= deadline {
                 break;
             }
+            if *remaining == 0 {
+                break;
+            }
             if let Some(bytes) = self.transport.receive_until(deadline)? {
+                *remaining -= 1;
                 if Instant::now() >= deadline {
                     break;
                 }
@@ -825,6 +838,172 @@ impl Operator {
             self.session.brain.as_ref().map(|b| b.revision.as_str()), self.session.brain_age(now), self.session.brain_fresh(now),
             requested_revision, self.brain_probes.pending.len(),
         ).into())
+    }
+    pub(crate) fn held_send_anchor(&self) -> Option<Instant> {
+        self.last_brain_send
+    }
+    fn held_guard(&mut self) -> Result<(), BrainOperationError> {
+        self.brain_guard()?;
+        if self
+            .brain_signal
+            .as_ref()
+            .is_some_and(|signal| !signal.live())
+        {
+            return Err(BrainOperationError::Admission("held input released".into()));
+        }
+        Ok(())
+    }
+    // Only correlated completion is accepted. Empty first-byte polls are wakes;
+    // partial frame errors remain fatal and are never retried here.
+    fn settle_held_pending(
+        &mut self,
+        deadline: Instant,
+        remaining: &mut usize,
+    ) -> Result<(), BrainOperationError> {
+        while self.session.pending.is_some() {
+            self.held_guard()?;
+            if Instant::now() >= deadline || *remaining == 0 {
+                return Err("held completion budget exhausted".into());
+            }
+            let receive_deadline = deadline.min(
+                self.start
+                    + Duration::from_millis(
+                        self.session
+                            .pending_authority_deadline()
+                            .ok_or("held authority expired")?,
+                    ),
+            );
+            if Instant::now() >= receive_deadline {
+                return Err("held authority expired".into());
+            }
+            if let Some(bytes) = self.transport.receive_until(receive_deadline)? {
+                *remaining -= 1;
+                let expected_brain = self
+                    .session
+                    .pending
+                    .as_ref()
+                    .filter(|p| matches!(p.request.kind.as_str(), "brain_hold" | "brain_heartbeat"))
+                    .map(|p| p.request.context.clone());
+                if !self.processing_frame(&bytes)? {
+                    let reply = audio::decode_reply(&bytes)?;
+                    if reply.context == self.session.snapshot_request().context {
+                        self.telemetry(&reply)?;
+                    } else {
+                        let refused = reply.state == "final"
+                            && reply.outcome.as_ref().is_some_and(|o| o.kind != "applied");
+                        self.session.accept(reply, self.now())?;
+                        if refused {
+                            return Err("held renewal refused".into());
+                        }
+                    }
+                }
+                if self.session.pending.is_none()
+                    && let Some(expected) = expected_brain
+                    && let Some(final_reply) = self.session.brain_final.as_ref()
+                    && final_reply.context == expected
+                    && let Some(reason) = &final_reply.reason
+                {
+                    return Err(BrainOperationError::Admission(format!(
+                        "held Brain refused: {reason}"
+                    )));
+                }
+                self.held_guard()?;
+            } else {
+                std::thread::sleep(
+                    deadline
+                        .saturating_duration_since(Instant::now())
+                        .min(Duration::from_millis(1)),
+                );
+            }
+        }
+        if Instant::now() >= deadline {
+            return Err("held completion deadline".into());
+        }
+        Ok(())
+    }
+    /// The real worker's entire held maintenance path. No passive250ms poll or
+    /// ordinary1900ms mutation wait is reachable while this service owns the hold.
+    pub(crate) fn service_held(&mut self, generation: u64) -> Result<Instant, String> {
+        let began = Instant::now();
+        let initial_anchor = self.last_brain_send;
+        let result = (|| -> Result<Instant, BrainOperationError> {
+            let deadline =
+                self.last_brain_send.ok_or("held send anchor missing")? + Duration::from_millis(50);
+            if Instant::now() >= deadline {
+                return Err("held service arrived late".into());
+            }
+            self.held_guard()?;
+            let mut remaining = 64;
+            self.settle_held_pending(deadline, &mut remaining)?;
+            self.refresh_brain_budget(
+                deadline.min(Instant::now() + Duration::from_millis(30)),
+                &mut remaining,
+            )?;
+            self.held_guard()?;
+            let (body, probe_deadline) = self
+                .heartbeat_probe_body(generation, Instant::now())
+                .map_err(BrainOperationError::Admission)?;
+            let request = self
+                .session
+                .begin("brain_heartbeat", body, self.now())
+                .map_err(BrainOperationError::Admission)?;
+            let sent = Instant::now();
+            self.transport
+                .send_frame_until(&request.encode()?, deadline.min(probe_deadline))?;
+            self.last_brain_send = Some(sent);
+            // Completion and due renewal use the NEXT period, anchored to actual
+            // send start, not to work completion or a fresh per-read timeout.
+            let next = sent + Duration::from_millis(50);
+            self.settle_held_pending(next, &mut remaining)?;
+            self.refresh_brain_budget(
+                next.min(Instant::now() + Duration::from_millis(30)),
+                &mut remaining,
+            )?;
+            if self.session.renewal_due(self.now()) {
+                let request = self.session.begin("renew", json!({}), self.now())?;
+                self.held_guard()?;
+                let renewal_deadline = next.min(
+                    self.start
+                        + Duration::from_millis(
+                            self.session
+                                .pending_authority_deadline()
+                                .ok_or("held renewal authority missing")?,
+                        ),
+                );
+                if Instant::now() >= renewal_deadline {
+                    return Err("held renewal authority expired".into());
+                }
+                self.transport
+                    .send_frame_until(&request.encode()?, renewal_deadline)?;
+                self.settle_held_pending(next, &mut remaining)?;
+            }
+            Ok(sent)
+        })();
+        match result {
+            Ok(sent) => Ok(sent),
+            Err(error) => {
+                let timing = format!(
+                    "held_elapsed_ms={} initial_send_age_ms={:?} last_send_age_ms={:?}",
+                    began.elapsed().as_millis(),
+                    initial_anchor.map(|t| t.elapsed().as_millis()),
+                    self.last_brain_send.map(|t| t.elapsed().as_millis())
+                );
+                let error = match error {
+                    BrainOperationError::Admission(reason) => {
+                        BrainOperationError::Admission(format!("{reason}; {timing}"))
+                    }
+                    BrainOperationError::Fault(reason) => {
+                        BrainOperationError::Fault(format!("{reason}; {timing}"))
+                    }
+                };
+                let result = self.finish_brain_operation(Err(error));
+                if let Some(signal) = &self.brain_signal {
+                    signal.release();
+                }
+                let _ = self.close_brain();
+                result.map(|()| Instant::now())
+            }
+        }
     }
     pub(crate) fn close_brain(&mut self) -> Result<(), String> {
         if self
@@ -921,9 +1100,12 @@ impl Operator {
                 .session
                 .begin(kind, body, self.now())
                 .map_err(BrainOperationError::Admission)?;
+            let sent = Instant::now();
             self.transport
                 .send_frame_until(&r.encode()?, deadline)
-                .map_err(BrainOperationError::Fault)
+                .map_err(BrainOperationError::Fault)?;
+            self.last_brain_send = Some(sent);
+            Ok(())
         })();
         self.finish_brain_operation(result)
     }
@@ -1583,6 +1765,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         guard: None,
         brain_signal: None,
         brain_probes: BrainProbes::default(),
+        last_brain_send: None,
     };
     op.refresh()?;
     let session_deadline = Instant::now() + Duration::from_secs(30);
@@ -1882,6 +2065,7 @@ mod gp07_stage_tests {
             guard: None,
             brain_signal: None,
             brain_probes: BrainProbes::default(),
+            last_brain_send: None,
         };
         assert!(!op.session.processing_fresh(op.now()));
         if change_before_stage {
@@ -2763,6 +2947,247 @@ mod brain_fifo_tests {
         assert_eq!(error, "partial probe send");
         assert!(op.brain_probes.invalid);
         assert_eq!(op.brain_probes.first_fault.as_deref(), Some(error.as_str()));
+    }
+    struct HeldPeer {
+        raw: Value,
+        brain: Value,
+        replies: VecDeque<Vec<u8>>,
+        sent: Arc<Mutex<Vec<(Value, Instant, Instant)>>>,
+        fail: Option<&'static str>,
+    }
+    impl AuthorityConnection for HeldPeer {
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            self.sent
+                .lock()
+                .unwrap()
+                .push((request.clone(), Instant::now(), deadline));
+            let mut context = request.clone();
+            context.as_object_mut().unwrap().retain(|k, _| {
+                [
+                    "show_id",
+                    "module",
+                    "epoch",
+                    "writer",
+                    "lease",
+                    "request_id",
+                    "expected_revision",
+                ]
+                .contains(&k.as_str())
+            });
+            let revision = self.brain["snapshot"]["revision"]
+                .as_str()
+                .unwrap()
+                .parse::<u64>()
+                .unwrap();
+            let frame = self.brain["snapshot"]["frame"]
+                .as_str()
+                .unwrap()
+                .parse::<u64>()
+                .unwrap()
+                + 48;
+            let reply = match request["kind"].as_str().unwrap() {
+                "brain_snapshot" => {
+                    self.brain["snapshot"]["frame"] = json!(frame.to_string());
+                    self.brain.clone()
+                }
+                "snapshot" => raw_at(&self.raw, &revision.to_string(), &frame.to_string()),
+                "heartbeat" | "release" => {
+                    let held = request["kind"] == "heartbeat";
+                    self.brain["revision"] = json!((revision + 1).to_string());
+                    self.brain["snapshot"]["revision"] = json!((revision + 1).to_string());
+                    self.brain["snapshot"]["frame"] = json!(frame.to_string());
+                    self.brain["snapshot"]["held_generation"] =
+                        if held { json!("1") } else { Value::Null };
+                    self.brain["snapshot"]["hold_deadline_ms"] =
+                        if held { json!("99999") } else { Value::Null };
+                    json!({"contract":"GP15-brain","version":1,"state":"final","reason":null,"context":context,"revision":(revision+1).to_string(),"applied_frame":frame.to_string(),"snapshot":self.brain["snapshot"]})
+                }
+                "renew" => {
+                    let mut reply: Value = serde_json::from_slice(include_bytes!(
+                        "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+                    ))
+                    .unwrap();
+                    reply["context"] = context.clone();
+                    for (k, v) in context.as_object().unwrap() {
+                        reply["outcome"][k] = v.clone();
+                    }
+                    reply["snapshot"] = Value::Null;
+                    reply["outcome"]["body"]["granted_lease"] = Value::Null;
+                    reply["outcome"]["body"]["revision"] = json!(revision.to_string());
+                    reply
+                }
+                other => panic!("passive/ordinary maintenance entered held service: {other}"),
+            };
+            self.replies.push_back(serde_json::to_vec(&reply).unwrap());
+            Ok(())
+        }
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            if self.fail == Some("slow_ack") {
+                if self.replies.front().is_some_and(|b| {
+                    serde_json::from_slice::<Value>(b).unwrap()["state"] == "final"
+                }) {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                return Ok(self.replies.pop_front());
+            }
+            if let Some(fail) = self.fail {
+                if fail == "partial" {
+                    return Err("partial held frame".into());
+                }
+                std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                return Ok(None);
+            }
+            Ok(self.replies.pop_front())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            panic!("legacy passive drain entered held service")
+        }
+    }
+    fn held_peer(
+        op: &mut Operator,
+        raw: Value,
+        fail: Option<&'static str>,
+    ) -> Arc<Mutex<Vec<(Value, Instant, Instant)>>> {
+        let signal = Arc::new(crate::brain::HoldSignal::default());
+        signal.press();
+        op.brain_signal(signal);
+        let b = op.session.brain.as_mut().unwrap();
+        b.held_generation = Some("1".into());
+        b.hold_generation_counter = "1".into();
+        b.hold_deadline_ms = Some("99999".into());
+        let brain = probe_reply(op, b_frame(op) + 48);
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(HeldPeer {
+            raw,
+            brain,
+            replies: VecDeque::new(),
+            sent: sent.clone(),
+            fail,
+        });
+        op.last_brain_send = Some(Instant::now());
+        sent
+    }
+    fn b_frame(op: &Operator) -> u64 {
+        op.session.brain.as_ref().unwrap().frame.parse().unwrap()
+    }
+    #[test]
+    fn held_worker_service_renews_beyond_two_seconds_and_key_up_closes() {
+        let (mut op, _, raw) = setup();
+        let old_expiry = op.session.lease_deadline().unwrap();
+        let sent = held_peer(&mut op, raw, None);
+        let began = Instant::now();
+        let signal = op.brain_signal.as_ref().unwrap().clone();
+        let mut held = Some((1, 1));
+        let mut heartbeat = op.held_send_anchor().unwrap();
+        let mut status = String::new();
+        while began.elapsed() < Duration::from_millis(2100) {
+            std::thread::sleep(
+                (op.held_send_anchor().unwrap() + Duration::from_millis(20))
+                    .saturating_duration_since(Instant::now()),
+            );
+            op.brain_signal.as_ref().unwrap().pulse();
+            let prior = op.held_send_anchor().unwrap();
+            crate::frontend::service_worker_hold(
+                &mut op,
+                &signal,
+                &mut held,
+                &mut heartbeat,
+                &mut status,
+            );
+            assert_eq!(held, Some((1, 1)), "{status}");
+            assert!(heartbeat.duration_since(prior) <= Duration::from_millis(50));
+            assert!(op.session.pending.is_none());
+        }
+        assert!(op.session.lease_deadline().unwrap() > old_expiry);
+        signal.release();
+        crate::frontend::service_worker_hold(
+            &mut op,
+            &signal,
+            &mut held,
+            &mut heartbeat,
+            &mut status,
+        );
+        assert!(held.is_none());
+        let sent = sent.lock().unwrap();
+        assert!(sent.iter().any(|(r, _, _)| r["kind"] == "renew"));
+        assert!(sent.iter().any(|(r, _, _)| r["kind"] == "release"));
+        assert!(sent.iter().all(|(_, at, deadline)| *deadline >= *at
+            && deadline.duration_since(*at) <= Duration::from_millis(50)));
+        let renews: Vec<_> = sent
+            .iter()
+            .filter(|(r, _, _)| r["kind"] == "renew")
+            .collect();
+        assert!(
+            renews
+                .windows(2)
+                .all(|w| w[0].0["request_id"] != w[1].0["request_id"])
+        );
+    }
+    #[test]
+    fn held_service_anchor_precedes_delayed_completion_and_late_service_closes() {
+        let (mut op, _, raw) = setup();
+        let sent = held_peer(&mut op, raw, Some("slow_ack"));
+        let anchor = op.service_held(1).unwrap();
+        assert!(anchor.elapsed() >= Duration::from_millis(10));
+        let writes = sent.lock().unwrap();
+        let (_, write_at, _) = writes
+            .iter()
+            .find(|(r, _, _)| r["kind"] == "heartbeat")
+            .unwrap();
+        assert!(anchor <= *write_at);
+        drop(writes);
+        op.last_brain_send = Some(Instant::now() - Duration::from_millis(51));
+        assert!(op.service_held(1).unwrap_err().contains("arrived late"));
+        assert!(!op.brain_signal.as_ref().unwrap().live());
+    }
+    #[test]
+    fn held_worker_service_silence_and_partial_frame_close_without_heartbeat_retry() {
+        for failure in ["silent", "partial"] {
+            let (mut op, _, raw) = setup();
+            let sent = held_peer(&mut op, raw, Some(failure));
+            let began = Instant::now();
+            assert!(op.service_held(1).is_err());
+            assert!(began.elapsed() < Duration::from_millis(150));
+            assert!(!op.brain_signal.as_ref().unwrap().live());
+            let sent = sent.lock().unwrap();
+            assert!(sent.iter().any(|(r, _, _)| r["kind"] == "release"));
+            assert!(!sent.iter().any(|(r, _, _)| r["kind"] == "heartbeat"));
+        }
+    }
+    #[test]
+    fn held_service_correlated_refusal_closes_even_if_snapshot_still_held() {
+        for kind in ["brain_hold", "brain_heartbeat"] {
+            let (mut op, peer, raw) = setup();
+            let hold = (kind == "brain_hold").then(|| {
+                op.session
+                    .begin(kind, json!({"generation":"1"}), op.now())
+                    .unwrap()
+            });
+            held_peer(&mut op, raw, None);
+            let request = hold.unwrap_or_else(|| op.session.begin(kind, json!({"generation":"1", "observed_frame":op.session.brain.as_ref().unwrap().frame}), op.now()).unwrap());
+            let (_, mut refusal) = replies(&op, &request, true);
+            refusal["reason"] = json!("heartbeat observed frame stale/future");
+            refusal["applied_frame"] = Value::Null;
+            refusal["revision"] = json!(request.context.expected_revision.clone().unwrap());
+            refusal["snapshot"]["revision"] = refusal["revision"].clone();
+            peer.push(refusal);
+            let sent = probe_connection(&mut op, &peer, false);
+            let error = op.service_held(1).unwrap_err();
+            assert!(error.contains("held Brain refused:"), "{error}");
+            assert!(!op.brain_signal.as_ref().unwrap().live());
+            assert!(op.session.pending.is_none());
+            assert!(
+                op.session.brain.as_ref().unwrap().held_generation.is_some(),
+                "closure must not depend on heldNone readback"
+            );
+            let sent = sent.lock().unwrap();
+            assert!(!sent.is_empty());
+            assert!(
+                sent.iter().all(|r| r["kind"] == "release"),
+                "no new probe, heartbeat or renewal after refusal: {sent:?}"
+            );
+        }
     }
     struct CurrentRevisionRenew {
         raw: Value,

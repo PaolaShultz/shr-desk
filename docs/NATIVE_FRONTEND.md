@@ -535,3 +535,19 @@ The driver retains that selection for at least one second held and 350 ms after
 release. The fault marker follows a one-second held witness; its existing closure
 and two-second no-resurrection checks remain. These are driver assertions;
 independent provider sample evidence is still required.
+
+
+Held PTT uses a separate bounded worker service. Initial hold and heartbeat sends
+record their send-start instant. Pending completion, the next solicited heartbeat
+probe and its send share the previous send's 50 ms deadline; completion and
+readback after a successful heartbeat use that new send's next 50 ms period.
+A shared 64-frame cap spans the service. Due lease renewal uses that same remaining
+period and exact correlated completion; it cannot enter the ordinary 1900 ms
+mutation wait. If the period cannot accommodate the operation, the gesture closes
+without retransmitting a heartbeat or automatically granting/rearming. The existing
+30 ms probe / 20 ms send limits and provider 150 ms deadman remain unchanged.
+Passive device, processing, structural and general polling run only outside a
+hold. Queued ordinary actions end the current gesture before any blocking work;
+a later hold always requires another explicit press. This software path still
+requires integrated and physical acceptance; tighter scheduling is not a measured
+network or acoustic latency claim.
