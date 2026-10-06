@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "producer_base_revision": "ddc39eff59276a08311f01240d17e681632aaca0",
-  "producer_state": "dirty producer implementation; focused validation ongoing",
+  "producer_state": "atomic producer focused package; final source identity recorded in task handoff",
   "contract_sha256": "f9402eda414de98d64942bf1f07a6b63a667bf45072f054c7a1acad07e32446b",
   "scope": "Producer-generated offline compatibility corpus; not integration or hardware acceptance",
   "files": {
@@ -76,6 +76,30 @@
     "read-snapshot-48.json": {
       "sha256": "3324d7008fef71c2d5e609e9e9dd7a9f04a49a0d62af7d24a957016d084c94bf",
       "bytes": 151423
+    },
+    "maintain-busy.json": {
+      "sha256": "59ac5d3386489f35b51480a5d233fa27ad63f7476bb0880c2aa3a9873c30fe1c",
+      "bytes": 562
+    },
+    "maintain-permission.json": {
+      "sha256": "967e8b488d73ee498d1b9fdef8e579c93bcb2c7d816336461664732a8f92bc2e",
+      "bytes": 562
+    },
+    "read-clock.json": {
+      "sha256": "850d6ec97defa1c980fa87beecd48e63dd642089f9c701a73ceb961a2ea9552d",
+      "bytes": 505
+    },
+    "read-committed-new.json": {
+      "sha256": "a07d2e09f79bba869a332f26d696fabcd55689d3be04056b12b0b2bc26e06cc0",
+      "bytes": 102664
+    },
+    "read-identity.json": {
+      "sha256": "d491d9e87d77299ce8d1a625f101037e9e56e5502d3dee454e83cc243e04b231",
+      "bytes": 508
+    },
+    "read-pending-old.json": {
+      "sha256": "b9a6796946baabaff9b98de62c8b99340a46fec0078aea8d020705d56b70a506",
+      "bytes": 102639
     }
   }
 }
