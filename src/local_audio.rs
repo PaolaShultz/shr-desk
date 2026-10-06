@@ -756,6 +756,16 @@ impl Operator {
         self.probe_guard(held_mode)?;
         let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
+        if held_mode && !self.session.fresh(self.now()) {
+            // A pending final already made raw readback necessary. Pipeline it
+            // behind our timestamped Brain query rather than waiting for that
+            // reply first. Raw has no query identity: only exact revision pairing
+            // with the independently matched Brain probe can authorize anything.
+            self.probe_guard(held_mode)?;
+            requested_revision = self.session.brain.as_ref().map(|b| b.revision.clone());
+            self.transport
+                .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        }
         let mut loops = 0usize;
         let mut processed = 0usize;
         for _ in 0..64 {
@@ -2983,6 +2993,116 @@ mod brain_fifo_tests {
             audio::decode_snapshot(&serde_json::to_vec(&raw["snapshot"]).unwrap()).unwrap();
         op.session.snapshot = Some(parsed);
         (op, peer, raw)
+    }
+    struct PairedReadGate {
+        peer: FakeAuthorityConnection,
+        sent: Arc<Mutex<Vec<Value>>>,
+        expected_first_queries: usize,
+        first: bool,
+        deadline: Instant,
+    }
+    impl AuthorityConnection for PairedReadGate {
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            assert_eq!(deadline, self.deadline, "no nested budget reset");
+            self.sent
+                .lock()
+                .unwrap()
+                .push(serde_json::from_slice(bytes).unwrap());
+            Ok(())
+        }
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            assert_eq!(deadline, self.deadline);
+            if self.first {
+                self.first = false;
+                let sent = self.sent.lock().unwrap();
+                assert_eq!(
+                    sent.len(),
+                    self.expected_first_queries,
+                    "required queries must precede first response wait"
+                );
+                assert_eq!(sent[0]["kind"], "brain_snapshot");
+                if self.expected_first_queries == 2 {
+                    assert_eq!(sent[1]["kind"], "snapshot");
+                }
+            }
+            self.peer.receive_available()
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            self.peer.receive_available()
+        }
+    }
+    #[test]
+    fn held_stale_pair_is_pipelined_but_passive_and_fresh_paths_are_not() {
+        for (held, stale, expected_first) in [(true, true, 2), (false, true, 1), (true, false, 1)] {
+            let (mut op, peer, raw) = held_setup();
+            if stale {
+                op.start = Instant::now() - Duration::from_millis(251);
+            }
+            peer.push(probe_reply(&op, 48));
+            if stale {
+                peer.push(raw_at(&raw, "0", "48"));
+            }
+            let sent = Arc::new(Mutex::new(Vec::new()));
+            let deadline = Instant::now() + Duration::from_millis(30);
+            op.transport = Box::new(PairedReadGate {
+                peer,
+                sent: sent.clone(),
+                expected_first_queries: expected_first,
+                first: true,
+                deadline,
+            });
+            let mut remaining = 64;
+            op.refresh_brain_budget(deadline, &mut remaining, held)
+                .map_err(BrainOperationError::message)
+                .unwrap();
+            assert_eq!(remaining, if stale { 62 } else { 63 });
+            assert!(op.session.brain_fresh(op.now()));
+            let sent = sent.lock().unwrap();
+            assert_eq!(
+                sent.len(),
+                if stale { 2 } else { 1 },
+                "no duplicate raw request for the anticipated revision"
+            );
+        }
+    }
+    #[test]
+    fn held_eager_pair_reprobes_superseded_revision_without_duplicate_raw() {
+        let (mut op, peer, raw) = held_setup();
+        op.start = Instant::now() - Duration::from_millis(251);
+        peer.push(probe_reply(&op, 48));
+        peer.push(raw_at(&raw, "1", "96"));
+        let mut current = probe_reply(&op, 96);
+        current["revision"] = json!("1");
+        current["snapshot"]["revision"] = json!("1");
+        peer.push(current);
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let deadline = Instant::now() + Duration::from_millis(30);
+        op.transport = Box::new(PairedReadGate {
+            peer,
+            sent: sent.clone(),
+            expected_first_queries: 2,
+            first: true,
+            deadline,
+        });
+        let mut remaining = 64;
+        op.refresh_brain_budget(deadline, &mut remaining, true)
+            .map_err(BrainOperationError::message)
+            .unwrap();
+        assert_eq!(remaining, 61);
+        assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, 2);
+        assert_eq!(op.session.brain.as_ref().unwrap().revision, "1");
+        assert_eq!(
+            op.session.snapshot.as_ref().unwrap().authority.revision,
+            "1"
+        );
+        let sent = sent.lock().unwrap();
+        assert_eq!(
+            sent.iter()
+                .map(|r| r["kind"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["brain_snapshot", "snapshot", "brain_snapshot"]
+        );
+        assert!(sent.iter().all(|r| r["writer"].is_null()));
     }
     struct HeldPeer {
         raw: Value,

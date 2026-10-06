@@ -559,3 +559,12 @@ continue on the healthy connection. A successful no-byte wake can observe this
 cancellation, but partial frames, malformed replies and correlation errors remain
 terminal even when release occurs concurrently. The same original deadlines and
 frame limits apply; passive queries do not require an active hold.
+
+When a held final has already made raw readback stale, the worker sends its own
+Brain probe and the needed raw query consecutively before waiting for either
+reply. Both use the original service deadline and shared frame budget. Raw data
+has no query identity: admission still requires the matched current Brain probe
+and an exactly equal raw revision. A superseding revision requires a new Brain
+probe inside the same budget. Passive polling and already-fresh raw readback keep
+their existing query behavior. This removes a serial request dependency without
+changing freshness limits or claiming a measured round-trip latency.
