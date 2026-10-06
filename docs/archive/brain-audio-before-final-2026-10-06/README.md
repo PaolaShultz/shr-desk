@@ -61,14 +61,13 @@ Rust 1.97.1, edition 2024, and a locked crate with pinned serde/serde_json for t
 Code: MIT. Bundled unmodified Terminus Font: SIL OFL 1.1; see [notices](THIRD_PARTY.md).
 
 Task0015 adds explicit `--brain-audio` monitoring/talkback and duplex-device
-controls. Atomic scoped lease maintenance, paired raw/Brain readback, exact device
-review and held-action safety passed independent review and full Desk validation
-(240 default/242 native tests, 12 opt-ins excluded per suite). The same frozen
-candidate passed all seven final two-Pi software scenarios, including 16/32/48-input
-coexistence and the declared stall/restart cases.
-See [status](docs/STATUS.md) for evidence and [native frontend](docs/NATIVE_FRONTEND.md)
-for control boundaries. Physical audio remains unactivated.
-
-The [retained audio-console screen library](docs/console-screen-reference/README.md)
-contains 12 manufacturer references with per-screen notes and an offline gallery
-for future original layouts; it does not change the implemented frontend.
+configuration controls. Desk `ee95873` passed focused 88/default 206/native 208
+tests (12 ignored per normal suite), formatting, both Clippy configurations and
+releases. Trial 26 passed independent 16-input sample/talkback/overlap checks
+after a reviewed narrow checker correction; trial 27 at 32 inputs failed a held
+readback deadline. The compact held-proof design is reviewed and implementation
+is in progress, not validated. All seven final-source scenarios remain required.
+See [status](docs/STATUS.md) for benchmark workload limits and evidence, and
+[native frontend](docs/NATIVE_FRONTEND.md) for control boundaries. Historical
+trial 16 and candidate trial 26 do not qualify the new protocol. Physical audio
+remains unactivated.

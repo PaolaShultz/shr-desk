@@ -1,9 +1,10 @@
 # SHR Desk: GigPies implementation
 
 Current entry point: Task0014 provides authenticated dynamic processing and
-reviewed PA/output configuration. Task0015 adds actual Brain monitor, talkback
-and duplex-device controls, independently reviewed and software-validated through
-all seven final two-Pi scenarios. See [status](STATUS.md) and
+reviewed PA/output configuration; Task0015 adds Brain monitor, talkback and device
+controls. Trace validation passed for `78fc22f`; the reviewed sealed strict-document
+reuse candidate is under validation, with its benchmark cache-bias correction
+pending. All seven final network scenarios remain pending. See [status](STATUS.md) and
 [native frontend](NATIVE_FRONTEND.md). Physical qualification remains separate.
 
 Historical software scope **2026-10-04 / task0009**: DS-01..04 are implemented,
@@ -328,31 +329,133 @@ validation; the coordinator independently owns signal acceptance and publication
 
 ### Task0015 Brain operator consumer
 
-The real provider/frontend implements device/mapping setup, reviewed talkback
-destinations, protected FOH selection, momentary held actions, Main/monitor/PFL/AFL
-selection and local gain/mute/dim. GigPies owns the single Brain duplex device,
-two ASRC crossings, routing and safety; Desk never opens a competing PCM endpoint.
-Configured input/monitor/socket dimensions remain independent of screen banks.
+Desk owns the explicit GP15 controls, shared authority/session integration,
+keyboard and injected controller lifecycle, strict readback and complete reviews.
+GigPies owns duplex transport, endpoint configuration/application, bridge telemetry,
+DSP, source-frame expiry and all sample assertions. Desk has no PCM or sibling
+path dependency. Root provides the final producer corpus and independently owns
+acceptance and publication; a worker compile or synthetic adversary is not that
+gate. See Native frontend for the current interaction path and private task0015
+handoff for exact tested revisions and outstanding gates.
 
-Device review and confirmation pin the exact epoch, map and full configuration.
-Confirmation refreshes that same actual device after topology reads; replacement,
-expiry, cancellation and disconnect fail closed. Compact held observations preserve
-the original freshness and deadman limits. Complete raw/Brain readback is validated
-and installed atomically. Same-live-lease maintenance uses its own bounded namespace
-and replay state, with expiry anchored conservatively to the first send. Explicit
-GP15 opt-in enables it for ordinary mixer/PA scopes; legacy behavior remains intact.
 
-Producer-generated fixtures, focused authority/device/codec regressions, complete
-default/native suites, CPU-headless presentation, Clippy and releases passed.
-The same frozen candidate passed all seven final integrated scenarios: 16/32/48
-inputs, duplex stall/restart, controller stall and Stagebox restart. The consumer
-reuses only an unused valid compact proof with original-send freshness and current
-context/floors, performs maintenance before the final proof, and publishes before
-idle waiting. Independent checks establish sample correctness and safe recovery;
-no timing or safety bound was relaxed. Earlier failures remain separate evidence.
-See [current status](STATUS.md) and the owning GigPies acceptance record.
-Physical mapping, clock lock, acoustic and display/controller acceptance remain
-separate; no physical PCM was activated.
+Earlier candidate validation (2026-10-06, production `0ee87d6`, driver `2b74662`)
+passed 184 default / 186 native tests, with 11 opt-ins ignored in each, plus both
+warnings-denied Clippy configurations and release builds. Contract replies retain
+FIFO order; bounded solicited probes anchor heartbeat and GP15 renewal freshness.
+Normal input cancellation preserves query provenance and requires a new explicit
+hold, while actual transport/protocol faults remain terminal.
 
-The [dated implementation draft](archive/brain-audio-before-final-2026-10-06/GIGPIES_IMPLEMENTATION.md)
-preserves the earlier detailed checkpoints and failed-candidate history.
+Integrated acceptance remains incomplete. The 16-input trial16 passed primary
+numerical and overlap checks. Supplemental exact-reference review was pending
+at this checkpoint and later passed for historical trial16. The
+32-input trial17 failed a paired-readback deadline; 32/48-input and fault acceptance
+remain outstanding. Physical audio has not been activated or qualified. These
+results do not transfer device, DSP or clock ownership to Desk.
+
+Desk `c039da1` passed all ten validation steps: 40 focused checks, two parser
+checks, 192 default and 194 native tests, format, both warnings-denied Clippy
+configurations and both release builds. Each normal suite skipped 11 opt-ins.
+Trials 21–23 remain failed: key-up/readback cancellation, serial paired-query
+latency, then eager paired-query latency respectively. Trial 23 observed a 38 ms
+post-heartbeat step against 29 ms remaining; unchanged deadlines correctly
+refused it.
+
+An optimized opt-in offline benchmark v2 passed its one test. Median measured
+post-I/O CPU stages were 8.693/18.066/26.797 ms for 16/32/48 inputs with five
+configured monitor buses. These are descriptive CPU measurements, not end-to-end
+network, held-action or audio latency. At that checkpoint, the following measured production optimization had not yet
+been applied.
+
+All seven final scenarios remain pending: simultaneous 16/32/48 inputs, duplex
+stall, duplex restart, controller stall and Stagebox restart. Trial 16 is
+historical success from an earlier candidate. See [status](STATUS.md) for the
+reproducible benchmark command and validation evidence. No final network or
+physical acceptance is asserted here.
+
+## Historical checkpoint — authority-validation optimization and trial 24
+
+Desk `3eca755` replaces repeated authority JSON round trips with direct semantic
+validation and a bounded counting serializer, preserving strict wire checks and
+typed byte limits. All eleven validation steps passed: 79 library and 41 focused
+contract tests, an optimized benchmark, 197 default/199 native tests, format,
+both Clippy configurations and release builds. Each normal suite skipped 12
+opt-ins. The unchanged benchmark measured median post-I/O CPU totals of
+4.585/9.145/12.785 ms for 16/32/48 inputs, reductions of 47.3/49.4/52.3%.
+These are CPU observations, not network or physical latency qualification.
+
+Trial 24 remained failed: the first held action later exceeded its paired
+observation budget, 36 ms against 29 ms remaining. Brain and raw revision 58
+matched and remained fresh; all other roles exited normally. The CPU improvement
+did not resolve this deadline failure. At that checkpoint, bounded opt-in client/provider stage
+diagnostics were being implemented to distinguish waiting, scheduling and parsing;
+QUIC flow control is a hypothesis, not an established cause. Timing, freshness,
+quality and safety limits remain unchanged. All seven final scenarios are pending.
+
+## Historical checkpoint — strict-document reuse under validation
+
+Provider timing diagnostics passed 34 focused tests, default 378/hardware-host
+432 normal tests (15/30 opt-ins ignored), both Clippy configurations and release
+gates. The final style/test-only correction was independently checked. Desk
+`78fc22f` passed all nine trace-validation gates, including default 200/native 202
+normal tests with 12 opt-ins ignored in each suite.
+
+Trial 25 remains **FAILED**: Desk probe 74 at revision 50 took 31 ms against a
+29 ms budget. Explicitly correlated provider request ordinals 149/150 took about
+1.27/1.41 ms across the observed provider stages, with no observed write Pending.
+Desk's repeated strict parsing dominated its recorded elapsed stages. These are
+same-process elapsed observations, not thread CPU, one-way latency or proof of a
+network cause. The provider trace overflowed later; coverage of the identified
+pair does not establish complete whole-run coverage.
+
+A reviewed six-file Desk candidate reuses sealed, strictly validated documents.
+Focused 88 and default 206 tests passed, with 12 opt-ins ignored in the default
+suite; native, lint and release gates remain pending. Parser and canonical-size
+caps, session checks, page handling and deadlines remain unchanged. The offline
+baseline medians are 4.59/9.20/12.82 ms for the same 16/32/48-input fixture. The
+optimized benchmark has a known cache bias awaiting correction; no improvement
+number or deadline qualification is claimed for this candidate.
+
+All seven final scenarios remain pending: simultaneous 16/32/48 inputs, duplex
+stall, duplex restart, controller stall and Stagebox restart. Trial 16 is historical
+success from an earlier candidate. Publication, CI, source synchronization and
+physical qualification remain separate outstanding gates.
+
+## Current checkpoint — compact held readback in progress
+
+Desk `ee95873` passed focused 88, default 206 and native 208 tests, with 12
+opt-ins ignored in each normal suite, plus formatting, both Clippy configurations
+and release gates. Its corrected strict-document benchmark measured median
+elapsed totals of 2.045/4.221/8.359 ms for derived 16/32/48-input fixtures,
+against 4.595/9.201/12.817 ms before reuse. These are offline post-I/O elapsed
+measurements, not thread CPU or network deadline qualification. The derived
+32-input fixture is 51,096 bytes and omits a duplicate authority present in the
+actual response, which exceeds 88,283 bytes and is paged.
+
+Trial 26 completed with all roles successful and passed independent sample,
+talkback and overlap checks. Its original checker failure remains preserved:
+a reviewed correction restricts the exact-zero internal-PFL exception to an
+acknowledged selection boundary; ordinary internal taps retain the unchanged
+analytic tolerance. Trial 27 at 32 inputs failed a held paired-readback deadline,
+30 ms against 29 ms remaining. Neither result qualifies the subsequent protocol.
+Historical trial 16 belongs to an earlier candidate.
+
+The compact held-proof design is frozen and independently reviewed;
+implementation is in progress and has not been validated. It binds a fresh
+scoped authority observation to previously reviewed talkback configuration while
+keeping full UI readback separate. All seven scenarios must pass on its final
+source: simultaneous 16/32/48 inputs, duplex stall, duplex restart, controller
+stall and Stagebox restart. Publication and synchronization gates remain open.
+No physical PCM was activated; mapping, clock lock and acoustic qualification
+remain separate.
+
+## Atomic control implementation awaiting final acceptance
+
+Task0015's atomic correction adds separate consumer codecs for lease maintenance
+and committed paired readback. Desk owns strict validation, correlation,
+transactional installation, conservative expiry and cancellation. GigPies owns
+serialized lease extension/deduplication and the committed capture boundary.
+Producer-generated 16/32/48 fixtures must be hash-reconciled before compatibility
+is claimed. Focused software checks precede root's combined independent review and
+full default/native/release/integration campaign. No worker source push, network
+reservation, physical device operation or acceptance is implied.
