@@ -551,3 +551,11 @@ hold. Queued ordinary actions end the current gesture before any blocking work;
 a later hold always requires another explicit press. This software path still
 requires integrated and physical acceptance; tighter scheduling is not a measured
 network or acoustic latency claim.
+
+Held paired reads check the live input at every wait boundary and after strict
+reply validation. Key-up during post-heartbeat readback stops the held service
+without discarding outstanding query identities; passive release readback can
+continue on the healthy connection. A successful no-byte wake can observe this
+cancellation, but partial frames, malformed replies and correlation errors remain
+terminal even when release occurs concurrently. The same original deadlines and
+frame limits apply; passive queries do not require an active hold.

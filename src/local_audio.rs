@@ -736,23 +736,31 @@ impl Operator {
         self.finish_brain_operation(result)
     }
     fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), BrainOperationError> {
-        self.refresh_brain_budget(deadline, &mut 64)
+        self.refresh_brain_budget(deadline, &mut 64, false)
+    }
+    fn probe_guard(&mut self, held_mode: bool) -> Result<(), BrainOperationError> {
+        if held_mode {
+            self.held_guard()
+        } else {
+            self.brain_guard()
+        }
     }
     fn refresh_brain_budget(
         &mut self,
         deadline: Instant,
         remaining: &mut usize,
+        held_mode: bool,
     ) -> Result<(), BrainOperationError> {
         let began = Instant::now();
         let budget = deadline.saturating_duration_since(began);
-        self.brain_guard()?;
+        self.probe_guard(held_mode)?;
         let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
         let mut loops = 0usize;
         let mut processed = 0usize;
         for _ in 0..64 {
             loops += 1;
-            self.brain_guard()?;
+            self.probe_guard(held_mode)?;
             if Instant::now() >= deadline {
                 break;
             }
@@ -761,9 +769,6 @@ impl Operator {
             }
             if let Some(bytes) = self.transport.receive_until(deadline)? {
                 *remaining -= 1;
-                if Instant::now() >= deadline {
-                    break;
-                }
                 if !self.processing_frame(&bytes)? {
                     let r = audio::decode_reply(&bytes)?;
                     self.telemetry(&r)?;
@@ -771,7 +776,10 @@ impl Operator {
                 processed += 1;
                 // Validate bytes/correlation before observing concurrent cancellation:
                 // a focus change must never hide malformed or partial wire data.
-                self.brain_guard()?;
+                self.probe_guard(held_mode)?;
+                if Instant::now() >= deadline {
+                    break;
+                }
                 // Another writer may advance the common revision between our
                 // Brain reply and its raw pair. Raw cannot regress: obtain a new
                 // read-only probe within this operation's original frame/time budget.
@@ -819,6 +827,7 @@ impl Operator {
                 }
             }
         }
+        self.probe_guard(held_mode)?;
         let at = Instant::now();
         let now = self.now();
         let pending = self.brain_probes.pending.iter().find(|p| p.0 == probe);
@@ -938,6 +947,7 @@ impl Operator {
             self.refresh_brain_budget(
                 deadline.min(Instant::now() + Duration::from_millis(30)),
                 &mut remaining,
+                true,
             )?;
             self.held_guard()?;
             let (body, probe_deadline) = self
@@ -958,6 +968,7 @@ impl Operator {
             self.refresh_brain_budget(
                 next.min(Instant::now() + Duration::from_millis(30)),
                 &mut remaining,
+                true,
             )?;
             if self.session.renewal_due(self.now()) {
                 let request = self.session.begin("renew", json!({}), self.now())?;
@@ -2948,12 +2959,41 @@ mod brain_fifo_tests {
         assert!(op.brain_probes.invalid);
         assert_eq!(op.brain_probes.first_fault.as_deref(), Some(error.as_str()));
     }
+    // Scheduling tests isolate timing from full-capacity debug JSON decoding.
+    // Dynamic16/32/48 contracts and integrated profiles remain separate gates.
+    fn held_setup() -> (Operator, FakeAuthorityConnection, Value) {
+        let (mut op, peer, mut raw) = setup();
+        let snapshot = &mut raw["snapshot"];
+        snapshot["authority"]["inputs"]
+            .as_array_mut()
+            .unwrap()
+            .truncate(1);
+        let input = snapshot["authority"]["inputs"][0].clone();
+        snapshot["authority"]["parameters"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|p| p["target"]["input"] == input);
+        snapshot["coefficients"].as_array_mut().unwrap().truncate(1);
+        snapshot["topology"]["inputs"]
+            .as_array_mut()
+            .unwrap()
+            .truncate(1);
+        snapshot["topology"]["capture_channels"] = json!(1);
+        let parsed =
+            audio::decode_snapshot(&serde_json::to_vec(&raw["snapshot"]).unwrap()).unwrap();
+        op.session.snapshot = Some(parsed);
+        (op, peer, raw)
+    }
     struct HeldPeer {
         raw: Value,
         brain: Value,
         replies: VecDeque<Vec<u8>>,
         sent: Arc<Mutex<Vec<(Value, Instant, Instant)>>>,
         fail: Option<&'static str>,
+        cancel: Option<(Arc<crate::brain::HoldSignal>, &'static str)>,
+        probes: usize,
+        cancel_stage: u8,
+        cached: std::collections::BTreeMap<String, Vec<u8>>,
     }
     impl AuthorityConnection for HeldPeer {
         fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
@@ -2962,6 +3002,12 @@ mod brain_fifo_tests {
                 .lock()
                 .unwrap()
                 .push((request.clone(), Instant::now(), deadline));
+            if let Some(id) = request["request_id"].as_str()
+                && let Some(reply) = self.cached.get(id)
+            {
+                self.replies.push_back(reply.clone());
+                return Ok(());
+            }
             let mut context = request.clone();
             context.as_object_mut().unwrap().retain(|k, _| {
                 [
@@ -2986,12 +3032,20 @@ mod brain_fifo_tests {
                 .parse::<u64>()
                 .unwrap()
                 + 48;
+            let revision_text = revision.to_string();
             let reply = match request["kind"].as_str().unwrap() {
                 "brain_snapshot" => {
+                    self.probes += 1;
+                    if self.probes == 2 && self.cancel.is_some() {
+                        self.cancel_stage = 1;
+                    }
                     self.brain["snapshot"]["frame"] = json!(frame.to_string());
                     self.brain.clone()
                 }
                 "snapshot" => raw_at(&self.raw, &revision.to_string(), &frame.to_string()),
+                "heartbeat" | "release" if request["expected_revision"] != revision_text => {
+                    json!({"contract":"GP15-brain","version":1,"state":"final","reason":"stale_revision","context":context,"revision":revision.to_string(),"applied_frame":null,"snapshot":null})
+                }
                 "heartbeat" | "release" => {
                     let held = request["kind"] == "heartbeat";
                     self.brain["revision"] = json!((revision + 1).to_string());
@@ -3019,13 +3073,39 @@ mod brain_fifo_tests {
                 }
                 other => panic!("passive/ordinary maintenance entered held service: {other}"),
             };
-            self.replies.push_back(serde_json::to_vec(&reply).unwrap());
+            let bytes = serde_json::to_vec(&reply).unwrap();
+            if let Some(id) = request["request_id"].as_str() {
+                self.cached.insert(id.into(), bytes.clone());
+            }
+            self.replies.push_back(bytes);
             Ok(())
         }
         fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            if self.cancel_stage == 2 {
+                self.cancel_stage = 3;
+                let (signal, mode) = self.cancel.as_ref().unwrap();
+                signal.release();
+                match *mode {
+                    "none" => {
+                        std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                        return Ok(None);
+                    }
+                    "partial" => return Err("partial post-heartbeat probe frame".into()),
+                    "malformed" => return Ok(Some(b"{malformed".to_vec())),
+                    "late_malformed" => {
+                        std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                        return Ok(Some(b"{malformed".to_vec()));
+                    }
+                    "valid" => {}
+                    _ => unreachable!(),
+                }
+            } else if self.cancel_stage == 1 {
+                self.cancel_stage = 2;
+            }
             if self.fail == Some("slow_ack") {
                 if self.replies.front().is_some_and(|b| {
-                    serde_json::from_slice::<Value>(b).unwrap()["state"] == "final"
+                    let reply: Value = serde_json::from_slice(b).unwrap();
+                    reply["contract"] == "GP15-brain" && reply["state"] == "final"
                 }) {
                     std::thread::sleep(Duration::from_millis(10));
                 }
@@ -3049,9 +3129,17 @@ mod brain_fifo_tests {
         raw: Value,
         fail: Option<&'static str>,
     ) -> Arc<Mutex<Vec<(Value, Instant, Instant)>>> {
+        held_peer_cancellation(op, raw, fail, None)
+    }
+    fn held_peer_cancellation(
+        op: &mut Operator,
+        raw: Value,
+        fail: Option<&'static str>,
+        cancel_mode: Option<&'static str>,
+    ) -> Arc<Mutex<Vec<(Value, Instant, Instant)>>> {
         let signal = Arc::new(crate::brain::HoldSignal::default());
         signal.press();
-        op.brain_signal(signal);
+        op.brain_signal(signal.clone());
         let b = op.session.brain.as_mut().unwrap();
         b.held_generation = Some("1".into());
         b.hold_generation_counter = "1".into();
@@ -3064,6 +3152,10 @@ mod brain_fifo_tests {
             replies: VecDeque::new(),
             sent: sent.clone(),
             fail,
+            cancel: cancel_mode.map(|mode| (signal, mode)),
+            probes: 0,
+            cancel_stage: 0,
+            cached: std::collections::BTreeMap::new(),
         });
         op.last_brain_send = Some(Instant::now());
         sent
@@ -3073,7 +3165,7 @@ mod brain_fifo_tests {
     }
     #[test]
     fn held_worker_service_renews_beyond_two_seconds_and_key_up_closes() {
-        let (mut op, _, raw) = setup();
+        let (mut op, _, raw) = held_setup();
         let old_expiry = op.session.lease_deadline().unwrap();
         let sent = held_peer(&mut op, raw, None);
         let began = Instant::now();
@@ -3126,7 +3218,7 @@ mod brain_fifo_tests {
     }
     #[test]
     fn held_service_anchor_precedes_delayed_completion_and_late_service_closes() {
-        let (mut op, _, raw) = setup();
+        let (mut op, _, raw) = held_setup();
         let sent = held_peer(&mut op, raw, Some("slow_ack"));
         let anchor = op.service_held(1).unwrap();
         assert!(anchor.elapsed() >= Duration::from_millis(10));
@@ -3144,7 +3236,7 @@ mod brain_fifo_tests {
     #[test]
     fn held_worker_service_silence_and_partial_frame_close_without_heartbeat_retry() {
         for failure in ["silent", "partial"] {
-            let (mut op, _, raw) = setup();
+            let (mut op, _, raw) = held_setup();
             let sent = held_peer(&mut op, raw, Some(failure));
             let began = Instant::now();
             assert!(op.service_held(1).is_err());
@@ -3156,9 +3248,72 @@ mod brain_fifo_tests {
         }
     }
     #[test]
+    fn key_up_inside_post_heartbeat_pair_preserves_read_only_recovery() {
+        for mode in ["valid", "none"] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer_cancellation(&mut op, raw, None, Some(mode));
+            let error = op.service_held(1).unwrap_err();
+            assert!(error.contains("held input released"), "{mode}: {error}");
+            assert!(
+                !op.brain_probes.invalid,
+                "ordinary release is not a protocol fault"
+            );
+            assert!(op.brain_probes.first_fault.is_none());
+            let before = sent.lock().unwrap().clone();
+            assert_eq!(
+                before
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "heartbeat")
+                    .count(),
+                1
+            );
+            assert!(!before.iter().any(|(r, _, _)| r["kind"] == "renew"));
+            assert!(before.iter().any(|(r, _, _)| r["kind"] == "release"));
+            // Drain the retained raw/close replies, then match a new passive probe.
+            // No new gesture, automatic grant or heartbeat is issued.
+            op.refresh_brain().unwrap();
+            assert!(op.session.brain_fresh(op.now()));
+            if mode == "valid" {
+                assert!(op.session.brain.as_ref().unwrap().held_generation.is_none());
+            } else {
+                assert_eq!(
+                    op.session.brain_final.as_ref().unwrap().reason.as_deref(),
+                    Some("stale_revision")
+                );
+            }
+            assert_eq!(
+                sent.lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "heartbeat")
+                    .count(),
+                1
+            );
+        }
+    }
+    #[test]
+    fn key_up_inside_post_heartbeat_pair_does_not_hide_wire_faults() {
+        for mode in ["malformed", "late_malformed", "partial"] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer_cancellation(&mut op, raw, None, Some(mode));
+            let error = op.service_held(1).unwrap_err();
+            assert!(op.brain_probes.invalid, "{mode}: {error}");
+            assert!(!error.starts_with("held input released"));
+            assert!(op.brain_probes.first_fault.is_some());
+            assert_eq!(
+                sent.lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "heartbeat")
+                    .count(),
+                1
+            );
+        }
+    }
+    #[test]
     fn held_service_correlated_refusal_closes_even_if_snapshot_still_held() {
         for kind in ["brain_hold", "brain_heartbeat"] {
-            let (mut op, peer, raw) = setup();
+            let (mut op, peer, raw) = held_setup();
             let hold = (kind == "brain_hold").then(|| {
                 op.session
                     .begin(kind, json!({"generation":"1"}), op.now())
