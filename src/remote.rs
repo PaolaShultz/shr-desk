@@ -283,6 +283,22 @@ impl Connection {
             timing,
         })
     }
+    fn receive_document_inner(
+        &mut self,
+        deadline: Instant,
+        available: bool,
+    ) -> Result<Option<provider::StrictDocument>, String> {
+        let Some(document) = self.runtime.block_on(read_document_timed(
+            &mut self.receive,
+            deadline,
+            available,
+            &mut self.timing,
+        ))?
+        else {
+            return Ok(None);
+        };
+        accept_reply_document(document, &self.session, &mut self.timing).map(Some)
+    }
     fn receive_inner(
         &mut self,
         deadline: Instant,
@@ -323,6 +339,12 @@ impl Drop for Connection {
     }
 }
 impl AuthorityConnection for Connection {
+    fn receive_document_until(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<Option<provider::StrictDocument>, String> {
+        self.receive_document_inner(deadline, false)
+    }
     fn timing_snapshot(&self) -> Option<TransportTiming> {
         let mut timing = self.timing?;
         let stats = self.connection.stats();
@@ -430,31 +452,81 @@ async fn read_timed<R: tokio::io::AsyncRead + Unpin>(
     available: bool,
     timing: &mut Option<TransportTiming>,
 ) -> Result<Option<Response>, String> {
+    let Some(document) = read_document_timed(receive, deadline, available, timing).await? else {
+        return Ok(None);
+    };
+    let started = timing.as_ref().map(|_| Instant::now());
+    let decoded = decode_response_document(document).map(Some);
+    add_stage(timing, 4, started);
+    decoded
+}
+async fn read_document_timed<R: tokio::io::AsyncRead + Unpin>(
+    receive: &mut R,
+    deadline: Instant,
+    available: bool,
+    timing: &mut Option<TransportTiming>,
+) -> Result<Option<provider::StrictDocument>, String> {
     let Some(first) = read_frame_timed(receive, deadline, available, timing).await? else {
         return Ok(None);
     };
-    // The producer segments the complete remote Response, outside its payload.
-    // Reassemble that immutable envelope before decoding the session binding.
     let mut assembly = crate::pages::Assembly::default();
     let mut frame = first;
     loop {
         let started = timing.as_ref().map(|_| Instant::now());
-        let offered = assembly.offer(frame, Instant::now());
+        let offered = assembly.offer_document(frame, Instant::now());
         add_stage(timing, 3, started);
-        if let Some(bytes) = offered? {
-            let started = timing.as_ref().map(|_| Instant::now());
-            let decoded = decode_response(&bytes).map(Some);
-            add_stage(timing, 4, started);
-            return decoded;
+        if let Some(document) = offered? {
+            return Ok(Some(document));
         }
         frame = read_frame_timed(receive, deadline, false, timing)
             .await?
             .ok_or("remote snapshot assembly deadline")?;
     }
 }
+fn decode_response_document(document: provider::StrictDocument) -> Result<Response, String> {
+    serde_json::from_value(document.into_parts().0).map_err(|e| e.to_string())
+}
+#[cfg(test)]
 fn decode_response(bytes: &[u8]) -> Result<Response, String> {
-    let value = provider::parse_document(bytes)?;
-    serde_json::from_value(value).map_err(|e| e.to_string())
+    decode_response_document(provider::StrictDocument::parse(bytes)?)
+}
+fn accept_reply_document(
+    document: provider::StrictDocument,
+    session: &str,
+    timing: &mut Option<TransportTiming>,
+) -> Result<provider::StrictDocument, String> {
+    let started = timing.as_ref().map(|_| Instant::now());
+    let result = reply_document(document, session);
+    add_stage(timing, 4, started);
+    if result.is_ok()
+        && let Some(t) = timing
+    {
+        trace_add(&mut t.completed_reply_documents, 1, &mut t.overflow);
+    }
+    result
+}
+/// The exact Reply envelope remains checked before its validated subtree moves.
+fn reply_document(
+    document: provider::StrictDocument,
+    expected_session: &str,
+) -> Result<provider::StrictDocument, String> {
+    if document.value()["kind"] == "reply" {
+        provider::keys(document.value(), &["kind", "session", "payload"])?;
+        let session = document.value()["session"]
+            .as_str()
+            .ok_or("remote session type")?;
+        if session != expected_session {
+            return Err("remote session/response mismatch".into());
+        }
+        document.subtree("payload")
+    } else {
+        match decode_response_document(document)? {
+            Response::Refused { session, reason } if session == expected_session => {
+                Err(format!("remote refused: {reason}"))
+            }
+            _ => Err("remote session/response mismatch".into()),
+        }
+    }
 }
 async fn read_frame_timed<R: tokio::io::AsyncRead + Unpin>(
     receive: &mut R,
@@ -510,30 +582,258 @@ async fn read_frame_timed<R: tokio::io::AsyncRead + Unpin>(
 
 /// Test-only measurement of the exact post-I/O remote receive stages.
 #[cfg(test)]
-pub(crate) fn benchmark_snapshot_decode_stages(frames: Vec<Vec<u8>>) -> (Vec<u8>, [u128; 3]) {
+pub(crate) fn benchmark_snapshot_decode_stages(
+    frames: Vec<Vec<u8>>,
+) -> (provider::StrictDocument, [u128; 3]) {
     use std::hint::black_box;
     let started = Instant::now();
     let mut assembly = crate::pages::Assembly::default();
     let mut whole = None;
     for frame in frames {
-        whole = assembly.offer(black_box(frame), Instant::now()).unwrap();
+        whole = assembly
+            .offer_document(black_box(frame), Instant::now())
+            .unwrap();
     }
     let assembly_ns = started.elapsed().as_nanos();
-    let whole = whole.unwrap();
+    let document = whole.unwrap();
+    let session = document.value()["session"].as_str().unwrap().to_owned();
     let started = Instant::now();
-    let Response::Reply { payload, .. } = decode_response(black_box(&whole)).unwrap() else {
-        panic!("benchmark reply envelope")
-    };
+    let document = accept_reply_document(black_box(document), &session, &mut None).unwrap();
     let envelope_ns = started.elapsed().as_nanos();
-    let started = Instant::now();
-    let bytes = serde_json::to_vec(black_box(&payload)).unwrap();
-    let serialization_ns = started.elapsed().as_nanos();
-    (bytes, [assembly_ns, envelope_ns, serialization_ns])
+    // No payload serialization/reparse on the actual document path.
+    (document, [assembly_ns, envelope_ns, 0])
 }
 
 #[cfg(test)]
 mod envelope_tests {
     use super::*;
+    fn legacy_payload(bytes: &[u8], session: &str) -> Result<Vec<u8>, String> {
+        // Frozen old receive admission, independent of the new proof path.
+        let value = provider::parse_document(bytes)?;
+        let response: Response = serde_json::from_value(value).map_err(|e| e.to_string())?;
+        match response {
+            Response::Reply {
+                session: got,
+                payload,
+            } if got == session => serde_json::to_vec(&payload).map_err(|e| e.to_string()),
+            Response::Refused {
+                session: got,
+                reason,
+            } if got == session => Err(format!("remote refused: {reason}")),
+            _ => Err("remote session/response mismatch".into()),
+        }
+    }
+    fn proof_payload(bytes: &[u8], session: &str) -> Result<provider::StrictDocument, String> {
+        reply_document(provider::StrictDocument::parse(bytes)?, session)
+    }
+    #[test]
+    fn strict_document_reply_matches_legacy_wire_admission() {
+        let mut cases = vec![
+            br#"{ "payload": {"escaped":"\u0041","n":18446744073709551615}, "session":"1", "kind":"reply" }"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":null}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{"x":1,"x":2}}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{"x":1,"\u0078":2}}"#.to_vec(),
+            br#"{"kind":"reply","kind":"reply","session":"1","payload":{}}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{"x":1.0}}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{"x":1e0}}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{"x":18446744073709551616}}"#.to_vec(),
+            br#"{"kind":"reply","session":"2","payload":{}}"#.to_vec(),
+            br#"{"kind":"reply","session":1,"payload":{}}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{},"extra":0}"#.to_vec(),
+            br#"{"kind":"reply","session":"1"}"#.to_vec(),
+            br#"{"kind":"refused","session":"1","reason":"no"}"#.to_vec(),
+            br#"{"kind":"reply","session":"1","payload":{}} {}"#.to_vec(),
+            vec![0xff],
+        ];
+        cases.push(
+            format!(
+                "{{\"kind\":\"reply\",\"session\":\"1\",\"payload\":{}{}}}",
+                "[".repeat(13),
+                "]".repeat(13)
+            )
+            .into_bytes(),
+        );
+        for bytes in cases {
+            let old = legacy_payload(&bytes, "1");
+            let new = proof_payload(&bytes, "1");
+            assert_eq!(
+                old.is_ok(),
+                new.is_ok(),
+                "{}",
+                String::from_utf8_lossy(&bytes)
+            );
+            if let (Ok(old), Ok(new)) = (old, new) {
+                assert_eq!(new.admitted_bytes(), old.len());
+                assert_eq!(new.into_bytes().unwrap(), old);
+            }
+        }
+    }
+    #[test]
+    fn strict_document_canonical_payload_limits_match_old_normalization() {
+        for payload_len in [
+            provider::MAX_BYTES - 1,
+            provider::MAX_BYTES,
+            provider::MAX_BYTES + 1,
+        ] {
+            let mut payload = json!({"capability_version":1,"padding":""});
+            let overhead = serde_json::to_vec(&payload).unwrap().len();
+            payload["padding"] = json!("x".repeat(payload_len - overhead));
+            let envelope =
+                serde_json::to_string(&json!({"kind":"reply","session":"1","payload":payload}))
+                    .unwrap();
+            // Escaped source spellings/whitespace are larger than canonical bytes.
+            let wire = format!("  {}  ", envelope.replacen("xxx", "\\u0078xx", 1));
+            let old = legacy_payload(wire.as_bytes(), "1").unwrap();
+            let proof = proof_payload(wire.as_bytes(), "1").unwrap();
+            assert_eq!(old.len(), payload_len);
+            assert_eq!(proof.admitted_bytes(), payload_len);
+            let old_error = crate::audio::decode_reply(&old).unwrap_err();
+            let new_error = crate::audio::decode_reply_document(proof).unwrap_err();
+            assert_eq!(old_error, new_error);
+            assert_eq!(
+                new_error == "legacy frame capacity",
+                payload_len > provider::MAX_BYTES
+            );
+        }
+        // Original envelope admission, independently of canonical payload size.
+        let base = br#"{"kind":"reply","session":"1","payload":{}}"#;
+        for n in [
+            provider::MAX_DOCUMENT_BYTES,
+            provider::MAX_DOCUMENT_BYTES + 1,
+        ] {
+            let mut bytes = base.to_vec();
+            bytes.resize(n, b' ');
+            assert_eq!(
+                legacy_payload(&bytes, "1").is_ok(),
+                n == provider::MAX_DOCUMENT_BYTES
+            );
+            assert_eq!(
+                proof_payload(&bytes, "1").is_ok(),
+                n == provider::MAX_DOCUMENT_BYTES
+            );
+        }
+    }
+    #[test]
+    fn strict_document_actual_paged_payload_and_byte_adapter_are_equivalent() {
+        let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-pages.json"
+        ))
+        .unwrap();
+        let whole = include_bytes!("../tests/fixtures/gp14/v1/remote-response-whole.json");
+        let session = provider::parse_document(whole).unwrap()["session"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let old = legacy_payload(whole, &session).unwrap();
+        let mut bytes_assembly = crate::pages::Assembly::default();
+        let mut proof_assembly = crate::pages::Assembly::default();
+        let mut found = None;
+        for page in pages {
+            let old_doc = bytes_assembly
+                .offer(page.as_bytes().to_vec(), Instant::now())
+                .unwrap();
+            let new_doc = proof_assembly
+                .offer_document(page.into_bytes(), Instant::now())
+                .unwrap();
+            assert_eq!(old_doc.is_some(), new_doc.is_some());
+            if let Some(new_doc) = new_doc {
+                assert_eq!(old_doc.unwrap(), whole);
+                found = Some(reply_document(new_doc, &session).unwrap());
+            }
+        }
+        let proof = found.unwrap();
+        assert_eq!(proof.admitted_bytes(), old.len());
+        let old_reply = crate::audio::decode_reply(&old).unwrap();
+        let new_reply = crate::audio::decode_reply_document(proof).unwrap();
+        assert_eq!(
+            serde_json::to_value(old_reply).unwrap(),
+            serde_json::to_value(new_reply).unwrap()
+        );
+    }
+    #[test]
+    fn strict_document_real_profiles_preserve_typed_admission_and_target_shape() {
+        for payload in [
+            include_bytes!("../tests/fixtures/gp15/v1/grant-16-talkback-reply.json").as_slice(),
+            include_bytes!("../tests/fixtures/gp15/v1/grant-32-talkback-reply.json").as_slice(),
+            include_bytes!("../tests/fixtures/gp15/v1/grant-48-talkback-reply.json").as_slice(),
+        ] {
+            let value: Value = serde_json::from_slice(payload).unwrap();
+            let envelope =
+                serde_json::to_vec(&json!({"kind":"reply","session":"1","payload":value})).unwrap();
+            let old = legacy_payload(&envelope, "1").unwrap();
+            let proof = proof_payload(&envelope, "1").unwrap();
+            assert_eq!(
+                serde_json::to_value(crate::audio::decode_reply(&old).unwrap()).unwrap(),
+                serde_json::to_value(crate::audio::decode_reply_document(proof).unwrap()).unwrap()
+            );
+        }
+        let mut payload: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
+        ))
+        .unwrap();
+        payload["outcome"]["body"]["snapshot"] = serde_json::from_slice::<Value>(include_bytes!(
+            "../tests/fixtures/gp15/v1/raw-snapshot-16-1.json"
+        ))
+        .unwrap()["authority"]
+            .clone();
+        payload["outcome"]["body"]["snapshot"]["parameters"][0]["target"]["monitor"] = Value::Null;
+        let envelope =
+            serde_json::to_vec(&json!({"kind":"reply","session":"1","payload":payload})).unwrap();
+        assert!(crate::audio::decode_reply(&legacy_payload(&envelope, "1").unwrap()).is_err());
+        assert!(
+            crate::audio::decode_reply_document(proof_payload(&envelope, "1").unwrap()).is_err()
+        );
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn strict_document_receive_counts_documents_not_pages_or_refusals() {
+        use tokio::io::AsyncWriteExt;
+        let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-pages.json"
+        ))
+        .unwrap();
+        let session = provider::parse_document(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-whole.json"
+        ))
+        .unwrap()["session"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut framed = Vec::new();
+        for page in &pages {
+            framed.extend_from_slice(&(page.len() as u32).to_be_bytes());
+            framed.extend_from_slice(page.as_bytes());
+        }
+        let (mut writer, mut receiver) = tokio::io::duplex(framed.len() + 1);
+        writer.write_all(&framed).await.unwrap();
+        let mut timing = Some(TransportTiming::default());
+        let doc = read_document_timed(
+            &mut receiver,
+            Instant::now() + Duration::from_secs(2),
+            false,
+            &mut timing,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(timing.unwrap().frames, pages.len() as u64);
+        assert_eq!(timing.unwrap().completed_reply_documents, 0);
+        accept_reply_document(doc, &session, &mut timing).unwrap();
+        assert_eq!(timing.unwrap().completed_reply_documents, 1);
+        for bad in [
+            br#"{"kind":"reply","session":"wrong","payload":{}}"#.as_slice(),
+            br#"{"kind":"refused","session":"1","reason":"no"}"#.as_slice(),
+        ] {
+            assert!(
+                accept_reply_document(
+                    provider::StrictDocument::parse(bad).unwrap(),
+                    "1",
+                    &mut timing
+                )
+                .is_err()
+            );
+            assert_eq!(timing.unwrap().completed_reply_documents, 1);
+        }
+    }
     #[tokio::test(flavor = "current_thread")]
     async fn timing_trace_preserves_decode_and_partial_frame_failure() {
         use tokio::io::AsyncWriteExt;

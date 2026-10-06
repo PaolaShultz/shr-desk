@@ -304,8 +304,11 @@ fn validate_snapshot_value(v: &Value) -> Result<(), String> {
     Ok(())
 }
 pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
-    let v = provider::parse_document(bytes)?;
-    if v["capability_version"] != 2 && bytes.len() > provider::MAX_BYTES {
+    decode_reply_document(provider::StrictDocument::parse(bytes)?)
+}
+pub(crate) fn decode_reply_document(document: provider::StrictDocument) -> Result<Reply, String> {
+    let (v, admitted_bytes) = document.into_parts();
+    if v["capability_version"] != 2 && admitted_bytes > provider::MAX_BYTES {
         return fail("legacy frame capacity");
     }
     provider::keys(

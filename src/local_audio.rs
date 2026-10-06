@@ -332,6 +332,16 @@ impl ProbeTiming {
     }
 }
 pub trait AuthorityConnection: Send {
+    /// Optional parsed receive. Default adapters use the same strict byte parser;
+    /// implementations cannot construct a proof from an arbitrary Value.
+    fn receive_document_until(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<Option<crate::provider::StrictDocument>, String> {
+        self.receive_until(deadline)?
+            .map(|bytes| crate::provider::StrictDocument::parse(&bytes))
+            .transpose()
+    }
     fn timing_snapshot(&self) -> Option<TransportTiming> {
         None
     }
@@ -606,6 +616,31 @@ impl Operator {
         self.session.ingest_snapshot(snapshot, self.now())
     }
     /// Dispatch by contract before touching the shared correlation domain.
+    fn processing_document(
+        &mut self,
+        document: crate::provider::StrictDocument,
+    ) -> Result<Option<crate::provider::StrictDocument>, String> {
+        let contract = match document.value().get("contract") {
+            None | Some(serde_json::Value::Null) => None,
+            Some(serde_json::Value::String(s)) => Some(s.as_str()),
+            _ => return Err("contract discriminator type".into()),
+        };
+        if contract == Some("GP07-processing")
+            && document.value()["version"] != 3
+            && document.admitted_bytes() > crate::provider::MAX_BYTES
+        {
+            return Err("legacy processing capacity".into());
+        }
+        if matches!(
+            contract,
+            Some("GP15-device" | "GP15-brain" | "GP14-structure" | "GP07-processing")
+        ) {
+            self.processing_frame(&document.into_bytes()?)?;
+            Ok(None)
+        } else {
+            Ok(Some(document))
+        }
+    }
     fn processing_frame(&mut self, bytes: &[u8]) -> Result<bool, String> {
         // Discriminator only: skipped content is never trusted. The selected
         // strict decoder still checks every field, duplicate and depth bound.
@@ -864,9 +899,9 @@ impl Operator {
             let frame_transport_before = timing
                 .as_ref()
                 .and_then(|_| self.transport.timing_snapshot());
-            if let Some(bytes) = self.transport.receive_until(deadline)? {
+            if let Some(document) = self.transport.receive_document_until(deadline)? {
                 let mut frame = ProbeFrameTiming {
-                    bytes: bytes.len() as u64,
+                    bytes: document.admitted_bytes() as u64,
                     receive_start_us: receive_started
                         .map_or(0, |start| trace_us(start.saturating_duration_since(began))),
                     transport_before: frame_transport_before,
@@ -880,14 +915,15 @@ impl Operator {
                 }
                 let dispatch_started = timing.as_ref().map(|_| Instant::now());
                 *remaining -= 1;
-                let contract = self.processing_frame(&bytes)?;
+                let raw_document = self.processing_document(document)?;
+                let contract = raw_document.is_none();
                 if let Some(start) = dispatch_started {
                     frame.micros[1] = trace_us(start.elapsed());
                 }
                 frame.kind = if contract { 1 } else { 2 };
-                if !contract {
+                if let Some(document) = raw_document {
                     let decode_started = timing.as_ref().map(|_| Instant::now());
-                    let r = audio::decode_reply(&bytes)?;
+                    let r = audio::decode_reply_document(document)?;
                     if let Some(start) = decode_started {
                         frame.micros[2] = trace_us(start.elapsed());
                     }
@@ -1081,7 +1117,7 @@ impl Operator {
             if Instant::now() >= receive_deadline {
                 return Err("held authority expired".into());
             }
-            if let Some(bytes) = self.transport.receive_until(receive_deadline)? {
+            if let Some(document) = self.transport.receive_document_until(receive_deadline)? {
                 *remaining -= 1;
                 let expected_brain = self
                     .session
@@ -1089,8 +1125,8 @@ impl Operator {
                     .as_ref()
                     .filter(|p| matches!(p.request.kind.as_str(), "brain_hold" | "brain_heartbeat"))
                     .map(|p| p.request.context.clone());
-                if !self.processing_frame(&bytes)? {
-                    let reply = audio::decode_reply(&bytes)?;
+                if let Some(document) = self.processing_document(document)? {
+                    let reply = audio::decode_reply_document(document)?;
                     if reply.context == self.session.snapshot_request().context {
                         self.telemetry(&reply)?;
                     } else {
@@ -3259,17 +3295,27 @@ mod brain_fifo_tests {
                 let count = envelope.len().div_ceil(8192);
                 envelope.chunks(8192).enumerate().map(|(index, chunk)| serde_json::to_vec(&json!({"contract":"GP14-snapshot-pages", "version":1,"identity":identity,"index":index,"count":count,"total_bytes":envelope.len(),"payload":std::str::from_utf8(chunk).unwrap()})).unwrap()).collect()
             };
+            // Establish full semantic equivalence once, outside measured iterations.
+            // Walking the parsed tree immediately before decode would warm its cache.
+            {
+                let (document, _) = crate::remote::benchmark_snapshot_decode_stages(frames.clone());
+                assert_eq!(document.admitted_bytes(), payload.len());
+                assert_eq!(document.value(), &raw);
+            }
             let mut measurements: [Vec<u128>; 7] = std::array::from_fn(|_| Vec::with_capacity(20));
             for _ in 0..20 {
                 let owned_frames = frames.clone(); // transport already owns its received buffers
-                let (bytes, remote) =
+                let (document, remote) =
                     crate::remote::benchmark_snapshot_decode_stages(black_box(owned_frames));
-                assert_eq!(bytes, payload);
+                assert_eq!(document.admitted_bytes(), payload.len());
                 let started = Instant::now();
-                assert!(!op.processing_frame(black_box(&bytes)).unwrap());
+                let document = op
+                    .processing_document(black_box(document))
+                    .unwrap()
+                    .expect("raw document");
                 let discriminator = started.elapsed().as_nanos();
                 let started = Instant::now();
-                let reply = audio::decode_reply(black_box(&bytes)).unwrap();
+                let reply = audio::decode_reply_document(black_box(document)).unwrap();
                 let decode = started.elapsed().as_nanos();
                 let started = Instant::now();
                 black_box(op.telemetry(black_box(&reply)).unwrap());
@@ -3305,7 +3351,7 @@ mod brain_fifo_tests {
             }
             eprintln!(
                 "HELD_DECODE_BENCH {}",
-                json!({"inputs":inputs,"monitors":5,"iterations":20,"debug_assertions":cfg!(debug_assertions),"payload_bytes":payload.len(),"envelope_bytes":envelope.len(),"frames":frames.len(),"stages":stages,"scope":"derived producer48x9; strict validated16/32/48x5; post-I/O CPU only, no network/PCM; no timing pass criterion"})
+                json!({"inputs":inputs,"monitors":5,"iterations":20,"debug_assertions":cfg!(debug_assertions),"payload_bytes":payload.len(),"envelope_bytes":envelope.len(),"frames":frames.len(),"stages":stages,"scope":"derived producer48x9; strict validated16/32/48x5; post-I/O elapsed Instant stages including scheduling; not thread CPU; strict-document production path; payload serialization eliminated; no network/PCM; no timing pass criterion"})
             );
         }
     }

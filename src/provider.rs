@@ -125,6 +125,52 @@ impl<'de> Deserialize<'de> for Strict {
         d.deserialize_any(V)
     }
 }
+/// Owned JSON admitted by the existing strict wire parser. Its private fields
+/// prevent transport implementations from manufacturing unchecked Value proofs.
+pub struct StrictDocument {
+    value: Value,
+    admitted_bytes: usize,
+}
+impl StrictDocument {
+    pub fn parse(bytes: &[u8]) -> Result<Self, String> {
+        Ok(Self {
+            value: parse_document(bytes)?,
+            admitted_bytes: bytes.len(),
+        })
+    }
+    pub(crate) fn frame(bytes: &[u8]) -> Result<Self, String> {
+        Ok(Self {
+            value: parse(bytes)?,
+            admitted_bytes: bytes.len(),
+        })
+    }
+    pub(crate) fn value(&self) -> &Value {
+        &self.value
+    }
+    pub(crate) fn admitted_bytes(&self) -> usize {
+        self.admitted_bytes
+    }
+    pub(crate) fn into_parts(self) -> (Value, usize) {
+        (self.value, self.admitted_bytes)
+    }
+    pub(crate) fn into_bytes(self) -> Result<Vec<u8>, String> {
+        serde_json::to_vec(&self.value).map_err(|e| e.to_string())
+    }
+    /// A subtree retains strict duplicate/integer/depth proof. Its historical
+    /// transport admission length is the canonical serialized payload length.
+    pub(crate) fn subtree(mut self, key: &str) -> Result<Self, String> {
+        let value = self
+            .value
+            .as_object_mut()
+            .and_then(|v| v.remove(key))
+            .ok_or("document subtree absent")?;
+        let admitted_bytes = canonical_size(&value, MAX_DOCUMENT_BYTES)?;
+        Ok(Self {
+            value,
+            admitted_bytes,
+        })
+    }
+}
 pub(crate) fn parse(bytes: &[u8]) -> Result<Value, String> {
     parse_limit(bytes, MAX_BYTES)
 }
@@ -399,6 +445,9 @@ impl Snapshot {
 // Every semantically valid Value leaf is scalar integer/bool or canonical null.
 // Remaining authority fields have fixed typed nesting below the wire depth cap.
 fn canonical_size_within<T: Serialize>(value: &T, limit: usize) -> Result<(), String> {
+    canonical_size(value, limit).map(|_| ())
+}
+fn canonical_size<T: Serialize>(value: &T, limit: usize) -> Result<usize, String> {
     struct Counter {
         bytes: usize,
         limit: usize,
@@ -421,7 +470,9 @@ fn canonical_size_within<T: Serialize>(value: &T, limit: usize) -> Result<(), St
             Ok(())
         }
     }
-    serde_json::to_writer(Counter { bytes: 0, limit }, value).map_err(|e| e.to_string())
+    let mut counter = Counter { bytes: 0, limit };
+    serde_json::to_writer(&mut counter, value).map_err(|e| e.to_string())?;
+    Ok(counter.bytes)
 }
 /// Exact wire-only target shape checks, after duplicate/depth/integer parsing and
 /// before serde can normalize an explicitly present optional null field.

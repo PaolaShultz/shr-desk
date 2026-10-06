@@ -610,3 +610,28 @@ counters saturate with the same overflow flag.
 Only the existing failure path formats these fixed numeric records; successful
 frames produce no trace I/O. No wire fields, flow-control windows, deadlines,
 permission checks or retry behavior change.
+
+
+The held paired-read and completion path can receive an opaque strict document
+from the transport. Only the existing duplicate/depth/integer/UTF-8/byte-bounded
+parser can construct it. Remote page assembly retains that parsed envelope;
+exact envelope fields and the authenticated session are checked before moving
+its payload subtree. A counting serializer preserves the historical canonical
+payload byte length and version-specific admission. Raw reply shape, target
+fields (including explicit null fields), typed semantics, freshness and FIFO
+correlation still use the same admission code. Public byte receive and
+`Assembly::offer` interfaces remain available; their byte behavior is retained.
+Default connection implementations obtain a proof through the strict parser,
+never from an unchecked `Value`. Small processing/Brain/device messages retain
+their existing typed byte decoders; the large raw path avoids repeated envelope
+parsing, payload serialization and raw reparsing.
+
+The opt-in20-iteration16/32/48 benchmark uses the production strict-document
+assembly, payload extraction, discriminator and raw admission path with the same
+fixtures. Its stages measure elapsed `Instant` time including scheduling, not
+thread CPU time or loaded network deadlines. Payload serialization reports zero
+because that stage is eliminated. In live transport diagnostics, assembly now
+includes the single strict envelope parse; envelope admission includes canonical
+payload counting. The legacy byte adapter still records its payload serialization
+when used. No deadline, retry, page checksum/order/size, authority or safety limit
+changes accompany this optimization.

@@ -23,24 +23,47 @@ pub struct Assembly {
     bytes: Vec<u8>,
     started: Option<Instant>,
 }
+enum Complete {
+    Direct(Vec<u8>, provider::StrictDocument),
+    Paged(Vec<u8>),
+}
 impl Assembly {
     pub fn offer(&mut self, frame: Vec<u8>, now: Instant) -> Result<Option<Vec<u8>>, String> {
+        self.offer_complete(frame, now).map(|complete| {
+            complete.map(|c| match c {
+                Complete::Direct(bytes, _) | Complete::Paged(bytes) => bytes,
+            })
+        })
+    }
+    pub(crate) fn offer_document(
+        &mut self,
+        frame: Vec<u8>,
+        now: Instant,
+    ) -> Result<Option<provider::StrictDocument>, String> {
+        self.offer_complete(frame, now)?
+            .map(|c| match c {
+                Complete::Direct(_, document) => Ok(document),
+                Complete::Paged(bytes) => provider::StrictDocument::parse(&bytes),
+            })
+            .transpose()
+    }
+    fn offer_complete(&mut self, frame: Vec<u8>, now: Instant) -> Result<Option<Complete>, String> {
         let result = self.offer_inner(frame, now);
         if result.is_err() {
             *self = Self::default();
         }
         result
     }
-    fn offer_inner(&mut self, frame: Vec<u8>, now: Instant) -> Result<Option<Vec<u8>>, String> {
+    fn offer_inner(&mut self, frame: Vec<u8>, now: Instant) -> Result<Option<Complete>, String> {
         self.check_deadline(now)?;
-        let value = provider::parse(&frame)?;
-        if value["contract"] != "GP14-snapshot-pages" {
+        let document = provider::StrictDocument::frame(&frame)?;
+        if document.value()["contract"] != "GP14-snapshot-pages" {
             if self.started.is_some() {
                 return Err("interleaved unsegmented document".into());
             }
-            return Ok(Some(frame));
+            return Ok(Some(Complete::Direct(frame, document)));
         }
-        let p: Page = serde_json::from_value(value).map_err(|e| e.to_string())?;
+        let p: Page = serde_json::from_value(document.into_parts().0).map_err(|e| e.to_string())?;
         if p.contract != "GP14-snapshot-pages"
             || p.version != 1
             || p.total_bytes <= provider::MAX_BYTES
@@ -95,7 +118,7 @@ impl Assembly {
         }
         let bytes = std::mem::take(&mut self.bytes);
         *self = Self::default();
-        Ok(Some(bytes))
+        Ok(Some(Complete::Paged(bytes)))
     }
     fn check_deadline(&self, now: Instant) -> Result<(), String> {
         if self
@@ -170,5 +193,58 @@ impl AuthorityConnection for Connection {
             }
         }
         Err("snapshot page drain capacity".into())
+    }
+}
+
+#[cfg(test)]
+mod strict_document_tests {
+    use super::*;
+    #[test]
+    fn strict_document_and_byte_adapters_preserve_interleaving_order_and_original_bytes() {
+        let bytes = br#" { "kind": "reply", "session":"1", "payload":{} } "#.to_vec();
+        let mut plain = Assembly::default();
+        assert_eq!(
+            plain.offer(bytes.clone(), Instant::now()).unwrap().unwrap(),
+            bytes
+        );
+        let doc = Assembly::default()
+            .offer_document(bytes.clone(), Instant::now())
+            .unwrap()
+            .unwrap();
+        assert_eq!(doc.admitted_bytes(), bytes.len());
+        let pages: Vec<String> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp14/v1/remote-response-pages.json"
+        ))
+        .unwrap();
+        for corrupt in [pages[0].as_bytes().to_vec(), bytes] {
+            let mut old = Assembly::default();
+            let mut new = Assembly::default();
+            assert!(
+                old.offer(pages[0].as_bytes().to_vec(), Instant::now())
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                new.offer_document(pages[0].as_bytes().to_vec(), Instant::now())
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(old.offer(corrupt.clone(), Instant::now()).is_err());
+            assert!(new.offer_document(corrupt, Instant::now()).is_err());
+        }
+        let mut old = Assembly::default();
+        let mut new = Assembly::default();
+        let start = Instant::now();
+        old.offer(pages[0].as_bytes().to_vec(), start).unwrap();
+        new.offer_document(pages[0].as_bytes().to_vec(), start)
+            .unwrap();
+        assert!(
+            old.offer(pages[1].as_bytes().to_vec(), start + Duration::from_secs(3))
+                .is_err()
+        );
+        assert!(
+            new.offer_document(pages[1].as_bytes().to_vec(), start + Duration::from_secs(3))
+                .is_err()
+        );
     }
 }
