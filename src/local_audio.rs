@@ -734,10 +734,15 @@ impl Operator {
         self.finish_brain_operation(result)
     }
     fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), BrainOperationError> {
+        let began = Instant::now();
+        let budget = deadline.saturating_duration_since(began);
         self.brain_guard()?;
         let mut probe = self.send_brain_probe(deadline)?;
         let mut requested_revision = None;
+        let mut loops = 0usize;
+        let mut processed = 0usize;
         for _ in 0..64 {
+            loops += 1;
             self.brain_guard()?;
             if Instant::now() >= deadline {
                 break;
@@ -750,6 +755,7 @@ impl Operator {
                     let r = audio::decode_reply(&bytes)?;
                     self.telemetry(&r)?;
                 }
+                processed += 1;
                 // Validate bytes/correlation before observing concurrent cancellation:
                 // a focus change must never hide malformed or partial wire data.
                 self.brain_guard()?;
@@ -800,7 +806,25 @@ impl Operator {
                 }
             }
         }
-        Err("Brain paired observation deadline".into())
+        let at = Instant::now();
+        let now = self.now();
+        let pending = self.brain_probes.pending.iter().find(|p| p.0 == probe);
+        let matched = self.brain_probes.matched.as_ref();
+        // Only validated numeric identities/revisions and bounded scalar state:
+        // never include a packet, credential, destination list or unbounded queue.
+        Err(format!(
+            "Brain paired observation deadline: elapsed_ms={} budget_ms={} processed={} loops={} probe={} probe_age_ms={:?} probe_generation={:?} generation={} matched_id={:?} matched_age_ms={:?} matched_revision={:?} matched_generation={:?} raw_revision={:?} raw_age_ms={:?} raw_fresh={} brain_revision={:?} brain_age_ms={:?} brain_fresh={} requested_revision={:?} pending={}",
+            at.saturating_duration_since(began).as_millis(), budget.as_millis(),
+            processed, loops, probe,
+            pending.map(|p| at.saturating_duration_since(p.1).as_millis()).or_else(|| matched.filter(|m| m.0 == probe).map(|m| at.saturating_duration_since(m.1).as_millis())),
+            pending.map(|p| p.2).or_else(|| matched.filter(|m| m.0 == probe).map(|_| self.session.generation())),
+            self.session.generation(), matched.map(|m| m.0),
+            matched.map(|m| at.saturating_duration_since(m.1).as_millis()),
+            matched.map(|m| m.2.revision.as_str()), matched.map(|_| self.session.generation()),
+            self.session.snapshot.as_ref().map(|r| r.authority.revision.as_str()), self.session.snapshot_age(now), self.session.fresh(now),
+            self.session.brain.as_ref().map(|b| b.revision.as_str()), self.session.brain_age(now), self.session.brain_fresh(now),
+            requested_revision, self.brain_probes.pending.len(),
+        ).into())
     }
     pub(crate) fn close_brain(&mut self) -> Result<(), String> {
         if self
@@ -3245,10 +3269,35 @@ mod brain_fifo_tests {
         // Isolate the frame bound from debug decode throughput. Production
         // entrypoints still supply250ms/30ms; their timeout tests remain separate.
         let original_deadline = Instant::now() + Duration::from_secs(10);
-        assert!(
-            op.refresh_brain_until(original_deadline)
-                .unwrap_err()
-                .contains("deadline")
+        let fault = op.refresh_brain_until(original_deadline).unwrap_err();
+        assert!(fault.starts_with("Brain paired observation deadline:"));
+        assert!(fault.contains("processed=64 loops=64"));
+        for field in [
+            "elapsed_ms=",
+            "budget_ms=",
+            "probe=",
+            "probe_age_ms=",
+            "probe_generation=",
+            "matched_id=",
+            "matched_revision=",
+            "matched_generation=",
+            "raw_revision=",
+            "raw_age_ms=",
+            "raw_fresh=",
+            "brain_revision=",
+            "brain_age_ms=",
+            "brain_fresh=",
+            "requested_revision=",
+            "pending=",
+        ] {
+            assert!(fault.contains(field), "missing {field}: {fault}");
+        }
+        assert!(fault.len() < 1024, "diagnostic remains scalar and bounded");
+        assert_eq!(op.brain_probes.first_fault.as_deref(), Some(fault.as_str()));
+        assert_eq!(
+            op.refresh_brain().unwrap_err(),
+            fault,
+            "first failure retained"
         );
         assert!(op.brain_probes.invalid);
         assert_eq!(peer.0.lock().unwrap().len(), 4, "exactly64 frames consumed");

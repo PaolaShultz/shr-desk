@@ -807,6 +807,9 @@ impl Session {
         self.needs_snapshot = false;
         Ok(true)
     }
+    pub(crate) fn snapshot_age(&self, now: u64) -> Option<u64> {
+        self.receipt.map(|t| now.saturating_sub(t))
+    }
     pub fn fresh(&self, now: u64) -> bool {
         !self.context_exhausted
             && !self.needs_snapshot

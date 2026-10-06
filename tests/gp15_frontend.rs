@@ -105,6 +105,42 @@ fn tap(f: &mut Frontend, key: &str) {
     f.pump();
     assert_ui_ok(f);
 }
+// Presentation is accepted only while the displayed authority is fresh. A
+// REVIEW READY update alone can be stale; never skip a page or recreate intent.
+fn present_review(f: &mut Frontend, end: Instant) {
+    let expected = f
+        .state
+        .as_ref()
+        .and_then(|u| u.review.clone())
+        .expect("review");
+    f.synchronize_review();
+    let pages = f.review_pages();
+    for page in 0..pages {
+        wait(f, end, "fresh unchanged review page", |f| {
+            assert_ui_ok(f);
+            assert_eq!(
+                f.state.as_ref().and_then(|u| u.review.as_ref()),
+                Some(&expected),
+                "review changed during presentation"
+            );
+            f.fresh()
+        });
+        assert_eq!(f.review_pages(), pages);
+        f.mark_presented();
+        if page + 1 < pages {
+            tap(f, "PageDown");
+        }
+    }
+    wait(f, end, "fresh reviewed confirmation", |f| {
+        assert_ui_ok(f);
+        assert_eq!(
+            f.state.as_ref().and_then(|u| u.review.as_ref()),
+            Some(&expected),
+            "review changed before confirmation"
+        );
+        f.fresh()
+    });
+}
 fn review(f: &mut Frontend, end: Instant, requested: Action) {
     fresh_snapshot(f, end);
     wait(f, end, "fresh Brain before action", |f| {
@@ -115,10 +151,7 @@ fn review(f: &mut Frontend, end: Instant, requested: Action) {
         assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
-    for _ in 0..f.review_pages() {
-        f.mark_presented();
-        tap(f, "PageDown");
-    }
+    present_review(f, end);
     let prior = f
         .state
         .as_ref()
@@ -176,10 +209,7 @@ fn confirm_structure(f: &mut Frontend, end: Instant) {
         assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
-    for _ in 0..f.review_pages() {
-        f.mark_presented();
-        tap(f, "PageDown");
-    }
+    present_review(f, end);
     let prior = f
         .state
         .as_ref()
@@ -329,10 +359,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                 assert_ui_ok(f);
                 f.state.as_ref().is_some_and(|u| u.review.is_some())
             });
-            for _ in 0..mix.review_pages() {
-                mix.mark_presented();
-                tap(&mut mix, "PageDown");
-            }
+            present_review(&mut mix, end);
             tap(&mut mix, "Enter");
             wait(&mut mix, end, "channel unmuted", |f| {
                 assert_ui_ok(f);
@@ -433,10 +460,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         assert_ui_ok(f);
         f.state.as_ref().is_some_and(|u| u.review.is_some())
     });
-    for _ in 0..monitor.review_pages() {
-        monitor.mark_presented();
-        tap(&mut monitor, "PageDown");
-    }
+    present_review(&mut monitor, end);
     tap(&mut monitor, "Enter");
     wait(
         &mut monitor,
