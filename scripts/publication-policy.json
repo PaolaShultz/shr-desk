@@ -36,6 +36,102 @@
         "assets/fonts/OFL.txt": "a55002966476f63af8c72b6faef4acc736c5f779e8657657c250f6e8f61444f7",
         "THIRD_PARTY.md": "1119d8481351bc9ab1a798773af3d6a4690c2fa2c9accf5b17cdf876adbc9efb"
       }
+    },
+    "docs/console-screen-reference/images/01-yamaha-rivage-overview.png": {
+      "size": 158226,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "bf320cd0a2f7c297c1b9a43e11184103af6cfce6705dad743391b17aa1890b82",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/02-yamaha-rivage-selected-channel.png": {
+      "size": 243767,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "f9c21505fe83cbe2068c6434fb46a59f8b7c491fc6afff1c4a55017f6c113d7d",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/03-avantis-bank.png": {
+      "size": 469951,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "96863219859f9707a7ea04c556126b80774d0ddc8f45baa7222faba6e880656a",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/04-avantis-peq.png": {
+      "size": 352965,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "0efb7a8b0edede6159ca4a33acdd116fa7e7c077eec0508e888e9b03dffdb401",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/05-avantis-compressor.png": {
+      "size": 295307,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "1c27aa586874197bd42a6f03c87ea7bc38be78add17111f57080d67e70967aa0",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/06-avantis-input-patch.png": {
+      "size": 258077,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "3881c2817a1be71ce050f7b55c6f2e294560a619d296ed8b1920cd2fa73d48ee",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/07-ui24r-mix.png": {
+      "size": 122585,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "b5f83fc3c60b4bd8ae41b76b3cd0f168aad9b9872e4dfb25e7e7df2b7f5aa2c7",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/08-ui24r-eq.png": {
+      "size": 116642,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "4de5599fca396da4300954623821b7eb0e55f758154adb7eb1d31dc0c37e64f3",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/09-digico-ipad-mix.png": {
+      "size": 539903,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "728625686a8f5b273ce9913a1d7644d624dc09e0bf4d248cd99c1ff4fed2cd71",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/10-digico-system-overview.png": {
+      "size": 314218,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "8a71bce84c739eef7b424b13a43fc83b9d19c7b3c645b35623e22510cc4b50e4",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/11-digico-solo-routing.png": {
+      "size": 260106,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "6b1ab3bf0354d77e827b468c51d102d2a89d016825f46f55a35033023f54b7b0",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
+    },
+    "docs/console-screen-reference/images/12-yamaha-dm7-overview-and-detail.png": {
+      "size": 396726,
+      "magic_hex": "89504e470d0a1a0a",
+      "sha256": "0c67bfadc0fb3326295462f54e139533d7eb35b9ec434e2a100748c2f389b611",
+      "required_files": {
+        "docs/console-screen-reference/SOURCES.md": "d466a4a02e395a5e9c21be49937552728d3afcc57ca175e04dd16904fb7b6dc9"
+      }
     }
   }
 }
