@@ -1,0 +1,28 @@
+{
+  "audible_path_ready": false,
+  "deadman_ms": 150,
+  "fade_frames": 240,
+  "frame": "0",
+  "heartbeat_ms": 50,
+  "held_generation": null,
+  "hold_deadline_ms": null,
+  "hold_generation_counter": "0",
+  "microphone_peak_nano": 0,
+  "monitor_armed": false,
+  "monitor_dim": false,
+  "monitor_gain_cdb": -1200,
+  "monitor_mute": true,
+  "monitor_path_ready": false,
+  "monitor_peak_nano": 0,
+  "outgoing_peak_nano": 0,
+  "revision": "0",
+  "selection_generation": "1",
+  "source": {
+    "kind": "none"
+  },
+  "talkback_foh": false,
+  "talkback_gain_cdb": -1200,
+  "talkback_monitors": [],
+  "talkback_mute": true,
+  "talkback_path_ready": false
+}

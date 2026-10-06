@@ -33,3 +33,5 @@ pub mod remote;
 pub mod brain;
 
 pub mod brain_device;
+
+pub mod held_proof;

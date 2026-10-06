@@ -1,0 +1,23 @@
+{
+  "context": {
+    "authenticated_session": "91",
+    "capability_generation": "1",
+    "contract": "GP15-held-proof",
+    "epoch": "1",
+    "expected_config_digest": "ce543b561865a961906f67241d080ca858f6dc3d58ce58615b498ca210552cc6",
+    "kind": "held_proof",
+    "lease": "1",
+    "map_generation": "1",
+    "module": "audio",
+    "query_id": "6",
+    "scope": "talkback_destinations",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "version": 1,
+    "writer": "remote-b54647d8722c2f20-000000000000005b"
+  },
+  "contract": "GP15-held-proof",
+  "reason": "clock",
+  "state": "refused",
+  "version": 1,
+  "witness": null
+}

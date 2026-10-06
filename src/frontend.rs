@@ -85,6 +85,10 @@ pub struct Update {
     pub brain: Option<crate::brain::Snapshot>,
     pub brain_final: Option<crate::brain::Reply>,
     pub brain_fresh: bool,
+    pub brain_age_ms: Option<u64>,
+    pub held_status: Option<crate::held_proof::Status>,
+    pub held_baseline_ready: bool,
+    pub held_transport_authenticated: bool,
     pub brain_status: String,
     pub processing: Option<crate::processing::Snapshot>,
     pub processing_age_ms: Option<u64>,
@@ -334,7 +338,10 @@ fn worker(
                 }
                 held = None;
             }
-            if !matches!(r.operation, Operation::InputReleased) {
+            if !matches!(
+                r.operation,
+                Operation::InputReleased | Operation::BrainPress(_)
+            ) {
                 operation_error = None;
                 last_operation = None;
             }
@@ -380,6 +387,10 @@ fn worker(
                         brain: o.session.brain.clone(),
                         brain_final: o.session.brain_final.clone(),
                         brain_fresh: o.session.brain_fresh(o.now()),
+                        brain_age_ms: o.session.brain_age(o.now()),
+                        held_status: o.held_status(),
+                        held_baseline_ready: o.held_baseline_ready(),
+                        held_transport_authenticated: o.held_transport_authenticated(),
                         brain_status: brain_status.clone(),
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
@@ -429,8 +440,10 @@ fn worker(
                     _ => None,
                 };
                 let result = (|| {
-                    if !matches!(r.operation, Operation::InputReleased)
-                        && let Some(revision) = &r.revision
+                    if !matches!(
+                        r.operation,
+                        Operation::InputReleased | Operation::BrainPress(_)
+                    ) && let Some(revision) = &r.revision
                     {
                         o.refresh()?;
                         if o.session
@@ -464,16 +477,7 @@ fn worker(
                             if !brain_enabled || !brain_signal.live_id(intent) || held.is_some() {
                                 return Err("PTT edge expired/repeated".into());
                             }
-                            let next = crate::provider::counter(
-                                &o.session
-                                    .brain
-                                    .as_ref()
-                                    .ok_or("Brain readback")?
-                                    .hold_generation_counter,
-                            )?
-                            .checked_add(1)
-                            .ok_or("PTT generation exhausted")?;
-                            o.brain_edge("brain_hold", next)?;
+                            let next = o.start_held()?;
                             held = Some((intent, next));
                             heartbeat = o.held_send_anchor().ok_or("hold send anchor missing")?;
                             Ok(())
@@ -609,6 +613,10 @@ fn worker(
                     brain: o.session.brain.clone(),
                     brain_final: o.session.brain_final.clone(),
                     brain_fresh: o.session.brain_fresh(o.now()),
+                    brain_age_ms: o.session.brain_age(o.now()),
+                    held_status: o.held_status(),
+                    held_baseline_ready: o.held_baseline_ready(),
+                    held_transport_authenticated: o.held_transport_authenticated(),
                     brain_status: brain_status.clone(),
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
@@ -710,6 +718,12 @@ fn worker(
             brain: op.as_ref().and_then(|o| o.session.brain.clone()),
             brain_final: op.as_ref().and_then(|o| o.session.brain_final.clone()),
             brain_fresh: op.as_ref().is_some_and(|o| o.session.brain_fresh(o.now())),
+            brain_age_ms: op.as_ref().and_then(|o| o.session.brain_age(o.now())),
+            held_status: op.as_ref().and_then(|o| o.held_status()),
+            held_baseline_ready: op.as_ref().is_some_and(|o| o.held_baseline_ready()),
+            held_transport_authenticated: op
+                .as_ref()
+                .is_some_and(|o| o.held_transport_authenticated()),
             brain_status: brain_status.clone(),
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
@@ -1683,6 +1697,15 @@ impl Frontend {
                 Ok(())
             }
             Action::TalkbackPress => {
+                if self
+                    .state
+                    .as_ref()
+                    .is_none_or(|s| !s.held_transport_authenticated)
+                {
+                    return Err(
+                        "PTT unsupported: authenticated GP15-held-proof provider required".into(),
+                    );
+                }
                 if !self.brain_enabled
                     || self.ptt_pressed
                     || !self.focused
@@ -1690,7 +1713,7 @@ impl Frontend {
                     || !self
                         .state
                         .as_ref()
-                        .is_some_and(|s| s.brain_fresh && s.writer_granted())
+                        .is_some_and(|s| s.held_baseline_ready && s.writer_granted())
                 {
                     return Err("fresh authorized Brain and new PTT edge required".into());
                 }
@@ -2328,7 +2351,15 @@ impl Frontend {
             if let Some(u) = &self.state {
                 line(
                     84,
-                    format!("AUTHORIZED {} | {}", u.writer_granted(), u.brain_status),
+                    format!(
+                        "AUTHORIZED {} | compact {} / ready {} | {}",
+                        u.writer_granted(),
+                        u.held_status.as_ref().is_some_and(|h| h.fresh()),
+                        u.held_status
+                            .as_ref()
+                            .is_some_and(|h| h.fresh() && h.talkback_path_ready),
+                        u.brain_status
+                    ),
                     "#e4e8e9",
                 );
                 if let Some(b) = &u.brain {
@@ -2396,17 +2427,25 @@ impl Frontend {
                         456,
                         format!(
                             "PTT requested {} / APPLIED generation {:?} / high {} / 50 ms heartbeat, 150 ms deadman, 5 ms fade",
-                            self.ptt_pressed, b.held_generation, b.hold_generation_counter
+                            self.ptt_pressed,
+                            u.held_status
+                                .as_ref()
+                                .filter(|h| h.fresh())
+                                .and_then(|h| h.generation.as_ref()),
+                            b.hold_generation_counter
                         ),
                         "#e4e8e9",
                     );
                     line(
                         504,
                         format!(
-                            "Actual sample peaks (linear FS): mic {:.6} / outgoing {:.6} / monitor {:.6}",
+                            "Sample peaks mic {:.6} / out {:.6} / monitor {:.6}; age {:?} ms",
                             b.microphone_peak_nano as f64 / 1e9,
                             b.outgoing_peak_nano as f64 / 1e9,
-                            b.monitor_peak_nano as f64 / 1e9
+                            b.monitor_peak_nano as f64 / 1e9,
+                            u.brain_age_ms
+                                .map(|age| age
+                                    .saturating_add(u.received.elapsed().as_millis() as u64))
                         ),
                         "#66dfd3",
                     );
@@ -3157,6 +3196,10 @@ mod tests {
             brain: None,
             brain_final: None,
             brain_fresh: false,
+            brain_age_ms: None,
+            held_status: None,
+            held_baseline_ready: false,
+            held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,
@@ -3226,6 +3269,10 @@ mod tests {
             brain: None,
             brain_final: None,
             brain_fresh: false,
+            brain_age_ms: None,
+            held_status: None,
+            held_baseline_ready: false,
+            held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,
@@ -3297,6 +3344,8 @@ mod processing_tests {
         let u = f.state.as_mut().unwrap();
         u.brain = b.snapshot;
         u.brain_fresh = true;
+        u.held_baseline_ready = true;
+        u.held_transport_authenticated = true;
         u.writer_lease_remaining_ms = Some(2000);
         u.received = Instant::now();
         (f, rx)
@@ -3452,7 +3501,30 @@ mod processing_tests {
         let u = f.state.as_mut().unwrap();
         u.device = Some(d);
         u.device_fresh = true;
+        u.brain_fresh = false;
+        u.fresh = false;
+        u.brain_age_ms = Some(7);
+        u.held_status = Some(crate::held_proof::Status {
+            generation: Some("1".into()),
+            source_frame: "480".into(),
+            revision: "9".into(),
+            talkback_path_ready: true,
+            media_authorized: true,
+            observed: Instant::now(),
+            valid_until: Instant::now() + Duration::from_millis(50),
+        });
         let scene = f.scene();
+        assert!(scene.primitives.iter().any(
+            |p| matches!(p,Primitive::Text{value,..} if value.contains("compact true / ready true"))
+        ));
+        assert!(
+            scene.primitives.iter().any(
+                |p| matches!(p,Primitive::Text{value,..} if value.contains("observation STALE"))
+            )
+        );
+        assert!(scene.primitives.iter().any(|p| matches!(p,Primitive::Text{value,..} if value.contains("Sample peaks") && value.contains("age"))));
+        f.state.as_mut().unwrap().fresh = true;
+
         assert!(scene.primitives.iter().any(|p|matches!(p,Primitive::Text{value,..}if value.contains("ratio")&&value.contains("ppb"))));
         assert!(scene.primitives.iter().any(
             |p| matches!(p, Primitive::Text { value, .. } if value.contains("capture drops 17"))
@@ -3519,6 +3591,10 @@ mod processing_tests {
             brain: None,
             brain_final: None,
             brain_fresh: false,
+            brain_age_ms: None,
+            held_status: None,
+            held_baseline_ready: false,
+            held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
             last_operation: None,

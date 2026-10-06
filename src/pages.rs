@@ -143,6 +143,9 @@ impl Connection {
     }
 }
 impl AuthorityConnection for Connection {
+    fn held_identity(&self) -> Option<crate::held_proof::Identity> {
+        self.inner.held_identity()
+    }
     fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
         self.inner.send_frame_until(bytes, deadline)
     }

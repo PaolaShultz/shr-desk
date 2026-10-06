@@ -96,6 +96,7 @@ pub struct Connection {
     receive: quinn::RecvStream,
     session: String,
     capability_generation: String,
+    map_generation: String,
     pub writer: String,
     pub source_epoch: u64,
     timing: Option<TransportTiming>,
@@ -162,6 +163,7 @@ impl Connection {
             receive,
             session,
             capability_generation,
+            map_generation,
             writer,
             source_epoch,
         ) = runtime.block_on(async {
@@ -258,6 +260,7 @@ impl Connection {
                 receive,
                 session,
                 identity.capability_generation,
+                identity.map_generation,
                 writer,
                 source_epoch,
             ))
@@ -278,6 +281,7 @@ impl Connection {
             receive,
             session,
             capability_generation,
+            map_generation,
             writer,
             source_epoch,
             timing,
@@ -339,6 +343,14 @@ impl Drop for Connection {
     }
 }
 impl AuthorityConnection for Connection {
+    fn held_identity(&self) -> Option<crate::held_proof::Identity> {
+        Some(crate::held_proof::Identity {
+            session: self.session.clone(),
+            epoch: self.source_epoch.to_string(),
+            capability: self.capability_generation.clone(),
+            map: self.map_generation.clone(),
+        })
+    }
     fn receive_document_until(
         &mut self,
         deadline: Instant,

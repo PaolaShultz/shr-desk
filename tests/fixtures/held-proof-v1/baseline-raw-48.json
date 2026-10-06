@@ -1,0 +1,6654 @@
+{
+  "authority": {
+    "acquisition_frame": null,
+    "age_ms": null,
+    "automation_bounds": [],
+    "durability": "volatile",
+    "epoch": "1",
+    "inputs": [
+      "input-01",
+      "input-02",
+      "input-03",
+      "input-04",
+      "input-05",
+      "input-06",
+      "input-07",
+      "input-08",
+      "input-09",
+      "input-10",
+      "input-11",
+      "input-12",
+      "input-13",
+      "input-14",
+      "input-15",
+      "input-16",
+      "input-17",
+      "input-18",
+      "input-19",
+      "input-20",
+      "input-21",
+      "input-22",
+      "input-23",
+      "input-24",
+      "input-25",
+      "input-26",
+      "input-27",
+      "input-28",
+      "input-29",
+      "input-30",
+      "input-31",
+      "input-32",
+      "input-33",
+      "input-34",
+      "input-35",
+      "input-36",
+      "input-37",
+      "input-38",
+      "input-39",
+      "input-40",
+      "input-41",
+      "input-42",
+      "input-43",
+      "input-44",
+      "input-45",
+      "input-46",
+      "input-47",
+      "input-48"
+    ],
+    "modes": [
+      [
+        "foh",
+        "manual"
+      ],
+      [
+        "monitor1",
+        "manual"
+      ],
+      [
+        "monitor2",
+        "manual"
+      ],
+      [
+        {
+          "monitor": 3
+        },
+        "manual"
+      ],
+      [
+        {
+          "monitor": 4
+        },
+        "manual"
+      ],
+      [
+        {
+          "monitor": 5
+        },
+        "manual"
+      ]
+    ],
+    "monitors": [
+      "monitor-1",
+      "monitor-2",
+      "monitor-3",
+      "monitor-4",
+      "monitor-5"
+    ],
+    "page": 0,
+    "page_count": 1,
+    "parameters": [
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-01",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-02",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-03",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-04",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-05",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-06",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-07",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-08",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-09",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-10",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-11",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-12",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-13",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-14",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-15",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-16",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-17",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-18",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-19",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-20",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-21",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-22",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-23",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-24",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-25",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-26",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-27",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-28",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-29",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-30",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-31",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-32",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-33",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-34",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-35",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-36",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-37",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-38",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-39",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-40",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-41",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-42",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-43",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-44",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-45",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-46",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-47",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "parameter": "fader"
+        },
+        "target_value": -6000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "parameter": "pan"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "parameter": "mute"
+        },
+        "target_value": false
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "monitor": "monitor-1",
+          "parameter": "send"
+        },
+        "target_value": 0
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "monitor": "monitor-2",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "monitor": "monitor-3",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "monitor": "monitor-4",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      },
+      {
+        "actual": null,
+        "hold": null,
+        "owner": null,
+        "proposal": null,
+        "target": {
+          "input": "input-48",
+          "monitor": "monitor-5",
+          "parameter": "send"
+        },
+        "target_value": -60000
+      }
+    ],
+    "release_commit": false,
+    "rendered_application": false,
+    "revision": "0",
+    "sequence": "1",
+    "session_history_capacity": 1024,
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "validity": "unavailable"
+  },
+  "capability": "GP03-rendered",
+  "capability_version": 2,
+  "clock": {
+    "adat_lock": "unknown",
+    "domain": "single-interface",
+    "epoch": 1,
+    "fault": null,
+    "mapping_verified": false,
+    "next_frame": 0,
+    "sample_rate": 48000,
+    "state": "disarmed"
+  },
+  "coefficients": [
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-01",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-02",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-03",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-04",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-05",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-06",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-07",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-08",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-09",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-10",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-11",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-12",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-13",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-14",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-15",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-16",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-17",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-18",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-19",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-20",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-21",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-22",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-23",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-24",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-25",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-26",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-27",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-28",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-29",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-30",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-31",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-32",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-33",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-34",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-35",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-36",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-37",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-38",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-39",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-40",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-41",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-42",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-43",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-44",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-45",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-46",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-47",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "current_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "held_nanogain": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "input": "input-48",
+      "ramp_target_nanogain": [
+        501187234,
+        707106781,
+        707106781,
+        1000000000,
+        1000000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ]
+    }
+  ],
+  "faulted": false,
+  "frame": "0",
+  "meters": null,
+  "protection": "offline-unprotected",
+  "release_commit": true,
+  "rendered_application": true,
+  "resources": {
+    "admission": {
+      "estimated_bytes": 3724288,
+      "estimated_snapshot_bytes": 628224,
+      "sample_operations": 1769472
+    },
+    "live_writer_capacity": 4,
+    "render_budget": {
+      "bytes": 67108864,
+      "sample_operations": 16777216
+    },
+    "reply_history_per_writer": 64,
+    "snapshot_assembly_bytes": 1048576
+  },
+  "topology": {
+    "capture_channels": 48,
+    "identity": "software-48-5-0",
+    "inputs": [
+      {
+        "capture_slot": 0,
+        "id": "input-01",
+        "physical_port": "synthetic-capture-1"
+      },
+      {
+        "capture_slot": 1,
+        "id": "input-02",
+        "physical_port": "synthetic-capture-2"
+      },
+      {
+        "capture_slot": 2,
+        "id": "input-03",
+        "physical_port": "synthetic-capture-3"
+      },
+      {
+        "capture_slot": 3,
+        "id": "input-04",
+        "physical_port": "synthetic-capture-4"
+      },
+      {
+        "capture_slot": 4,
+        "id": "input-05",
+        "physical_port": "synthetic-capture-5"
+      },
+      {
+        "capture_slot": 5,
+        "id": "input-06",
+        "physical_port": "synthetic-capture-6"
+      },
+      {
+        "capture_slot": 6,
+        "id": "input-07",
+        "physical_port": "synthetic-capture-7"
+      },
+      {
+        "capture_slot": 7,
+        "id": "input-08",
+        "physical_port": "synthetic-capture-8"
+      },
+      {
+        "capture_slot": 8,
+        "id": "input-09",
+        "physical_port": "synthetic-capture-9"
+      },
+      {
+        "capture_slot": 9,
+        "id": "input-10",
+        "physical_port": "synthetic-capture-10"
+      },
+      {
+        "capture_slot": 10,
+        "id": "input-11",
+        "physical_port": "synthetic-capture-11"
+      },
+      {
+        "capture_slot": 11,
+        "id": "input-12",
+        "physical_port": "synthetic-capture-12"
+      },
+      {
+        "capture_slot": 12,
+        "id": "input-13",
+        "physical_port": "synthetic-capture-13"
+      },
+      {
+        "capture_slot": 13,
+        "id": "input-14",
+        "physical_port": "synthetic-capture-14"
+      },
+      {
+        "capture_slot": 14,
+        "id": "input-15",
+        "physical_port": "synthetic-capture-15"
+      },
+      {
+        "capture_slot": 15,
+        "id": "input-16",
+        "physical_port": "synthetic-capture-16"
+      },
+      {
+        "capture_slot": 16,
+        "id": "input-17",
+        "physical_port": "synthetic-capture-17"
+      },
+      {
+        "capture_slot": 17,
+        "id": "input-18",
+        "physical_port": "synthetic-capture-18"
+      },
+      {
+        "capture_slot": 18,
+        "id": "input-19",
+        "physical_port": "synthetic-capture-19"
+      },
+      {
+        "capture_slot": 19,
+        "id": "input-20",
+        "physical_port": "synthetic-capture-20"
+      },
+      {
+        "capture_slot": 20,
+        "id": "input-21",
+        "physical_port": "synthetic-capture-21"
+      },
+      {
+        "capture_slot": 21,
+        "id": "input-22",
+        "physical_port": "synthetic-capture-22"
+      },
+      {
+        "capture_slot": 22,
+        "id": "input-23",
+        "physical_port": "synthetic-capture-23"
+      },
+      {
+        "capture_slot": 23,
+        "id": "input-24",
+        "physical_port": "synthetic-capture-24"
+      },
+      {
+        "capture_slot": 24,
+        "id": "input-25",
+        "physical_port": "synthetic-capture-25"
+      },
+      {
+        "capture_slot": 25,
+        "id": "input-26",
+        "physical_port": "synthetic-capture-26"
+      },
+      {
+        "capture_slot": 26,
+        "id": "input-27",
+        "physical_port": "synthetic-capture-27"
+      },
+      {
+        "capture_slot": 27,
+        "id": "input-28",
+        "physical_port": "synthetic-capture-28"
+      },
+      {
+        "capture_slot": 28,
+        "id": "input-29",
+        "physical_port": "synthetic-capture-29"
+      },
+      {
+        "capture_slot": 29,
+        "id": "input-30",
+        "physical_port": "synthetic-capture-30"
+      },
+      {
+        "capture_slot": 30,
+        "id": "input-31",
+        "physical_port": "synthetic-capture-31"
+      },
+      {
+        "capture_slot": 31,
+        "id": "input-32",
+        "physical_port": "synthetic-capture-32"
+      },
+      {
+        "capture_slot": 32,
+        "id": "input-33",
+        "physical_port": "synthetic-capture-33"
+      },
+      {
+        "capture_slot": 33,
+        "id": "input-34",
+        "physical_port": "synthetic-capture-34"
+      },
+      {
+        "capture_slot": 34,
+        "id": "input-35",
+        "physical_port": "synthetic-capture-35"
+      },
+      {
+        "capture_slot": 35,
+        "id": "input-36",
+        "physical_port": "synthetic-capture-36"
+      },
+      {
+        "capture_slot": 36,
+        "id": "input-37",
+        "physical_port": "synthetic-capture-37"
+      },
+      {
+        "capture_slot": 37,
+        "id": "input-38",
+        "physical_port": "synthetic-capture-38"
+      },
+      {
+        "capture_slot": 38,
+        "id": "input-39",
+        "physical_port": "synthetic-capture-39"
+      },
+      {
+        "capture_slot": 39,
+        "id": "input-40",
+        "physical_port": "synthetic-capture-40"
+      },
+      {
+        "capture_slot": 40,
+        "id": "input-41",
+        "physical_port": "synthetic-capture-41"
+      },
+      {
+        "capture_slot": 41,
+        "id": "input-42",
+        "physical_port": "synthetic-capture-42"
+      },
+      {
+        "capture_slot": 42,
+        "id": "input-43",
+        "physical_port": "synthetic-capture-43"
+      },
+      {
+        "capture_slot": 43,
+        "id": "input-44",
+        "physical_port": "synthetic-capture-44"
+      },
+      {
+        "capture_slot": 44,
+        "id": "input-45",
+        "physical_port": "synthetic-capture-45"
+      },
+      {
+        "capture_slot": 45,
+        "id": "input-46",
+        "physical_port": "synthetic-capture-46"
+      },
+      {
+        "capture_slot": 46,
+        "id": "input-47",
+        "physical_port": "synthetic-capture-47"
+      },
+      {
+        "capture_slot": 47,
+        "id": "input-48",
+        "physical_port": "synthetic-capture-48"
+      }
+    ],
+    "map_revision": 1,
+    "mapping_evidence": "synthetic",
+    "max_block_frames": 4096,
+    "measurement_slots": [],
+    "monitors": 5,
+    "outputs": [
+      {
+        "id": "output-01",
+        "physical_port": "synthetic-playback-1",
+        "playback_slot": 0,
+        "source": {
+          "channel": 0,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-02",
+        "physical_port": "synthetic-playback-2",
+        "playback_slot": 1,
+        "source": {
+          "channel": 1,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-03",
+        "physical_port": "synthetic-playback-3",
+        "playback_slot": 2,
+        "source": {
+          "index": 0,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-04",
+        "physical_port": "synthetic-playback-4",
+        "playback_slot": 3,
+        "source": {
+          "index": 1,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-05",
+        "physical_port": "synthetic-playback-5",
+        "playback_slot": 4,
+        "source": {
+          "index": 2,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-06",
+        "physical_port": "synthetic-playback-6",
+        "playback_slot": 5,
+        "source": {
+          "index": 3,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-07",
+        "physical_port": "synthetic-playback-7",
+        "playback_slot": 6,
+        "source": {
+          "index": 4,
+          "kind": "monitor"
+        }
+      }
+    ],
+    "pa_outputs": 0,
+    "playback_channels": 7,
+    "sample_rate": 48000
+  }
+}

@@ -1076,12 +1076,18 @@ impl Session {
         r.context.lease = Some(lease.token.clone());
         r.context.request_id = Some(id.to_string());
         r.context.expected_revision = Some(
-            self.snapshot
+            self.brain
                 .as_ref()
-                .ok_or("snapshot")?
-                .authority
-                .revision
-                .clone(),
+                .map(|b| b.revision.as_str())
+                .into_iter()
+                .chain(
+                    self.snapshot
+                        .as_ref()
+                        .map(|s| s.authority.revision.as_str()),
+                )
+                .max_by_key(|r| provider::counter(r).unwrap_or(0))
+                .ok_or("close revision")?
+                .to_owned(),
         );
         r.encode()?;
         self.brain_closing = Some(r.clone());
@@ -1449,6 +1455,149 @@ impl Session {
         self.needs_snapshot = true;
         self.preview = None;
         Ok(())
+    }
+    pub(crate) fn can_pin_held_baseline(&self, now: u64) -> bool {
+        self.pending.is_none()
+            && self.brain_closing.is_none()
+            && self
+                .brain
+                .as_ref()
+                .is_some_and(|b| b.held_generation.is_none())
+            && self.lease.as_ref().is_some_and(|l| now < l.deadline)
+    }
+    pub(crate) fn held_query(
+        &self,
+        identity: &crate::held_proof::Identity,
+        digest: &str,
+        nonce: u64,
+        now: u64,
+    ) -> Result<crate::held_proof::Request, String> {
+        let lease = self
+            .lease
+            .as_ref()
+            .filter(|l| now < l.deadline)
+            .ok_or("held proof needs live lease")?;
+        if self.version != 2
+            || self.scope != "talkback_destinations"
+            || self.context_exhausted
+            || identity.epoch != self.epoch.to_string()
+        {
+            return fail("held proof scope/attachment");
+        }
+        let r = crate::held_proof::Request {
+            contract: crate::held_proof::CONTRACT.into(),
+            version: 1,
+            kind: "held_proof".into(),
+            query_id: nonce.to_string(),
+            show_id: self.show.clone(),
+            module: "audio".into(),
+            epoch: self.epoch.to_string(),
+            authenticated_session: identity.session.clone(),
+            writer: self.writer.clone(),
+            capability_generation: identity.capability.clone(),
+            map_generation: identity.map.clone(),
+            scope: self.scope.clone(),
+            lease: lease.token.clone(),
+            expected_config_digest: digest.into(),
+        };
+        r.encode()?;
+        Ok(r)
+    }
+    pub(crate) fn begin_proved_held(
+        &mut self,
+        kind: &str,
+        proof: &crate::held_proof::Matched,
+        generation: Option<u64>,
+        now: u64,
+    ) -> Result<(Request, u64), String> {
+        if !matches!(kind, "brain_hold" | "brain_heartbeat" | "renew")
+            || self.pending.is_some()
+            || self.brain_closing.is_some()
+            || !proof.fresh()
+            || proof.generation() != self.generation
+            || self.context_exhausted
+        {
+            return fail("held proof admission/pending/context");
+        }
+        let p = proof.request();
+        let identity = crate::held_proof::Identity {
+            session: p.authenticated_session.clone(),
+            epoch: p.epoch.clone(),
+            capability: p.capability_generation.clone(),
+            map: p.map_generation.clone(),
+        };
+        if self.held_query(
+            &identity,
+            &p.expected_config_digest,
+            provider::counter(&p.query_id)?,
+            now,
+        )? != *p
+        {
+            return fail("held proof grant changed");
+        }
+        if !self.armed && kind != "renew" {
+            return fail("release input and pickup first");
+        }
+        let w = proof.witness();
+        if w.brain.talkback_mute || (w.brain.talkback_foh && !w.foh_authorized) {
+            return fail("held proof path unauthorized");
+        }
+        let selected = if kind == "brain_hold" {
+            if w.brain.held_generation.is_some() {
+                return fail("held proof already held");
+            }
+            provider::counter(&w.brain.hold_generation_counter)?
+                .checked_add(1)
+                .ok_or("hold generation exhausted")?
+        } else {
+            let actual = provider::counter(
+                w.brain
+                    .held_generation
+                    .as_deref()
+                    .ok_or("held proof closed")?,
+            )?;
+            if !w.media_authorized || generation != Some(actual) {
+                return fail("held proof generation/authorization");
+            }
+            actual
+        };
+        if generation.is_some_and(|g| g != selected) {
+            return fail("held proof generation changed");
+        }
+        let body = match kind {
+            "renew" => json!({}),
+            "brain_heartbeat" => {
+                json!({"generation":selected.to_string(),"observed_frame":w.source_frame})
+            }
+            _ => json!({"generation":selected.to_string()}),
+        };
+        let id = self.next_id;
+        self.next_id = id.checked_add(1).ok_or("request counter exhausted")?;
+        let request = Request {
+            version: self.version,
+            context: Context {
+                show_id: self.show.clone(),
+                module: "audio".into(),
+                epoch: self.epoch.to_string(),
+                writer: Some(self.writer.clone()),
+                lease: self.lease.as_ref().map(|l| l.token.clone()),
+                request_id: Some(id.to_string()),
+                expected_revision: Some(w.revision.clone()),
+            },
+            kind: kind.into(),
+            body,
+        };
+        request.encode()?;
+        self.pending = Some(Pending {
+            request: request.clone(),
+            first_send: now,
+            state: PendingState::Sent,
+            ticket: None,
+            timing: None,
+            observed_frame: provider::counter(&w.source_frame)?,
+            retry: 0,
+        });
+        Ok((request, selected))
     }
     pub fn begin(&mut self, kind: &str, body: Value, now: u64) -> Result<Request, String> {
         if self.pending.is_some() {

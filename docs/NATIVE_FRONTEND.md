@@ -92,7 +92,7 @@ current lease (or grant lifetime). A no-first-byte timeout services that schedul
 partial frames still fail closed. Schedule inspection never advances retry count,
 changes first-send time or renews authority, and exhausted retries wait only until
 the remaining authority/operation bound. Ephemeral hold/heartbeat/close requests
-are never retransmitted by this scheduler. Before allocating a new GP15-session
+are never retransmitted by this scheduler. Before allocating a new unheld GP15-session
 renewal request, an own matched Brain query anchors the current authority revision
 and raw readback must pair exactly. Coherent cached state or a queued older probe
 cannot authorize that new renewal. This read-only probe is bounded by the remaining
@@ -111,23 +111,21 @@ first provenance fault is retained instead of overwritten by later poll errors.
 Brain snapshot queries carry bounded local FIFO probe IDs and timestamps taken
 before sending. Every strictly validated snapshot reply consumes one probe, even
 when its frame/revision equals the cached state; pending/final replies consume none.
-A refresh waits for its own probe, not a previously queued observation. Immediately
-before each heartbeat, the worker obtains a new paired probe within30ms, preserving
-20ms for the send and the existing50ms source-frame freshness limit. Fresh raw
-state is reused only at the same revision; absent, expired or mismatched raw state
-triggers a read-only query within the same probe deadline. If another writer
-advances raw revision beyond the matched Brain reply, a new read-only Brain probe
-replaces that superseded pair within the original deadline and total64-frame
-budget. Neither mutation intent nor the time/frame budget is restarted. The heartbeat
-uses that probe's exact frame and revision, checks the same live hold, and never
-substitutes a later final's cached frame or receipt timestamp. Probe failures,
-unmatched replies, partial sends or overflow invalidate provenance and stop
-heartbeats; there is no resynchronization or mutation replay. Context cancellation
-discards the matched observation while retaining generation-tagged outstanding
-probes: their replies consume FIFO slots but cannot authorize the new context.
-A new explicit interaction requires its own probe in the current generation.
-The provider's150ms observation-bound deadman remains authoritative; a delayed
-network can still cause a safe refusal rather than an extension of either limit.
+A full refresh waits for its own probe, not a previously queued observation.
+Fresh raw state is reused only at the same revision; absent, expired or mismatched
+raw state triggers a read-only query within the same refresh deadline. If another
+writer advances raw revision beyond the matched Brain reply, a new read-only Brain
+probe replaces that superseded pair within the original deadline and total64-frame
+budget. Neither mutation intent nor the time/frame budget is restarted.
+Held press/heartbeat/active-renewal admission instead uses the separately correlated
+compact proof described below, within30ms, retaining20ms for the send and the
+existing50ms source-frame freshness limit. It uses that proof's exact frame and
+revision and never substitutes a later final's cached frame or receipt timestamp.
+Probe faults stop heartbeats; there is no resynchronization or mutation replay.
+Context cancellation discards matched authority while retaining generation-tagged
+outstanding identities to drain. A new explicit interaction requires its own proof
+in the current generation. The provider's150ms observation-bound deadman remains
+authoritative; delay can cause a safe refusal rather than extend either limit.
 An observed Brain revision must match raw state before refresh reports a coherent
 pair; timeout or cumulative saturation still closes the uncertain client path.
 Older rejected observations never renew freshness. Buffered telemetry does not add an artificial delay ahead of
@@ -552,22 +550,35 @@ a later hold always requires another explicit press. This software path still
 requires integrated and physical acceptance; tighter scheduling is not a measured
 network or acoustic latency claim.
 
-Held paired reads check the live input at every wait boundary and after strict
-reply validation. Key-up during post-heartbeat readback stops the held service
+Compact-proof reads and correlated completion check the live input at every
+wait boundary and after strict reply validation. Key-up during held maintenance
+stops the held service
 without discarding outstanding query identities; passive release readback can
 continue on the healthy connection. A successful no-byte wake can observe this
 cancellation, but partial frames, malformed replies and correlation errors remain
 terminal even when release occurs concurrently. The same original deadlines and
 frame limits apply; passive queries do not require an active hold.
 
-When a held final has already made raw readback stale, the worker sends its own
-Brain probe and the needed raw query consecutively before waiting for either
-reply. Both use the original service deadline and shared frame budget. Raw data
-has no query identity: admission still requires the matched current Brain probe
-and an exactly equal raw revision. A superseding revision requires a new Brain
-probe inside the same budget. Passive polling and already-fresh raw readback keep
-their existing query behavior. This removes a serial request dependency without
-changing freshness limits or claiming a measured round-trip latency.
+Authenticated remote PTT now uses `GP15-held-proof:1`, a fixed-size, explicitly
+correlated witness for the `talkback_destinations` scope. A matched full raw/Brain
+readback pins the reviewed talkback configuration digest while unheld. The digest
+binds show, source epoch, capability/map generations, actual dimensions, destinations,
+gain, mute and protected FOH intent. It excludes unrelated monitor selection.
+Initial press, heartbeat and active held renewal verify that unchanged digest,
+live scoped lease and source-frame authority with their own compact query; they
+never fetch a full topology inside the held budget. Missing or changed baseline
+requires full readback and another explicit gesture, without automatic replay.
+
+Only one compact query may be outstanding. Cancellation retains its exact nonce
+and generation until its validated reply is drained; a new query gets a new
+send-start timestamp inside the same original deadline. Unknown, malformed,
+partial or mismatched replies remain terminal. Proofs never refresh the full raw
+snapshot, configuration review or draft. The UI separately shows current compact
+held generation/readiness and the age of actual Brain sample-meter observations
+from correlated finals. Passive monitor/FOH and unheld renewal retain full paired
+readback. New Desk PTT on Unix or older providers without authenticated compact
+proof support is explicitly unsupported and stays closed; other Unix controls and
+the existing GP15-brain:1 wire contract are unchanged. No fallback opens a hold.
 
 Authority validation reuses the typed semantic checks and a bounded counting
 serializer instead of allocating and reparsing canonical authority JSON. Wire
@@ -612,7 +623,7 @@ frames produce no trace I/O. No wire fields, flow-control windows, deadlines,
 permission checks or retry behavior change.
 
 
-The held paired-read and completion path can receive an opaque strict document
+Full readback and correlated completion can receive an opaque strict document
 from the transport. Only the existing duplicate/depth/integer/UTF-8/byte-bounded
 parser can construct it. Remote page assembly retains that parsed envelope;
 exact envelope fields and the authenticated session are checked before moving

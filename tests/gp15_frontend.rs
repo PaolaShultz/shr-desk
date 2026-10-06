@@ -722,6 +722,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                 f.fresh()
                     && f.state.as_ref().is_some_and(|u| {
                         u.brain_fresh
+                            && u.held_baseline_ready
                             && u.writer_granted()
                             && u.snapshot.as_ref().zip(u.brain.as_ref()).is_some_and(
                                 |(raw, brain)| {
@@ -752,8 +753,10 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
         wait(&mut tb, end, "PTT applied", |f| {
             f.state
                 .as_ref()
-                .and_then(|u| u.brain.as_ref())
-                .is_some_and(|b| b.held_generation.is_some() && b.hold_generation_counter != old)
+                .and_then(|u| u.held_status.as_ref())
+                .is_some_and(|b| {
+                    b.fresh() && b.generation.is_some() && b.generation.as_ref() != Some(&old)
+                })
         });
         if mode == "key-up" && std::env::var_os("GP15_FAULT_MODE").is_some() {
             let observe = Instant::now() + Duration::from_secs(1);
@@ -764,8 +767,8 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                 assert!(
                     tb.state
                         .as_ref()
-                        .and_then(|u| u.brain.as_ref())
-                        .is_some_and(|b| b.held_generation.is_some())
+                        .and_then(|u| u.held_status.as_ref())
+                        .is_some_and(|b| b.fresh() && b.generation.is_some())
                 );
                 thread::sleep(Duration::from_millis(5));
             }
@@ -809,10 +812,10 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             .state
             .as_ref()
             .unwrap()
-            .brain
+            .held_status
             .as_ref()
             .unwrap()
-            .held_generation
+            .generation
             .clone();
         let hold =
             Instant::now() + Duration::from_millis(if mode == "key-up" { 2100 } else { 1100 });
@@ -822,9 +825,11 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             foh.pump();
             assert!(
                 tb.state.as_ref().is_some_and(|u| u
-                    .brain
+                    .held_status
                     .as_ref()
-                    .is_some_and(|b| b.held_generation == held_generation)),
+                    .is_some_and(|b| b.fresh()
+                        && b.generation == held_generation
+                        && b.media_authorized)),
                 "PTT did not remain held: TB={:?}; monitor={:?}; FOH={:?}",
                 tb.state,
                 monitor.state.as_ref().map(|u| (
