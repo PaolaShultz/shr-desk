@@ -184,6 +184,102 @@ impl Drop for Provider {
         }
     }
 }
+// Per-thread test seam at the actual worker boundaries; absent from production.
+#[cfg(test)]
+type HeldWorkerHook = Box<dyn FnMut(&str, Option<&Update>) -> bool>;
+#[cfg(test)]
+thread_local! {
+    static HELD_WORKER_SEED: std::cell::RefCell<Option<Operator>> = const { std::cell::RefCell::new(None) };
+    static HELD_WORKER_HOOK: std::cell::RefCell<Option<HeldWorkerHook>> = const { std::cell::RefCell::new(None) };
+}
+#[cfg(test)]
+fn held_worker_event(event: &str, latest: &Latest) -> bool {
+    HELD_WORKER_HOOK.with_borrow_mut(|hook| {
+        hook.as_mut()
+            .is_some_and(|h| h(event, latest.update.lock().unwrap().as_ref()))
+    })
+}
+#[cfg(test)]
+pub(crate) fn exercise_held_worker(
+    operator: Operator,
+    signal: Arc<crate::brain::HoldSignal>,
+    action: &'static str,
+) -> (Vec<String>, Update) {
+    let snapshot = operator.session.snapshot.as_ref().unwrap();
+    let config = Config {
+        wire_version: 2,
+        remote: None,
+        endpoint: PathBuf::new(),
+        show: snapshot.authority.show_id.clone(),
+        epoch: snapshot.authority.epoch.parse().unwrap(),
+        writer: "worker-test".into(),
+        scope: "talkback_destinations".into(),
+    };
+    let (tx, rx) = mpsc::sync_channel(8);
+    let latest = Arc::new(Latest::default());
+    let generation = Arc::new(AtomicU64::new(1));
+    let authorization = Arc::new(AtomicBool::new(true));
+    let stop = Arc::new(AtomicBool::new(false));
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::new(Mutex::new(None));
+    let (e, c, g, a, b, st) = (
+        events.clone(),
+        captured.clone(),
+        generation.clone(),
+        authorization.clone(),
+        signal.clone(),
+        stop.clone(),
+    );
+    let mut injected = false;
+    HELD_WORKER_SEED.with_borrow_mut(|seed| *seed = Some(operator));
+    HELD_WORKER_HOOK.with_borrow_mut(|hook| {
+        *hook = Some(Box::new(move |event, update| {
+            e.lock().unwrap().push(event.to_string());
+            if event == "service" && !injected {
+                injected = true;
+                match action {
+                    "release" => b.release(),
+                    "generation" => {
+                        g.fetch_add(1, Ordering::AcqRel);
+                    }
+                    "authorization" => a.store(false, Ordering::Release),
+                    "queued" => tx
+                        .try_send(Request {
+                            generation: 0,
+                            revision: None,
+                            operation: Operation::InputReleased,
+                        })
+                        .unwrap(),
+                    _ => {}
+                }
+            }
+            if event == "published" {
+                *c.lock().unwrap() = update.cloned();
+            }
+            if event == "input" {
+                st.store(true, Ordering::Release);
+            }
+            event == "wait" && action != "queued"
+        }))
+    });
+    worker(
+        config,
+        rx,
+        latest,
+        generation,
+        stop,
+        (authorization, signal),
+    );
+    HELD_WORKER_HOOK.with_borrow_mut(|hook| *hook = None);
+    let events = events.lock().unwrap().clone();
+    let update = captured
+        .lock()
+        .unwrap()
+        .take()
+        .expect("worker reached idle wait without publishing");
+    (events, update)
+}
+
 fn worker(
     config: Config,
     rx: Receiver<Request>,
@@ -213,6 +309,16 @@ fn worker(
     let mut processing_poll = Instant::now();
     let mut connect = true;
     let mut reconnects = 0u64;
+    #[cfg(test)]
+    HELD_WORKER_SEED.with_borrow_mut(|seed| {
+        if let Some(operator) = seed.take() {
+            op = Some(operator);
+            connect = false;
+            held = Some((1, 1));
+            heartbeat = Instant::now() - Duration::from_millis(20);
+            brain_enabled = true;
+        }
+    });
     while !stop.load(Ordering::Acquire) {
         if held.is_some_and(|(id, _)| !brain_signal.live_id(id))
             || (held.is_some() && !authorization.load(Ordering::Acquire))
@@ -227,6 +333,12 @@ fn worker(
         if current != g {
             g = current;
             review = None;
+            if held.take().is_some() {
+                brain_signal.release();
+                if let Some(o) = &mut op {
+                    let _ = o.close_brain();
+                }
+            }
             if let Some(o) = &mut op {
                 o.cancel();
                 if !authorization.load(Ordering::Acquire) {
@@ -278,6 +390,60 @@ fn worker(
                 &mut brain_status,
             );
         }
+        #[cfg(test)]
+        held_worker_event("service", &latest);
+        // Service completion (including closure/error) is visible before any idle
+        // receive or passive work. Recheck asynchronous fences before publishing.
+        if generation.load(Ordering::Acquire) != g {
+            continue;
+        }
+        if held.is_some_and(|(id, _)| !brain_signal.live_id(id))
+            || (held.is_some() && !authorization.load(Ordering::Acquire))
+        {
+            brain_signal.release();
+            if let Some(o) = &mut op {
+                let _ = o.close_brain();
+            }
+            held = None;
+        }
+        let update = Update {
+            generation: g,
+            last_operation: last_operation.clone(),
+            writer_lease_remaining_ms: op.as_ref().and_then(confirmed_lease_remaining),
+            snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
+            device: op.as_ref().and_then(|o| o.session.device.clone()),
+            device_final: op.as_ref().and_then(|o| o.session.device_final.clone()),
+            device_fresh: op.as_ref().is_some_and(|o| o.session.device_fresh(o.now())),
+            brain: op.as_ref().and_then(|o| o.session.brain.clone()),
+            brain_final: op.as_ref().and_then(|o| o.session.brain_final.clone()),
+            brain_fresh: op.as_ref().is_some_and(|o| o.session.brain_fresh(o.now())),
+            brain_age_ms: op.as_ref().and_then(|o| o.session.brain_age(o.now())),
+            held_status: op.as_ref().and_then(|o| o.held_status()),
+            held_baseline_ready: op.as_ref().is_some_and(|o| o.held_baseline_ready()),
+            held_transport_authenticated: op
+                .as_ref()
+                .is_some_and(|o| o.held_transport_authenticated()),
+            brain_status: brain_status.clone(),
+            processing: op.as_ref().and_then(|o| o.session.processing.clone()),
+            processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
+            processing_status: processing_status.clone(),
+            structural: op
+                .as_ref()
+                .and_then(|o| o.session.structural.clone())
+                .or_else(|| structural_final.as_ref().and_then(|r| r.snapshot.clone())),
+            structural_final: structural_final.clone(),
+            structural_fresh: op
+                .as_ref()
+                .is_some_and(|o| o.session.structural_fresh(o.now())),
+            processing_final: op.as_ref().and_then(|o| o.session.processing_final.clone()),
+            fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
+            status: status.clone(),
+            review: review.clone(),
+            received: Instant::now(),
+        };
+        publish_provider_update(&latest, update, operation_error.as_deref());
+        #[cfg(test)]
+        held_worker_event("published", &latest);
         let receive_wait = if held.is_some() {
             (heartbeat + Duration::from_millis(20))
                 .saturating_duration_since(Instant::now())
@@ -285,13 +451,25 @@ fn worker(
         } else {
             Duration::from_millis(40)
         };
+        #[cfg(test)]
+        if held_worker_event("wait", &latest) {
+            break;
+        }
         if let Ok(r) = rx.recv_timeout(receive_wait) {
+            #[cfg(test)]
+            held_worker_event("input", &latest);
             // A recovery request can wake recv after its generation was revoked.
             // Synchronize before comparing so a fresh reconnect is never discarded.
             let current = generation.load(Ordering::Acquire);
             if current != g {
                 g = current;
                 review = None;
+                if held.take().is_some() {
+                    brain_signal.release();
+                    if let Some(o) = &mut op {
+                        let _ = o.close_brain();
+                    }
+                }
                 if let Some(o) = &mut op {
                     o.cancel();
                     if !authorization.load(Ordering::Acquire) {
@@ -715,42 +893,6 @@ fn worker(
         if generation.load(Ordering::Acquire) != g {
             continue;
         }
-        let update = Update {
-            generation: g,
-            last_operation: last_operation.clone(),
-            writer_lease_remaining_ms: op.as_ref().and_then(confirmed_lease_remaining),
-            snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
-            device: op.as_ref().and_then(|o| o.session.device.clone()),
-            device_final: op.as_ref().and_then(|o| o.session.device_final.clone()),
-            device_fresh: op.as_ref().is_some_and(|o| o.session.device_fresh(o.now())),
-            brain: op.as_ref().and_then(|o| o.session.brain.clone()),
-            brain_final: op.as_ref().and_then(|o| o.session.brain_final.clone()),
-            brain_fresh: op.as_ref().is_some_and(|o| o.session.brain_fresh(o.now())),
-            brain_age_ms: op.as_ref().and_then(|o| o.session.brain_age(o.now())),
-            held_status: op.as_ref().and_then(|o| o.held_status()),
-            held_baseline_ready: op.as_ref().is_some_and(|o| o.held_baseline_ready()),
-            held_transport_authenticated: op
-                .as_ref()
-                .is_some_and(|o| o.held_transport_authenticated()),
-            brain_status: brain_status.clone(),
-            processing: op.as_ref().and_then(|o| o.session.processing.clone()),
-            processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
-            processing_status: processing_status.clone(),
-            structural: op
-                .as_ref()
-                .and_then(|o| o.session.structural.clone())
-                .or_else(|| structural_final.as_ref().and_then(|r| r.snapshot.clone())),
-            structural_final: structural_final.clone(),
-            structural_fresh: op
-                .as_ref()
-                .is_some_and(|o| o.session.structural_fresh(o.now())),
-            processing_final: op.as_ref().and_then(|o| o.session.processing_final.clone()),
-            fresh: op.as_ref().is_some_and(|o| o.session.fresh(o.now())),
-            status: status.clone(),
-            review: review.clone(),
-            received: Instant::now(),
-        };
-        publish_provider_update(&latest, update, operation_error.as_deref());
     }
     brain_signal.release();
     if let Some(o) = &mut op {
@@ -774,7 +916,7 @@ pub(crate) fn service_worker_hold(
             let _ = operator.close_brain();
             *held = None;
         } else if heartbeat.elapsed() >= Duration::from_millis(20) {
-            match operator.service_held(generation) {
+            match operator.service_held(generation, intent) {
                 Ok(sent) => {
                     *heartbeat = sent;
                     *status = "held service readback received".into();

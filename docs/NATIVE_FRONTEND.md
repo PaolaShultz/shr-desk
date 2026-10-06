@@ -700,3 +700,19 @@ remain inside the existing bounded read. The same device pin and freshness gate
 protect byte-identical pending retries. Failure never replays a new mutation;
 replacement requires a new explicit review/rearm. These are local safety checks;
 GP15 and atomic maintenance/paired-readback wire contracts are unchanged.
+
+
+Held service retains its unused final compact proof for at most one subsequent
+heartbeat in the same live gesture, subject to all current context, authority,
+rejection-floor and original-send freshness checks. Correlated heartbeat completion
+now precedes due same-lease maintenance, which precedes the final display-proof
+query; all share the actual heartbeat send's next 50 ms period and remaining
+64-document budget. Maintenance retains its 20 ms bound and final proof its 30 ms
+bound. Received maintenance context is checked before simultaneous cancellation;
+canceled results cannot renew authority. The worker publishes service success or
+closure/error before its idle receive wait, rechecking asynchronous input and
+authorization fences first. Closure
+discards matched authority, baseline and held status; a new gesture needs accepted
+full readback. Snapshot copying is unchanged; no coalescing or new queue was added.
+Focused offline tests cover operation order, reuse refusal and actual worker
+publication boundaries. They do not establish network timing or hardware acceptance.

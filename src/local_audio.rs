@@ -435,6 +435,7 @@ pub struct Operator {
     held_baseline: Option<HeldBaseline>,
     held_query: Option<HeldQuery>,
     held_matched: Option<crate::held_proof::Matched>,
+    held_reuse: Option<(u64, [u32; 6])>,
     held_nonce: u64,
     held_highwater: u64,
     held_observation: Option<crate::held_proof::Status>,
@@ -541,6 +542,7 @@ impl Operator {
             held_baseline: None,
             held_query: None,
             held_matched: None,
+            held_reuse: None,
             held_nonce: 0,
             held_highwater: 0,
             held_observation: None,
@@ -554,6 +556,7 @@ impl Operator {
         // observations may authorize input in the next controller generation.
         self.brain_probes.matched = None;
         self.held_matched = None;
+        self.held_reuse = None;
         self.held_observation = None;
         self.draft = None;
         self.session.context_changed();
@@ -717,6 +720,7 @@ impl Operator {
             if reply.witness.is_none() {
                 self.held_baseline = None;
                 self.held_matched = None;
+                self.held_reuse = None;
                 self.held_observation = None;
                 self.held_refusal = Some(format!("held proof refused: {:?}", reply.reason));
                 return Ok(true);
@@ -727,37 +731,9 @@ impl Operator {
                 query.sent,
                 query.generation,
             )?;
+            self.check_held_floors(&matched)?;
             let w = matched.witness();
             let highwater = crate::provider::counter(&w.brain.hold_generation_counter)?;
-            let known = self
-                .session
-                .brain
-                .as_ref()
-                .map(|b| crate::provider::counter(&b.hold_generation_counter))
-                .transpose()?
-                .unwrap_or(0);
-            if highwater < known.max(self.held_highwater) {
-                return Err("held proof generation highwater regressed".into());
-            }
-            let revision = crate::provider::counter(&w.revision)?;
-            let frame = crate::provider::counter(&w.source_frame)?;
-            if self.session.snapshot.as_ref().is_some_and(|s| {
-                revision < crate::provider::counter(&s.authority.revision).unwrap()
-                    || frame < crate::provider::counter(&s.frame).unwrap()
-            }) || self.session.brain.as_ref().is_some_and(|s| {
-                revision < crate::provider::counter(&s.revision).unwrap()
-                    || frame < crate::provider::counter(&s.frame).unwrap()
-            }) {
-                return Err("held proof regresses known authority".into());
-            }
-            if self.held_observation.as_ref().is_some_and(|old| {
-                crate::provider::counter(&w.revision).unwrap()
-                    < crate::provider::counter(&old.revision).unwrap()
-                    || crate::provider::counter(&w.source_frame).unwrap()
-                        < crate::provider::counter(&old.source_frame).unwrap()
-            }) {
-                return Err("regressive held proof".into());
-            }
             self.held_highwater = highwater;
             self.held_observation = Some(crate::held_proof::Status {
                 generation: w.brain.held_generation.clone(),
@@ -770,6 +746,8 @@ impl Operator {
                     + Duration::from_millis(u64::from(w.lease_remaining_ms).min(50)),
             });
             self.held_matched = Some(matched);
+            // Only service_held may mark its completed final query reusable.
+            self.held_reuse = None;
             return Ok(true);
         }
         if tag.contract.as_deref() == Some("GP15-device") {
@@ -891,6 +869,7 @@ impl Operator {
             .get_or_insert_with(|| reason.into());
         self.held_baseline = None;
         self.held_matched = None;
+        self.held_reuse = None;
         self.held_observation = None;
         self.held_query = None;
         self.brain_probes.invalid = true;
@@ -1000,6 +979,7 @@ impl Operator {
             self.session.disconnect();
             self.held_baseline = None;
             self.held_matched = None;
+            self.held_reuse = None;
             self.held_observation = None;
         }
         result
@@ -1079,6 +1059,17 @@ impl Operator {
                     *remaining -= 1;
                     if document.value()["contract"] == crate::lease_maintenance::CONTRACT {
                         let reply = crate::lease_maintenance::Reply::decode_document(document)?;
+                        // Validate received identity before a simultaneous key-up
+                        // can classify this as cancellation. Do not install it yet.
+                        if !self.maintenance_replies.contains(&reply)
+                            && self
+                                .session
+                                .maintenance
+                                .as_ref()
+                                .is_none_or(|p| p.request != reply.context)
+                        {
+                            return Err("maintenance reply context mismatch".into());
+                        }
                         self.probe_guard(held)
                             .map_err(BrainOperationError::message)?;
                         if Instant::now() >= deadline
@@ -1471,6 +1462,30 @@ impl Operator {
     pub(crate) fn held_baseline_ready(&self) -> bool {
         self.held_baseline.as_ref().is_some_and(|b| {
             self.transport.held_identity().as_ref() == Some(&b.identity)
+                && self.session.snapshot.as_ref().is_some_and(|raw| {
+                    raw.authority.epoch == b.identity.epoch
+                        && raw.topology.as_ref().is_some_and(|t| {
+                            b.identity.map == t.map_revision.to_string()
+                                && [
+                                    raw.authority.inputs.len() as u64,
+                                    raw.authority.monitors.len() as u64,
+                                    t.pa_outputs as u64,
+                                    t.capture_channels as u64,
+                                    t.playback_channels as u64,
+                                    u64::from(t.sample_rate),
+                                ] == b.dimensions.map(u64::from)
+                        })
+                        && self.session.brain.as_ref().is_some_and(|brain| {
+                            crate::held_proof::configuration_digest(
+                                &raw.authority.show_id,
+                                &b.identity,
+                                b.dimensions,
+                                brain,
+                            )
+                            .as_ref()
+                                == Ok(&b.template.expected_config_digest)
+                        })
+                })
                 && self
                     .session
                     .held_query(
@@ -1508,6 +1523,7 @@ impl Operator {
             return Err(BrainOperationError::Admission("held proof unsupported or accepted baseline missing; full readback and new gesture required".into()));
         }
         self.held_matched = None;
+        self.held_reuse = None;
         // Drain a canceled query before allocating a new nonce. Never resynchronize.
         while self.held_query.is_some() {
             self.compact_receive(deadline, remaining)?;
@@ -1590,6 +1606,114 @@ impl Operator {
         }
         Ok(())
     }
+    fn check_held_floors(&self, matched: &crate::held_proof::Matched) -> Result<(), String> {
+        let w = matched.witness();
+        let highwater = crate::provider::counter(&w.brain.hold_generation_counter)?;
+        let known = self
+            .session
+            .brain
+            .as_ref()
+            .map(|b| crate::provider::counter(&b.hold_generation_counter))
+            .transpose()?
+            .unwrap_or(0);
+        if highwater < known.max(self.held_highwater) {
+            return Err("held proof generation highwater regressed".into());
+        }
+        let revision = crate::provider::counter(&w.revision)?;
+        let frame = crate::provider::counter(&w.source_frame)?;
+        if self.session.snapshot.as_ref().is_some_and(|s| {
+            revision < crate::provider::counter(&s.authority.revision).unwrap()
+                || frame < crate::provider::counter(&s.frame).unwrap()
+        }) || self.session.brain.as_ref().is_some_and(|s| {
+            revision < crate::provider::counter(&s.revision).unwrap()
+                || frame < crate::provider::counter(&s.frame).unwrap()
+        }) {
+            return Err("held proof regresses known authority".into());
+        }
+        if self.held_observation.as_ref().is_some_and(|old| {
+            crate::provider::counter(&w.revision).unwrap()
+                < crate::provider::counter(&old.revision).unwrap()
+                || crate::provider::counter(&w.source_frame).unwrap()
+                    < crate::provider::counter(&old.source_frame).unwrap()
+        }) {
+            return Err("regressive held proof".into());
+        }
+        Ok(())
+    }
+    /// Only the unused final proof from this live gesture is a reuse candidate.
+    /// Invalid context is terminal; only age/absence/superseded floors may query again.
+    fn reuse_post_proof(
+        &mut self,
+        intent: u64,
+        generation: u64,
+    ) -> Result<bool, BrainOperationError> {
+        self.held_gesture_guard(intent)?;
+        if self.brain_probes.invalid || self.brain_probes.first_fault.is_some() {
+            return Err(self
+                .brain_probes
+                .first_fault
+                .clone()
+                .unwrap_or("held proof invalid".into())
+                .into());
+        }
+        if let Some(reason) = &self.held_refusal {
+            return Err(BrainOperationError::Admission(reason.clone()));
+        }
+        if self.held_query.is_some()
+            || self.session.pending.is_some()
+            || self.session.maintenance.is_some()
+        {
+            return Err(BrainOperationError::Admission(
+                "held reuse outstanding operation".into(),
+            ));
+        }
+        if !self.held_baseline_ready() {
+            self.held_baseline = None;
+            return Err(BrainOperationError::Admission(
+                "held baseline changed; full readback and new gesture required".into(),
+            ));
+        }
+        let Some(proof) = self.held_matched.as_ref() else {
+            return Ok(false);
+        };
+        let Some((old_intent, dimensions)) = self.held_reuse else {
+            self.held_matched = None;
+            return Ok(false);
+        };
+        let baseline = self.held_baseline.as_ref().unwrap();
+        let current = self.session.held_query(
+            &baseline.identity,
+            &baseline.template.expected_config_digest,
+            crate::provider::counter(&proof.request().query_id)?,
+            self.now(),
+        )?;
+        if old_intent != intent
+            || dimensions != baseline.dimensions
+            || proof.generation() != self.session.generation()
+            || current != *proof.request()
+        {
+            return Err(BrainOperationError::Admission(
+                "held reuse context changed".into(),
+            ));
+        }
+        let w = proof.witness();
+        if generation == 0
+            || w.brain.held_generation.as_deref() != Some(generation.to_string().as_str())
+            || !w.media_authorized
+            || w.brain.talkback_mute
+            || (w.brain.talkback_foh && !w.foh_authorized)
+        {
+            return Err(BrainOperationError::Admission(
+                "held reuse generation/authorization".into(),
+            ));
+        }
+        if !proof.fresh() || self.check_held_floors(proof).is_err() {
+            self.held_matched = None;
+            self.held_reuse = None;
+            return Ok(false);
+        }
+        Ok(true)
+    }
     fn proved_request(
         &mut self,
         kind: &str,
@@ -1597,6 +1721,8 @@ impl Operator {
     ) -> Result<(audio::Request, u64, Instant), BrainOperationError> {
         self.held_guard()?;
         let proof = self.held_matched.take().ok_or("held own proof missing")?;
+        self.held_reuse = None;
+        self.check_held_floors(&proof)?;
         if !self.held_baseline_ready()
             || self.held_baseline.as_ref().is_none_or(|b| {
                 b.template.expected_config_digest != proof.request().expected_config_digest
@@ -1654,6 +1780,19 @@ impl Operator {
             .is_some_and(|signal| !signal.live())
         {
             return Err(BrainOperationError::Admission("held input released".into()));
+        }
+        Ok(())
+    }
+    fn held_gesture_guard(&mut self, intent: u64) -> Result<(), BrainOperationError> {
+        self.held_guard()?;
+        if self
+            .brain_signal
+            .as_ref()
+            .is_none_or(|s| !s.live_id(intent))
+        {
+            return Err(BrainOperationError::Admission(
+                "held gesture changed".into(),
+            ));
         }
         Ok(())
     }
@@ -1727,25 +1866,36 @@ impl Operator {
     }
     /// The real worker's entire held maintenance path. No passive250ms poll or
     /// ordinary1900ms mutation wait is reachable while this service owns the hold.
-    pub(crate) fn service_held(&mut self, generation: u64) -> Result<Instant, String> {
+    pub(crate) fn service_held(&mut self, generation: u64, intent: u64) -> Result<Instant, String> {
         let began = Instant::now();
         let initial_anchor = self.last_brain_send;
         let result = (|| -> Result<Instant, BrainOperationError> {
+            if self.brain_probes.invalid || self.brain_probes.first_fault.is_some() {
+                return Err(self
+                    .brain_probes
+                    .first_fault
+                    .clone()
+                    .unwrap_or("held proof invalid".into())
+                    .into());
+            }
             let deadline =
                 self.last_brain_send.ok_or("held send anchor missing")? + Duration::from_millis(50);
             if Instant::now() >= deadline {
                 return Err("held service arrived late".into());
             }
-            self.held_guard()?;
+            self.held_gesture_guard(intent)?;
             let mut remaining = 64;
             self.settle_held_pending(deadline, &mut remaining)?;
-            self.compact_read(
-                deadline.min(Instant::now() + Duration::from_millis(30)),
-                &mut remaining,
-            )?;
-            self.held_guard()?;
+            if !self.reuse_post_proof(intent, generation)? {
+                self.compact_read(
+                    deadline.min(Instant::now() + Duration::from_millis(30)),
+                    &mut remaining,
+                )?;
+            }
+            self.held_gesture_guard(intent)?;
             let (request, _, probe_deadline) =
                 self.proved_request("brain_heartbeat", Some(generation))?;
+            self.held_gesture_guard(intent)?;
             let sent = Instant::now();
             self.transport
                 .send_frame_until(&request.encode()?, deadline.min(probe_deadline))?;
@@ -1754,10 +1904,7 @@ impl Operator {
             // send start, not to work completion or a fresh per-read timeout.
             let next = sent + Duration::from_millis(50);
             self.settle_held_pending(next, &mut remaining)?;
-            self.compact_read(
-                next.min(Instant::now() + Duration::from_millis(30)),
-                &mut remaining,
-            )?;
+            self.held_gesture_guard(intent)?;
             if self.session.renewal_due(self.now()) {
                 self.maintain(
                     next.min(Instant::now() + Duration::from_millis(20)),
@@ -1765,6 +1912,13 @@ impl Operator {
                     true,
                 )?;
             }
+            self.held_gesture_guard(intent)?;
+            self.compact_read(
+                next.min(Instant::now() + Duration::from_millis(30)),
+                &mut remaining,
+            )?;
+            self.held_gesture_guard(intent)?;
+            self.held_reuse = Some((intent, self.held_baseline.as_ref().unwrap().dimensions));
             Ok(sent)
         })();
         match result {
@@ -1794,6 +1948,10 @@ impl Operator {
         }
     }
     pub(crate) fn close_brain(&mut self) -> Result<(), String> {
+        self.held_matched = None;
+        self.held_reuse = None;
+        self.held_baseline = None;
+        self.held_observation = None;
         if self
             .session
             .brain
@@ -2510,6 +2668,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         held_baseline: None,
         held_query: None,
         held_matched: None,
+        held_reuse: None,
         held_nonce: 0,
         held_highwater: 0,
         held_observation: None,
@@ -2821,6 +2980,7 @@ mod gp07_stage_tests {
             held_baseline: None,
             held_query: None,
             held_matched: None,
+            held_reuse: None,
             held_nonce: 0,
             held_highwater: 0,
             held_observation: None,
@@ -3981,7 +4141,12 @@ mod brain_fifo_tests {
             let reply = match request["kind"].as_str().unwrap() {
                 "held_proof" => {
                     self.probes += 1;
-                    if self.probes == 2 && self.cancel.is_some() {
+                    if self.probes == 2
+                        && self
+                            .cancel
+                            .as_ref()
+                            .is_some_and(|(_, mode)| *mode != "maintenance")
+                    {
                         self.cancel_stage = 2;
                     }
                     self.brain["snapshot"]["frame"] = json!(frame.to_string());
@@ -4011,7 +4176,12 @@ mod brain_fifo_tests {
                 }
                 "brain_snapshot" => {
                     self.probes += 1;
-                    if self.probes == 2 && self.cancel.is_some() {
+                    if self.probes == 2
+                        && self
+                            .cancel
+                            .as_ref()
+                            .is_some_and(|(_, mode)| *mode != "maintenance")
+                    {
                         self.cancel_stage = 1;
                     }
                     self.brain["snapshot"]["frame"] = json!(frame.to_string());
@@ -4037,6 +4207,9 @@ mod brain_fifo_tests {
                         if held { json!("99999") } else { Value::Null };
                     json!({"contract":"GP15-brain","version":1,"state":"final","reason":null,"context":context,"revision":(revision+1).to_string(),"applied_frame":frame.to_string(),"snapshot":self.brain["snapshot"]})
                 }
+                "maintain" if self.fail == Some("maintenance_refusal") => {
+                    json!({"contract":"GP15-lease-maintenance","version":1,"state":"refused","reason":"lease","context":request,"result":null})
+                }
                 "maintain" => {
                     json!({"contract":"GP15-lease-maintenance","version":1,"state":"maintained","reason":null,"context":request,"result":{"revision":revision.to_string(),"source_frame":frame.to_string(),"lease_remaining_ms":2000}})
                 }
@@ -4046,6 +4219,10 @@ mod brain_fifo_tests {
                 }
                 other => panic!("passive/ordinary maintenance entered held service: {other}"),
             };
+            let mut reply = reply;
+            if request["kind"] == "maintain" && self.fail == Some("maintenance_unknown") {
+                reply["context"]["maintenance_id"] = json!("999");
+            }
             let bytes = serde_json::to_vec(&reply).unwrap();
             if let Some(id) = request["request_id"].as_str() {
                 self.cached.insert(id.into(), bytes.clone());
@@ -4075,6 +4252,25 @@ mod brain_fifo_tests {
             } else if self.cancel_stage == 1 {
                 self.cancel_stage = 2;
             }
+            if self.fail.is_some_and(|f| {
+                matches!(
+                    f,
+                    "maintenance_cancel"
+                        | "maintenance_unknown"
+                        | "maintenance_partial"
+                        | "maintenance_malformed"
+                )
+            }) && self.replies.front().is_some_and(|r| {
+                serde_json::from_slice::<Value>(r).unwrap()["contract"] == "GP15-lease-maintenance"
+            }) {
+                self.cancel.as_ref().unwrap().0.release();
+                if self.fail == Some("maintenance_partial") {
+                    return Err("partial maintenance frame".into());
+                }
+                if self.fail == Some("maintenance_malformed") {
+                    return Ok(Some(b"{malformed".to_vec()));
+                }
+            }
             if self.fail == Some("slow_ack") {
                 if self.replies.front().is_some_and(|b| {
                     let reply: Value = serde_json::from_slice(b).unwrap();
@@ -4084,7 +4280,7 @@ mod brain_fifo_tests {
                 }
                 return Ok(self.replies.pop_front());
             }
-            if let Some(fail) = self.fail {
+            if let Some(fail) = self.fail.filter(|f| !f.starts_with("maintenance_")) {
                 if fail == "partial" {
                     return Err("partial held frame".into());
                 }
@@ -4110,6 +4306,18 @@ mod brain_fifo_tests {
         fail: Option<&'static str>,
         cancel_mode: Option<&'static str>,
     ) -> Arc<Mutex<Vec<(Value, Instant, Instant)>>> {
+        let peer = held_peer_instance(op, raw, fail, cancel_mode);
+        let sent = peer.sent.clone();
+        op.transport = Box::new(peer);
+        op.last_brain_send = Some(Instant::now());
+        sent
+    }
+    fn held_peer_instance(
+        op: &mut Operator,
+        raw: Value,
+        fail: Option<&'static str>,
+        cancel_mode: Option<&'static str>,
+    ) -> HeldPeer {
         let signal = Arc::new(crate::brain::HoldSignal::default());
         signal.press();
         op.brain_signal(signal.clone());
@@ -4176,7 +4384,7 @@ mod brain_fifo_tests {
         b.hold_deadline_ms = b.held_generation.as_ref().map(|_| "99999".into());
         let brain = probe_reply(op, b_frame(op) + 48);
         let sent = Arc::new(Mutex::new(Vec::new()));
-        op.transport = Box::new(HeldPeer {
+        HeldPeer {
             identity,
             raw,
             brain,
@@ -4187,9 +4395,145 @@ mod brain_fifo_tests {
             probes: 0,
             cancel_stage: 0,
             cached: std::collections::BTreeMap::new(),
+        }
+    }
+    // Prepare every reply before establishing any production service deadline.
+    struct PreparedHeldPeer {
+        last_close: Option<Value>,
+        identity: crate::held_proof::Identity,
+        exchanges: VecDeque<(Value, Vec<u8>)>,
+        ready: VecDeque<Vec<u8>>,
+        sent: Arc<Mutex<Vec<(Value, Instant, Instant)>>>,
+        events: Arc<Mutex<Vec<String>>>,
+    }
+    impl AuthorityConnection for PreparedHeldPeer {
+        fn held_identity(&self) -> Option<crate::held_proof::Identity> {
+            Some(self.identity.clone())
+        }
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            let request: Value = serde_json::from_slice(bytes).unwrap();
+            if self.last_close.as_ref() == Some(&request) {
+                self.sent
+                    .lock()
+                    .unwrap()
+                    .push((request, Instant::now(), deadline));
+                return Ok(());
+            }
+            let (expected, reply) = self.exchanges.pop_front().expect("unexpected service send");
+            if request["kind"] == "release" {
+                self.last_close = Some(request.clone());
+            }
+            assert_eq!(request, expected);
+            self.events
+                .lock()
+                .unwrap()
+                .push(format!("send:{}", request["kind"].as_str().unwrap()));
+            self.sent
+                .lock()
+                .unwrap()
+                .push((request, Instant::now(), deadline));
+            self.ready.push_back(reply);
+            Ok(())
+        }
+        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+            let reply = self.ready.pop_front();
+            if let Some(bytes) = &reply {
+                let value: Value = serde_json::from_slice(bytes).unwrap();
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push(format!("receive:{}", value["contract"].as_str().unwrap()));
+            }
+            Ok(reply)
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            panic!("unexpected passive receive")
+        }
+    }
+    type HeldSends = Arc<Mutex<Vec<(Value, Instant, Instant)>>>;
+    fn prepared_held_peer(
+        op: &mut Operator,
+        raw: Value,
+        kinds: &[&str],
+    ) -> (HeldSends, Arc<Mutex<Vec<String>>>) {
+        let mut peer = held_peer_instance(op, raw, None, None);
+        let template = op.held_baseline.as_ref().unwrap().template.clone();
+        let mut nonce = 0u64;
+        let mut request_id = 2u64;
+        let mut frame = String::new();
+        let mut exchanges = VecDeque::new();
+        for kind in kinds {
+            let request = match *kind {
+                "held_proof" => {
+                    nonce += 1;
+                    let mut query = template.clone();
+                    query.query_id = nonce.to_string();
+                    serde_json::to_value(query).unwrap()
+                }
+                "heartbeat" | "release" => {
+                    let request = audio::Request {
+                        version: 2,
+                        kind: if *kind == "heartbeat" {
+                            "brain_heartbeat"
+                        } else {
+                            "brain_release"
+                        }
+                        .into(),
+                        context: audio::Context {
+                            show_id: template.show_id.clone(),
+                            module: "audio".into(),
+                            epoch: template.epoch.clone(),
+                            writer: Some(template.writer.clone()),
+                            lease: Some(template.lease.clone()),
+                            request_id: Some(request_id.to_string()),
+                            expected_revision: Some(
+                                peer.brain["snapshot"]["revision"].as_str().unwrap().into(),
+                            ),
+                        },
+                        body: if *kind == "heartbeat" {
+                            json!({"generation":"1", "observed_frame":frame})
+                        } else {
+                            json!({"generation":"1"})
+                        },
+                    };
+                    request_id += 1;
+                    serde_json::from_slice(&request.encode().unwrap()).unwrap()
+                }
+                "maintain" => {
+                    let mut r = serde_json::to_value(&template).unwrap();
+                    let object = r.as_object_mut().unwrap();
+                    object.remove("query_id");
+                    object.remove("expected_config_digest");
+                    object.insert("contract".into(), json!("GP15-lease-maintenance"));
+                    object.insert("kind".into(), json!("maintain"));
+                    object.insert("maintenance_id".into(), json!("1"));
+                    r
+                }
+                _ => unreachable!(),
+            };
+            peer.send_frame_until(&serde_json::to_vec(&request).unwrap(), Instant::now())
+                .unwrap();
+            let reply = peer.replies.pop_front().unwrap();
+            if *kind == "held_proof" {
+                frame = serde_json::from_slice::<Value>(&reply).unwrap()["witness"]["source_frame"]
+                    .as_str()
+                    .unwrap()
+                    .into();
+            }
+            exchanges.push_back((request, reply));
+        }
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(PreparedHeldPeer {
+            last_close: None,
+            identity: peer.identity,
+            exchanges,
+            ready: VecDeque::new(),
+            sent: sent.clone(),
+            events: events.clone(),
         });
         op.last_brain_send = Some(Instant::now());
-        sent
+        (sent, events)
     }
     fn b_frame(op: &Operator) -> u64 {
         op.session.brain.as_ref().unwrap().frame.parse().unwrap()
@@ -4267,12 +4611,491 @@ mod brain_fifo_tests {
             Some("0")
         );
     }
+    fn alter_post_proof(
+        op: &mut Operator,
+        age: Duration,
+        change: impl FnOnce(&mut crate::held_proof::Reply),
+    ) {
+        let old = op.held_matched.take().unwrap();
+        let mut reply = crate::held_proof::Reply {
+            contract: crate::held_proof::CONTRACT.into(),
+            version: 1,
+            state: "proof".into(),
+            reason: None,
+            context: old.request().clone(),
+            witness: Some(old.witness().clone()),
+        };
+        change(&mut reply);
+        let request = reply.context.clone();
+        op.held_matched = Some(
+            crate::held_proof::Matched::admit(
+                reply,
+                &request,
+                Instant::now() - age,
+                old.generation(),
+            )
+            .unwrap(),
+        );
+    }
+    #[test]
+    fn run36_aged_or_superseded_proof_queries_again_with_original_service_budget() {
+        for case in [
+            "age",
+            "short_lease",
+            "raw_revision",
+            "raw_frame",
+            "brain_revision",
+            "brain_frame",
+            "held_revision",
+            "held_frame",
+            "held_highwater",
+            "brain_highwater",
+            "absent",
+        ] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer(&mut op, raw, None);
+            op.service_held(1, 1).unwrap();
+            let proof = op.held_matched.as_ref().unwrap();
+            let revision = proof.witness().revision.parse::<u64>().unwrap() + 10;
+            let frame = proof.witness().source_frame.parse::<u64>().unwrap() + 4800;
+            match case {
+                "age" => alter_post_proof(&mut op, Duration::from_millis(31), |_| {}),
+                "short_lease" => alter_post_proof(&mut op, Duration::from_millis(10), |r| {
+                    r.witness.as_mut().unwrap().lease_remaining_ms = 1
+                }),
+                "raw_revision" => {
+                    op.session.snapshot.as_mut().unwrap().authority.revision = revision.to_string()
+                }
+                "raw_frame" => op.session.snapshot.as_mut().unwrap().frame = frame.to_string(),
+                "brain_revision" => {
+                    op.session.brain.as_mut().unwrap().revision = revision.to_string()
+                }
+                "brain_frame" => op.session.brain.as_mut().unwrap().frame = frame.to_string(),
+                "held_revision" => {
+                    op.held_observation.as_mut().unwrap().revision = revision.to_string()
+                }
+                "held_frame" => {
+                    op.held_observation.as_mut().unwrap().source_frame = frame.to_string()
+                }
+                "held_highwater" => op.held_highwater = 2,
+                "brain_highwater" => {
+                    op.session.brain.as_mut().unwrap().hold_generation_counter = "2".into()
+                }
+                "absent" => op.held_matched = None,
+                _ => unreachable!(),
+            }
+            let anchor = op.last_brain_send.unwrap();
+            let before = sent.lock().unwrap().len();
+            let result = op.service_held(1, 1);
+            let writes = sent.lock().unwrap();
+            assert_eq!(writes[before].0["kind"], "held_proof", "{case}: {result:?}");
+            assert!(writes[before].2 <= anchor + Duration::from_millis(50));
+            assert!(writes[before].2 <= writes[before].1 + Duration::from_millis(30));
+            if matches!(case, "age" | "short_lease" | "absent") {
+                assert!(result.is_ok(), "{case}: {result:?}");
+                assert_ne!(op.held_matched.as_ref().unwrap().request().query_id, "2");
+            } else {
+                assert!(result.is_err(), "{case}");
+                assert!(
+                    !writes[before..]
+                        .iter()
+                        .any(|(r, _, _)| r["kind"] == "heartbeat"),
+                    "{case}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn run36_invalid_reuse_context_closes_without_fresh_query_or_heartbeat() {
+        for case in [
+            "lease",
+            "attachment",
+            "dimensions",
+            "configuration",
+            "request_writer",
+            "request_scope",
+            "request_lease",
+            "request_session",
+            "request_capability",
+            "generation",
+            "gesture",
+            "new_gesture",
+            "input_guard",
+            "refusal",
+            "fault",
+            "fault_canceled",
+            "outstanding",
+            "maintenance",
+            "closing",
+            "provider_generation",
+            "media",
+            "mute",
+            "foh",
+        ] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer(&mut op, raw, None);
+            op.service_held(1, 1).unwrap();
+            match case {
+                "lease" => op.start = Instant::now() - Duration::from_millis(2100),
+                "attachment" => op.held_baseline.as_mut().unwrap().identity.session = "2".into(),
+                "dimensions" => {
+                    op.session
+                        .snapshot
+                        .as_mut()
+                        .unwrap()
+                        .topology
+                        .as_mut()
+                        .unwrap()
+                        .capture_channels += 1
+                }
+                "configuration" => op.session.brain.as_mut().unwrap().talkback_gain_cdb -= 1,
+                "generation" => op.session.context_changed(),
+                "gesture" | "new_gesture" => {
+                    op.brain_signal.as_ref().unwrap().press();
+                }
+                "input_guard" => op.guard(Arc::new(std::sync::atomic::AtomicU64::new(2)), 1),
+                "refusal" => op.held_refusal = Some("retained refusal".into()),
+                "fault" | "fault_canceled" => {
+                    if case == "fault_canceled" {
+                        op.brain_signal.as_ref().unwrap().release();
+                    }
+                    op.brain_probes.invalid = true;
+                    op.brain_probes.first_fault = Some("original fault".into());
+                }
+                "outstanding" => {
+                    let p = op.held_matched.as_ref().unwrap();
+                    op.held_query = Some(HeldQuery {
+                        request: p.request().clone(),
+                        sent: p.sent(),
+                        generation: p.generation(),
+                        dimensions: op.held_baseline.as_ref().unwrap().dimensions,
+                    });
+                }
+                "maintenance" => {
+                    let identity = op.transport.held_identity().unwrap();
+                    op.session.begin_maintenance(&identity, op.now()).unwrap();
+                }
+                "closing" => {
+                    op.close_brain().unwrap();
+                }
+                _ => alter_post_proof(&mut op, Duration::ZERO, |r| match case {
+                    "request_writer" => r.context.writer = "different".into(),
+                    "request_scope" => r.context.scope = "foh".into(),
+                    "request_lease" => r.context.lease = "different".into(),
+                    "request_session" => r.context.authenticated_session = "2".into(),
+                    "request_capability" => r.context.capability_generation = "2".into(),
+                    "provider_generation" => {
+                        r.witness.as_mut().unwrap().brain.held_generation = Some("2".into())
+                    }
+                    "media" => r.witness.as_mut().unwrap().media_authorized = false,
+                    "mute" => r.witness.as_mut().unwrap().brain.talkback_mute = true,
+                    "foh" => {
+                        let w = r.witness.as_mut().unwrap();
+                        w.brain.talkback_foh = true;
+                        w.foh_authorized = false;
+                    }
+                    _ => unreachable!(),
+                }),
+            }
+            let before = sent.lock().unwrap().len();
+            let error = op
+                .service_held(1, if case == "new_gesture" { 2 } else { 1 })
+                .unwrap_err();
+            assert!(!op.brain_signal.as_ref().unwrap().live(), "{case}: {error}");
+            assert!(op.held_matched.is_none(), "{case}: {error}");
+            assert!(
+                sent.lock().unwrap()[before..]
+                    .iter()
+                    .all(|(r, _, _)| r["kind"] == "release"),
+                "{case}: {error}"
+            );
+            if matches!(case, "fault" | "fault_canceled") {
+                assert!(error.starts_with("original fault"));
+                assert_eq!(
+                    op.brain_probes.first_fault.as_deref(),
+                    Some("original fault")
+                );
+            }
+        }
+    }
+    #[test]
+    fn run36_consumed_post_proof_is_not_restored_after_send_failure() {
+        struct FailedHeartbeat {
+            identity: crate::held_proof::Identity,
+            sends: Arc<Mutex<Vec<Value>>>,
+        }
+        impl AuthorityConnection for FailedHeartbeat {
+            fn held_identity(&self) -> Option<crate::held_proof::Identity> {
+                Some(self.identity.clone())
+            }
+            fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
+                let request: Value = serde_json::from_slice(bytes).unwrap();
+                self.sends.lock().unwrap().push(request.clone());
+                if request["kind"] == "heartbeat" {
+                    Err("partial heartbeat send".into())
+                } else {
+                    Ok(())
+                }
+            }
+            fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
+                panic!("no receive after failed send")
+            }
+            fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+                panic!("no passive receive")
+            }
+        }
+        let (mut op, _, raw) = held_setup();
+        held_peer(&mut op, raw, None);
+        op.service_held(1, 1).unwrap();
+        let proof = op.held_matched.as_ref().unwrap();
+        let frame = proof.witness().source_frame.clone();
+        let revision = proof.witness().revision.clone();
+        let sends = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(FailedHeartbeat {
+            identity: op.transport.held_identity().unwrap(),
+            sends: sends.clone(),
+        });
+        assert!(
+            op.service_held(1, 1)
+                .unwrap_err()
+                .starts_with("partial heartbeat send")
+        );
+        assert!(op.held_matched.is_none());
+        assert!(op.held_reuse.is_none());
+        let sends = sends.lock().unwrap();
+        assert_eq!(sends[0]["kind"], "heartbeat");
+        assert_eq!(sends[0]["body"]["observed_frame"], frame);
+        assert_eq!(sends[0]["expected_revision"], revision);
+        assert!(sends[1..].iter().all(|r| r["kind"] == "release"));
+    }
+    #[test]
+    fn run36_proof_take_is_exactly_once_even_when_admission_fails() {
+        for fail in [false, true] {
+            let (mut op, _, raw) = held_setup();
+            held_peer(&mut op, raw, None);
+            op.service_held(1, 1).unwrap();
+            assert!(
+                op.reuse_post_proof(1, 1)
+                    .map_err(BrainOperationError::message)
+                    .unwrap()
+            );
+            let proof = op.held_matched.as_ref().unwrap();
+            let frame = proof.witness().source_frame.clone();
+            let revision = proof.witness().revision.clone();
+            let sent = proof.sent();
+            let observed = op.held_observation.as_ref().unwrap().observed;
+            if fail {
+                op.session.context_changed();
+            }
+            let result = op.proved_request("brain_heartbeat", Some(1));
+            if fail {
+                assert!(result.is_err());
+            } else {
+                let (request, _, deadline) = result.map_err(BrainOperationError::message).unwrap();
+                assert_eq!(request.body["observed_frame"], frame);
+                assert_eq!(
+                    request.context.expected_revision.as_deref(),
+                    Some(revision.as_str())
+                );
+                assert!(deadline <= sent + Duration::from_millis(50));
+            }
+            assert_eq!(op.held_observation.as_ref().unwrap().observed, observed);
+            assert!(op.held_matched.is_none());
+            assert!(op.held_reuse.is_none());
+            assert!(op.proved_request("brain_heartbeat", Some(1)).is_err());
+        }
+    }
+    #[test]
+    fn run36_maintenance_wire_fault_precedes_simultaneous_keyup() {
+        for mode in [
+            "maintenance_unknown",
+            "maintenance_partial",
+            "maintenance_malformed",
+        ] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer_cancellation(&mut op, raw, Some(mode), Some("maintenance"));
+            op.start = Instant::now() - Duration::from_millis(1500);
+            let error = op.service_held(1, 1).unwrap_err();
+            assert!(!error.starts_with("held input released"), "{mode}: {error}");
+            assert!(op.brain_probes.invalid);
+            assert!(
+                op.brain_probes
+                    .first_fault
+                    .as_ref()
+                    .unwrap()
+                    .contains(&error)
+            );
+            assert!(op.held_matched.is_none());
+            assert_eq!(
+                sent.lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "held_proof")
+                    .count(),
+                1
+            );
+        }
+    }
+    #[test]
+    fn run36_maintenance_refusal_and_cancellation_prevent_final_proof() {
+        for mode in ["maintenance_refusal", "maintenance_cancel"] {
+            let (mut op, _, raw) = held_setup();
+            let sent = held_peer_cancellation(&mut op, raw, Some(mode), Some("maintenance"));
+            op.start = Instant::now() - Duration::from_millis(1500);
+            let error = op.service_held(1, 1).unwrap_err();
+            let writes = sent.lock().unwrap();
+            assert_eq!(
+                writes
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "held_proof")
+                    .count(),
+                1,
+                "{mode}: {error}"
+            );
+            assert_eq!(
+                writes
+                    .iter()
+                    .filter(|(r, _, _)| r["kind"] == "heartbeat")
+                    .count(),
+                1
+            );
+            assert!(writes.iter().any(|(r, _, _)| r["kind"] == "maintain"));
+            assert!(op.held_matched.is_none());
+            assert!(!op.brain_signal.as_ref().unwrap().live());
+        }
+    }
+    #[test]
+    fn run36_due_maintenance_precedes_final_proof_with_unchanged_deadlines() {
+        let (mut op, _, raw) = held_setup();
+        let (sent, events) = prepared_held_peer(
+            &mut op,
+            raw,
+            &["held_proof", "heartbeat", "maintain", "held_proof"],
+        );
+        op.start = Instant::now() - Duration::from_millis(1500);
+        assert!(op.session.renewal_due(op.now()));
+        let anchor = op.service_held(1, 1).unwrap();
+        let writes = sent.lock().unwrap();
+        assert_eq!(
+            writes
+                .iter()
+                .map(|(r, _, _)| r["kind"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["held_proof", "heartbeat", "maintain", "held_proof"]
+        );
+        assert!(writes[2].2 <= anchor + Duration::from_millis(50));
+        assert!(writes[2].2 <= writes[2].1 + Duration::from_millis(20));
+        assert!(writes[3].2 <= anchor + Duration::from_millis(50));
+        assert!(writes[3].2 <= writes[3].1 + Duration::from_millis(30));
+        let proof = op.held_matched.as_ref().unwrap();
+        assert!(proof.sent() <= writes[3].1);
+        assert!(proof.sent() >= writes[2].1);
+        assert_eq!(op.held_status().unwrap().observed, proof.sent());
+        assert_eq!(
+            *events.lock().unwrap(),
+            [
+                "send:held_proof",
+                "receive:GP15-held-proof",
+                "send:heartbeat",
+                "receive:GP15-brain",
+                "send:maintain",
+                "receive:GP15-lease-maintenance",
+                "send:held_proof",
+                "receive:GP15-held-proof"
+            ]
+        );
+    }
+    #[test]
+    fn run36_actual_worker_publishes_before_idle_wait_and_fences_input() {
+        for action in [
+            "success",
+            "release",
+            "generation",
+            "authorization",
+            "queued",
+            "fault",
+        ] {
+            let (mut op, _, raw) = held_setup();
+            if action == "fault" {
+                held_peer(&mut op, raw, Some("partial"));
+            } else {
+                prepared_held_peer(
+                    &mut op,
+                    raw,
+                    &["held_proof", "heartbeat", "held_proof", "release"],
+                );
+            }
+            let signal = op.brain_signal.as_ref().unwrap().clone();
+            let (events, update) = crate::frontend::exercise_held_worker(op, signal, action);
+            let published = events.iter().position(|e| e == "published").unwrap();
+            let wait = events.iter().position(|e| e == "wait").unwrap();
+            assert!(published < wait, "{action}: {events:?}");
+            if matches!(action, "success" | "queued") {
+                assert!(update.held_status.is_some(), "{action}: {update:?}");
+            } else {
+                assert!(update.held_status.is_none(), "{action}: {update:?}");
+            }
+            if action == "generation" {
+                assert_eq!(update.generation, 2);
+            }
+            if action == "fault" {
+                assert!(update.brain_status.contains("stopped"));
+            }
+            if action == "queued" {
+                assert!(events.iter().any(|e| e == "input"));
+            }
+        }
+    }
+    #[test]
+    fn run36_two_services_reuse_unused_post_proof_once() {
+        let (mut op, _, raw) = held_setup();
+        let (sent, events) = prepared_held_peer(
+            &mut op,
+            raw,
+            &[
+                "held_proof",
+                "heartbeat",
+                "held_proof",
+                "heartbeat",
+                "held_proof",
+            ],
+        );
+        op.service_held(1, 1).unwrap();
+        let unused = op.held_matched.as_ref().unwrap();
+        assert!(unused.fresh());
+        let retained_frame = unused.witness().source_frame.clone();
+        op.service_held(1, 1).unwrap();
+        let sends = sent.lock().unwrap();
+        let kinds: Vec<_> = sends
+            .iter()
+            .map(|(r, _, _)| r["kind"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                "held_proof",
+                "heartbeat",
+                "held_proof",
+                "heartbeat",
+                "held_proof"
+            ]
+        );
+        assert_eq!(sends[3].0["body"]["observed_frame"], retained_frame);
+        assert_eq!(sends[3].0["expected_revision"], "1");
+        assert_eq!(events.lock().unwrap().len(), 10);
+        assert_eq!(sends[0].0["query_id"], "1");
+        assert_eq!(sends[2].0["query_id"], "2");
+        assert_eq!(sends[4].0["query_id"], "3");
+        eprintln!(
+            "run36 corrected: two services, three proof queries, two heartbeats; unused post-proof consumed once"
+        );
+    }
     #[test]
     fn compact_held_service_has_no_full_snapshot_query_and_keeps_raw_stale() {
         let (mut op, _, raw) = held_setup();
         let sent = held_peer(&mut op, raw, None);
         let raw_frame = op.session.snapshot.as_ref().unwrap().frame.clone();
-        op.service_held(1).unwrap();
+        op.service_held(1, 1).unwrap();
         assert_eq!(op.session.snapshot.as_ref().unwrap().frame, raw_frame);
         assert!(
             op.held_status()
@@ -4441,7 +5264,7 @@ mod brain_fifo_tests {
     fn held_service_anchor_precedes_delayed_completion_and_late_service_closes() {
         let (mut op, _, raw) = held_setup();
         let sent = held_peer(&mut op, raw, Some("slow_ack"));
-        let anchor = op.service_held(1).unwrap();
+        let anchor = op.service_held(1, 1).unwrap();
         assert!(anchor.elapsed() >= Duration::from_millis(10));
         let writes = sent.lock().unwrap();
         let (_, write_at, _) = writes
@@ -4451,7 +5274,7 @@ mod brain_fifo_tests {
         assert!(anchor <= *write_at);
         drop(writes);
         op.last_brain_send = Some(Instant::now() - Duration::from_millis(51));
-        assert!(op.service_held(1).unwrap_err().contains("arrived late"));
+        assert!(op.service_held(1, 1).unwrap_err().contains("arrived late"));
         assert!(!op.brain_signal.as_ref().unwrap().live());
     }
     #[test]
@@ -4460,7 +5283,7 @@ mod brain_fifo_tests {
             let (mut op, _, raw) = held_setup();
             let sent = held_peer(&mut op, raw, Some(failure));
             let began = Instant::now();
-            assert!(op.service_held(1).is_err());
+            assert!(op.service_held(1, 1).is_err());
             assert!(began.elapsed() < Duration::from_millis(150));
             assert!(!op.brain_signal.as_ref().unwrap().live());
             let sent = sent.lock().unwrap();
@@ -4473,7 +5296,7 @@ mod brain_fifo_tests {
         for mode in ["valid", "none"] {
             let (mut op, _, raw) = held_setup();
             let sent = held_peer_cancellation(&mut op, raw, None, Some(mode));
-            let error = op.service_held(1).unwrap_err();
+            let error = op.service_held(1, 1).unwrap_err();
             assert!(error.contains("held input released"), "{mode}: {error}");
             assert!(
                 !op.brain_probes.invalid,
@@ -4511,7 +5334,7 @@ mod brain_fifo_tests {
         for mode in ["malformed", "late_malformed", "partial"] {
             let (mut op, _, raw) = held_setup();
             let sent = held_peer_cancellation(&mut op, raw, None, Some(mode));
-            let error = op.service_held(1).unwrap_err();
+            let error = op.service_held(1, 1).unwrap_err();
             assert!(op.brain_probes.invalid, "{mode}: {error}");
             assert!(!error.starts_with("held input released"));
             assert!(op.brain_probes.first_fault.is_some());
@@ -4543,7 +5366,7 @@ mod brain_fifo_tests {
             refusal["snapshot"]["revision"] = refusal["revision"].clone();
             peer.push(refusal);
             let sent = probe_connection(&mut op, &peer, false);
-            let error = op.service_held(1).unwrap_err();
+            let error = op.service_held(1, 1).unwrap_err();
             assert!(error.contains("held Brain refused:"), "{error}");
             assert!(!op.brain_signal.as_ref().unwrap().live());
             assert!(op.session.pending.is_none());

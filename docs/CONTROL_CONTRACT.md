@@ -207,3 +207,16 @@ validates both complete strict schemas and identity/map/topology before atomic
 installation, with one original 250 ms deadline and 64-document budget. Query-send
 time anchors freshness; a late or malformed half installs neither view. Existing
 framing, page, dimension and 1 MiB whole-document limits remain unchanged.
+
+
+The held consumer may consume an unused, strictly matched post-heartbeat proof
+once for the next heartbeat of the same live input gesture and provider generation.
+Its original nonce, attachment generation, dimensions, complete request context and
+first-send time remain immutable. Admission rechecks current raw/Brain/held rejection
+floors, accepted configuration, scoped lease, media and independent FOH authority.
+Only absent, aged or superseded evidence permits the original bounded fresh query;
+refusal, cancellation, changed context or terminal faults close without fallback.
+The existing 30 ms proof, 20 ms mutation, 50 ms service/status, 150 ms deadman and
+64-document bounds are unchanged; compact proofs never refresh the full UI pair.
+This consumer correction is implemented with focused offline regressions; combined
+review/campaign and physical acceptance remain separate gates.
