@@ -127,3 +127,5 @@ exercise their guarded device-free path; the explicit CPU-lavapipe rendering
 acceptance remains separately recorded on the inspected lab backend. Actual
 provider/network drivers stay opt-in and cannot discover credentials, audio
 hardware or an operator display in CI.
+
+[CI failure/recovery notifications](CI.md#failure-and-recovery-notifications) group incidents in GitHub issue threads.
