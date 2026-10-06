@@ -124,6 +124,45 @@ pub struct Reply {
     pub applied_frame: Option<String>,
     pub snapshot: Option<Snapshot>,
 }
+pub(crate) fn validate_snapshot_value(v: &Value) -> Result<(), String> {
+    provider::keys(
+        v,
+        &[
+            "source",
+            "selection_generation",
+            "monitor_gain_cdb",
+            "monitor_mute",
+            "monitor_dim",
+            "monitor_armed",
+            "talkback_monitors",
+            "talkback_foh",
+            "talkback_gain_cdb",
+            "talkback_mute",
+            "hold_generation_counter",
+            "held_generation",
+            "hold_deadline_ms",
+            "audible_path_ready",
+            "talkback_path_ready",
+            "monitor_path_ready",
+            "microphone_peak_nano",
+            "outgoing_peak_nano",
+            "monitor_peak_nano",
+            "frame",
+            "revision",
+            "heartbeat_ms",
+            "deadman_ms",
+            "fade_frames",
+        ],
+    )?;
+    let fields: &[&str] = match v["source"]["kind"].as_str() {
+        Some("none" | "main") => &["kind"],
+        Some("monitor") => &["kind", "index"],
+        Some("pfl" | "afl") => &["kind", "input"],
+        _ => return Err("Brain source kind".into()),
+    };
+    provider::keys(&v["source"], fields)?;
+    Ok(())
+}
 pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     let v = provider::parse_document(bytes)?;
     provider::keys(
@@ -142,35 +181,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     crate::audio::validate_context_value(&v["context"])?;
     // Require explicit nulls as well as all fields, rather than serde's optional defaults.
     if !v["snapshot"].is_null() {
-        provider::keys(
-            &v["snapshot"],
-            &[
-                "source",
-                "selection_generation",
-                "monitor_gain_cdb",
-                "monitor_mute",
-                "monitor_dim",
-                "monitor_armed",
-                "talkback_monitors",
-                "talkback_foh",
-                "talkback_gain_cdb",
-                "talkback_mute",
-                "hold_generation_counter",
-                "held_generation",
-                "hold_deadline_ms",
-                "audible_path_ready",
-                "talkback_path_ready",
-                "monitor_path_ready",
-                "microphone_peak_nano",
-                "outgoing_peak_nano",
-                "monitor_peak_nano",
-                "frame",
-                "revision",
-                "heartbeat_ms",
-                "deadman_ms",
-                "fade_frames",
-            ],
-        )?;
+        validate_snapshot_value(&v["snapshot"])?;
     }
     let r: Reply = serde_json::from_value(v).map_err(|e| e.to_string())?;
     r.context.validate()?;

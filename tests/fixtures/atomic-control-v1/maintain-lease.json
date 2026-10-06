@@ -1,0 +1,22 @@
+{
+  "context": {
+    "authenticated_session": "95",
+    "capability_generation": "1",
+    "contract": "GP15-lease-maintenance",
+    "epoch": "1",
+    "kind": "maintain",
+    "lease": "999",
+    "maintenance_id": "1",
+    "map_generation": "1",
+    "module": "audio",
+    "scope": "talkback_destinations",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "version": 1,
+    "writer": "remote-ec06e61d942db487-000000000000005f"
+  },
+  "contract": "GP15-lease-maintenance",
+  "reason": "lease",
+  "result": null,
+  "state": "refused",
+  "version": 1
+}

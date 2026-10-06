@@ -762,14 +762,14 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             let observe = Instant::now() + Duration::from_secs(1);
             while Instant::now() < observe {
                 tb.pump();
-                monitor.pump();
-                foh.pump();
                 assert!(
                     tb.state
                         .as_ref()
                         .and_then(|u| u.held_status.as_ref())
                         .is_some_and(|b| b.fresh() && b.generation.is_some())
                 );
+                monitor.pump();
+                foh.pump();
                 thread::sleep(Duration::from_millis(5));
             }
             eprintln!(
@@ -790,8 +790,6 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             let watch = Instant::now() + Duration::from_secs(2);
             while Instant::now() < watch {
                 tb.pump();
-                monitor.pump();
-                foh.pump();
                 assert!(
                     tb.state
                         .as_ref()
@@ -799,6 +797,8 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                         .is_none_or(|b| b.held_generation.is_none()),
                     "fault/restart resurrected a hold"
                 );
+                monitor.pump();
+                foh.pump();
                 thread::sleep(Duration::from_millis(5));
             }
             eprintln!(
@@ -821,8 +821,11 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
             Instant::now() + Duration::from_millis(if mode == "key-up" { 2100 } else { 1100 });
         while Instant::now() < hold {
             tb.pump();
-            monitor.pump();
-            foh.pump();
+            let assertion_age = tb
+                .state
+                .as_ref()
+                .and_then(|u| u.held_status.as_ref())
+                .map(|b| b.observed.elapsed());
             assert!(
                 tb.state.as_ref().is_some_and(|u| u
                     .held_status
@@ -830,7 +833,7 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     .is_some_and(|b| b.fresh()
                         && b.generation == held_generation
                         && b.media_authorized)),
-                "PTT did not remain held: TB={:?}; monitor={:?}; FOH={:?}",
+                "PTT did not remain held: assertion_age={assertion_age:?}; TB={:?}; monitor={:?}; FOH={:?}",
                 tb.state,
                 monitor.state.as_ref().map(|u| (
                     &u.status,
@@ -849,6 +852,8 @@ fn actual_mtls_frontend_monitor_routes_and_ptt_release() {
                     u.brain_fresh
                 ))
             );
+            monitor.pump();
+            foh.pump();
             thread::sleep(Duration::from_millis(5));
         }
         match mode {

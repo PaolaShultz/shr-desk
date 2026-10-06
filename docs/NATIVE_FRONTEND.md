@@ -564,7 +564,7 @@ correlated witness for the `talkback_destinations` scope. A matched full raw/Bra
 readback pins the reviewed talkback configuration digest while unheld. The digest
 binds show, source epoch, capability/map generations, actual dimensions, destinations,
 gain, mute and protected FOH intent. It excludes unrelated monitor selection.
-Initial press, heartbeat and active held renewal verify that unchanged digest,
+Initial press and heartbeat verify that unchanged digest,
 live scoped lease and source-frame authority with their own compact query; they
 never fetch a full topology inside the held budget. Missing or changed baseline
 requires full readback and another explicit gesture, without automatic replay.
@@ -575,9 +575,11 @@ send-start timestamp inside the same original deadline. Unknown, malformed,
 partial or mismatched replies remain terminal. Proofs never refresh the full raw
 snapshot, configuration review or draft. The UI separately shows current compact
 held generation/readiness and the age of actual Brain sample-meter observations
-from correlated finals. Passive monitor/FOH and unheld renewal retain full paired
-readback. New Desk PTT on Unix or older providers without authenticated compact
-proof support is explicitly unsupported and stays closed; other Unix controls and
+from correlated finals. Passive monitor/FOH and unheld renewal use the separate
+atomic lease-maintenance operation below, without a topology query. New Desk PTT
+on Unix or older providers without authenticated compact
+proof support is explicitly unsupported and stays closed. Brain-scope maintenance
+also requires the authenticated additive operation; nonrenewal Unix controls and
 the existing GP15-brain:1 wire contract are unchanged. No fallback opens a hold.
 
 Authority validation reuses the typed semantic checks and a bounded counting
@@ -646,3 +648,33 @@ includes the single strict envelope parse; envelope admission includes canonical
 payload counting. The legacy byte adapter still records its payload serialization
 when used. No deadline, retry, page checksum/order/size, authority or safety limit
 changes accompany this optimization.
+
+
+### Task0015 atomic maintenance and committed paired readback
+
+Authenticated Brain sessions use additive `GP15-lease-maintenance:1` and
+`GP15-paired-readback:1`. Maintenance extends only the already granted scope and
+lease; it does not change the revision, configuration, held generation or heartbeat.
+All three Brain scopes use it, including passive monitor/FOH and active talkback.
+The local expiry is anchored to the first send plus 2000 ms. Retries preserve exact
+bytes and the original operation/lease deadline at the existing 100/250/500 ms
+wakes. Up to 64 validated terminal replies are retained to discard exact late
+duplicates without extending authority. Only explicit terminal `unavailable`
+permits a new maintenance ID within
+that original budget. Unknown, canceled, unsupported or malformed outcomes clear
+local authority; no grant, replay or legacy renewal fallback is inferred.
+
+Full Brain refresh requests one committed raw/Brain pair using an independent
+connection nonce. Both existing strict schemas, identity/map, topology, revision
+and frame must validate before either view is installed. The original 250 ms and
+64-document bounds include decoding, and both freshness clocks retain query-send
+time. A compact held proof still independently gates every heartbeat; maintenance
+never refreshes the UI pair or substitutes for proof. Held maintenance remains
+inside the next heartbeat period and its 20 ms operation bound.
+
+The opt-in driver checks held status immediately after the talkback frontend pump,
+before pumping the other surfaces, and includes assertion-local age in failure
+output. Its 50 ms freshness assertion is unchanged. This ordering is diagnostic
+hygiene, not evidence that provider closure preceded any later consumer failure;
+independent continuous provider sample checks remain required. Focused offline
+checks are implemented; combined campaign and hardware verification are separate.

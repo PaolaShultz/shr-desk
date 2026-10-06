@@ -330,3 +330,13 @@ path dependency. Root provides the final producer corpus and independently owns
 acceptance and publication; a worker compile or synthetic adversary is not that
 gate. See Native frontend for the current interaction path and private task0015
 handoff for exact tested revisions and outstanding gates.
+
+
+Task0015's atomic correction adds separate consumer codecs for lease maintenance
+and committed paired readback. Desk owns strict validation, correlation,
+transactional installation, conservative expiry and cancellation. GigPies owns
+serialized lease extension/deduplication and the committed capture boundary.
+Producer-generated 16/32/48 fixtures must be hash-reconciled before compatibility
+is claimed. Focused software checks precede root's combined independent review and
+full default/native/release/integration campaign. No worker source push, network
+reservation, physical device operation or acceptance is implied.

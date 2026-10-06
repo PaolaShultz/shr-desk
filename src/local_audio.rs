@@ -428,6 +428,9 @@ struct HeldQuery {
     dimensions: [u32; 6],
 }
 pub struct Operator {
+    paired_nonce: u64,
+    paired_enabled: bool,
+    maintenance_replies: std::collections::VecDeque<crate::lease_maintenance::Reply>,
     held_baseline: Option<HeldBaseline>,
     held_query: Option<HeldQuery>,
     held_matched: Option<crate::held_proof::Matched>,
@@ -523,6 +526,9 @@ impl Operator {
         version: u8,
     ) -> Result<Self, String> {
         Ok(Self {
+            paired_nonce: 0,
+            paired_enabled: false,
+            maintenance_replies: std::collections::VecDeque::new(),
             transport,
             session: Session::new_version(show, epoch, writer, scope, version)?,
             start: Instant::now(),
@@ -667,6 +673,7 @@ impl Operator {
                 "GP15-device"
                     | "GP15-brain"
                     | "GP15-held-proof"
+                    | "GP15-lease-maintenance"
                     | "GP14-structure"
                     | "GP07-processing"
             )
@@ -685,6 +692,14 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some(crate::lease_maintenance::CONTRACT) {
+            let reply = crate::lease_maintenance::Reply::decode(bytes)?;
+            if self.maintenance_replies.contains(&reply) {
+                // Exact completed retries never extend expiry or observation age.
+                return Ok(true);
+            }
+            return Err("unknown or changed completed maintenance reply".into());
+        }
         if tag.contract.as_deref() == Some(crate::held_proof::CONTRACT) {
             let query = self.held_query.as_ref().ok_or("unmatched held proof")?;
             let reply = crate::held_proof::Reply::decode(bytes, query.dimensions)?;
@@ -900,6 +915,199 @@ impl Operator {
         }
         Ok(id)
     }
+    fn read_paired(
+        &mut self,
+        deadline: Instant,
+        remaining: &mut usize,
+    ) -> Result<(), BrainOperationError> {
+        self.brain_guard()?;
+        if Instant::now() >= deadline || *remaining == 0 {
+            return Err("paired original budget exhausted".into());
+        }
+        let identity = self
+            .transport
+            .held_identity()
+            .ok_or("paired authenticated attachment unavailable")?;
+        self.paired_nonce = self
+            .paired_nonce
+            .checked_add(1)
+            .ok_or("paired nonce exhausted")?;
+        let request = self.session.paired_request(&identity, self.paired_nonce)?;
+        let bytes = request.encode()?;
+        let sent = self.now();
+        let generation = self.session.generation();
+        let deadline = deadline.min(Instant::now() + Duration::from_millis(250));
+        self.transport.send_frame_until(&bytes, deadline)?;
+        while Instant::now() < deadline && *remaining > 0 {
+            self.brain_guard()?;
+            if let Some(document) = self.transport.receive_document_until(deadline)? {
+                *remaining -= 1;
+                if document.value()["contract"] == crate::paired_readback::CONTRACT {
+                    let reply = crate::paired_readback::Reply::decode_document(document)?;
+                    self.brain_guard()?;
+                    if Instant::now() >= deadline
+                        || self.transport.held_identity().as_ref() != Some(&identity)
+                    {
+                        return Err("paired deadline/attachment changed".into());
+                    }
+                    let mut candidate = self.session.clone();
+                    candidate.accept_paired(reply, &request, sent, generation, self.now())?;
+                    self.brain_guard()?;
+                    if Instant::now() >= deadline {
+                        return Err("paired validation deadline".into());
+                    }
+                    self.session = candidate;
+                    self.pin_held_baseline()?;
+                    return Ok(());
+                }
+                if let Some(document) = self.processing_document(document)? {
+                    // Old raw observations are validated but cannot install half a pair.
+                    let reply = audio::decode_reply_document(document)?;
+                    if reply.context != self.session.snapshot_request().context {
+                        self.session.accept(reply, self.now())?;
+                    }
+                }
+            } else {
+                std::thread::sleep(
+                    deadline
+                        .saturating_duration_since(Instant::now())
+                        .min(Duration::from_millis(1)),
+                );
+            }
+        }
+        Err("paired deadline/document budget".into())
+    }
+    fn maintain(
+        &mut self,
+        deadline: Instant,
+        remaining: &mut usize,
+        held: bool,
+    ) -> Result<(), String> {
+        let result = self.maintain_inner(deadline, remaining, held);
+        if result.is_err() {
+            // Unknown outcomes cannot be guessed with a new ID, and late replies
+            // cannot re-admit authority after cancellation or transport failure.
+            self.session.disconnect();
+            self.held_baseline = None;
+            self.held_matched = None;
+            self.held_observation = None;
+        }
+        result
+    }
+    fn maintain_inner(
+        &mut self,
+        deadline: Instant,
+        remaining: &mut usize,
+        held: bool,
+    ) -> Result<(), String> {
+        self.probe_guard(held)
+            .map_err(BrainOperationError::message)?;
+        let identity = self
+            .transport
+            .held_identity()
+            .ok_or("atomic maintenance unsupported attachment")?;
+        let deadline = deadline
+            .min(Instant::now() + Duration::from_millis(1900))
+            .min(
+                self.start
+                    + Duration::from_millis(
+                        self.session
+                            .lease_deadline()
+                            .ok_or("maintenance no lease")?,
+                    ),
+            );
+        loop {
+            self.probe_guard(held)
+                .map_err(BrainOperationError::message)?;
+            if Instant::now() >= deadline || *remaining == 0 {
+                return Err("maintenance operation budget".into());
+            }
+            let request = self.session.begin_maintenance(&identity, self.now())?;
+            let bytes = request.encode()?;
+            let operation_deadline = deadline.min(
+                self.start
+                    + Duration::from_millis(self.session.maintenance.as_ref().unwrap().deadline),
+            );
+            self.transport.send_frame_until(
+                &bytes,
+                operation_deadline.min(Instant::now() + Duration::from_millis(200)),
+            )?;
+            loop {
+                self.probe_guard(held)
+                    .map_err(BrainOperationError::message)?;
+                if self.transport.held_identity().as_ref() != Some(&identity) {
+                    return Err("maintenance attachment changed".into());
+                }
+                let now = self.now();
+                let p = self
+                    .session
+                    .maintenance
+                    .as_mut()
+                    .ok_or("maintenance canceled")?;
+                if Instant::now() >= deadline || now >= p.deadline || *remaining == 0 {
+                    return Err("maintenance uncertain deadline".into());
+                }
+                let wakes = [100, 250, 500];
+                if p.retry < wakes.len() && now >= p.first_send + wakes[p.retry] {
+                    p.retry += 1;
+                    self.transport
+                        .send_frame_until(&bytes, operation_deadline)?;
+                    continue;
+                }
+                let wake = if p.retry < wakes.len() {
+                    (self.start + Duration::from_millis(p.first_send + wakes[p.retry]))
+                        .min(operation_deadline)
+                } else {
+                    operation_deadline
+                };
+                if let Some(document) = self.transport.receive_document_until(wake)? {
+                    *remaining -= 1;
+                    if document.value()["contract"] == crate::lease_maintenance::CONTRACT {
+                        let reply = crate::lease_maintenance::Reply::decode_document(document)?;
+                        self.probe_guard(held)
+                            .map_err(BrainOperationError::message)?;
+                        if Instant::now() >= deadline
+                            || self.transport.held_identity().as_ref() != Some(&identity)
+                        {
+                            return Err("maintenance decode deadline/attachment".into());
+                        }
+                        if self.maintenance_replies.contains(&reply) {
+                            continue;
+                        }
+                        let reason = self.session.accept_maintenance(reply.clone(), self.now())?;
+                        if self.maintenance_replies.len() == 64 {
+                            self.maintenance_replies.pop_front();
+                        }
+                        self.maintenance_replies.push_back(reply);
+                        match reason {
+                            None => return Ok(()),
+                            Some(reason) if reason == "unavailable" => {
+                                // Only this explicit terminal result permits a new ID.
+                                std::thread::sleep(
+                                    deadline
+                                        .saturating_duration_since(Instant::now())
+                                        .min(Duration::from_millis(1)),
+                                );
+                                break;
+                            }
+                            Some(reason) => return Err(format!("maintenance refused: {reason}")),
+                        }
+                    }
+                    if let Some(document) = self.processing_document(document)? {
+                        let reply = audio::decode_reply_document(document)?;
+                        if reply.context != self.session.snapshot_request().context {
+                            return Err("unexpected maintenance reply".into());
+                        }
+                    }
+                } else {
+                    std::thread::sleep(
+                        wake.saturating_duration_since(Instant::now())
+                            .min(Duration::from_millis(1)),
+                    );
+                }
+            }
+        }
+    }
     pub(crate) fn refresh_brain(&mut self) -> Result<(), String> {
         self.refresh_brain_until(Instant::now() + Duration::from_millis(250))
     }
@@ -954,7 +1162,12 @@ impl Operator {
         self.finish_brain_operation(result)
     }
     fn refresh_brain_inner(&mut self, deadline: Instant) -> Result<(), BrainOperationError> {
-        self.refresh_brain_budget(deadline, &mut 64, false)
+        if self.transport.held_identity().is_some() {
+            self.paired_enabled = true;
+            self.read_paired(deadline, &mut 64)
+        } else {
+            self.refresh_brain_budget(deadline, &mut 64, false)
+        }
     }
     fn probe_guard(&mut self, held_mode: bool) -> Result<(), BrainOperationError> {
         if held_mode {
@@ -1531,23 +1744,11 @@ impl Operator {
                 &mut remaining,
             )?;
             if self.session.renewal_due(self.now()) {
-                let (request, _, proof_deadline) =
-                    self.proved_request("renew", Some(generation))?;
-                self.held_guard()?;
-                let renewal_deadline = next.min(proof_deadline).min(
-                    self.start
-                        + Duration::from_millis(
-                            self.session
-                                .pending_authority_deadline()
-                                .ok_or("held renewal authority missing")?,
-                        ),
-                );
-                if Instant::now() >= renewal_deadline {
-                    return Err("held renewal authority expired".into());
-                }
-                self.transport
-                    .send_frame_until(&request.encode()?, renewal_deadline)?;
-                self.settle_held_pending(next, &mut remaining)?;
+                self.maintain(
+                    next.min(Instant::now() + Duration::from_millis(20)),
+                    &mut remaining,
+                    true,
+                )?;
             }
             Ok(sent)
         })();
@@ -1749,6 +1950,9 @@ impl Operator {
         if let Some(reason) = &self.brain_probes.first_fault {
             return Err(BrainOperationError::Fault(reason.clone()));
         }
+        if self.paired_enabled {
+            return self.read_paired(Instant::now() + Duration::from_millis(250), &mut 64);
+        }
         // One total budget covers queued replies, a final's required readback,
         // solicited frames and decoding. Never replay a mutation here.
         let deadline = Instant::now() + Duration::from_millis(250);
@@ -1855,6 +2059,14 @@ impl Operator {
         }
     }
     pub(crate) fn mutate(&mut self, kind: &str, body: Value) -> Result<(), String> {
+        if kind == "renew"
+            && matches!(
+                self.scope.as_str(),
+                "local_operator_monitor" | "talkback_destinations" | "talkback_foh"
+            )
+        {
+            return self.mutate_inner(kind, body);
+        }
         self.refresh()?;
         if self.session.renewal_due(self.now()) && kind != "renew" {
             self.mutate_inner("renew", json!({}))?;
@@ -1864,18 +2076,22 @@ impl Operator {
     }
     pub(crate) fn mutate_inner(&mut self, kind: &str, body: Value) -> Result<(), String> {
         let deadline = Instant::now() + Duration::from_millis(1900);
-        if kind == "renew" && self.session.brain.is_some() {
-            // Null-context raw telemetry cannot identify a solicited query. The
-            // matched GP15 probe anchors current authority revision; raw must pair
-            // exactly before a NEW renewal request gets its immutable ID/revision.
-            let lease_deadline = self.start
-                + Duration::from_millis(self.session.lease_deadline().ok_or("renew no lease")?);
-            self.refresh_brain_until(
-                deadline
-                    .min(lease_deadline)
-                    .min(Instant::now() + Duration::from_millis(250)),
-            )?;
+        if kind == "renew"
+            && matches!(
+                self.scope.as_str(),
+                "local_operator_monitor" | "talkback_destinations" | "talkback_foh"
+            )
+        {
+            return self.maintain(deadline, &mut 64, false);
         }
+        self.mutate_ordinary_inner(kind, body, deadline)
+    }
+    fn mutate_ordinary_inner(
+        &mut self,
+        kind: &str,
+        body: Value,
+        deadline: Instant,
+    ) -> Result<(), String> {
         let r = self.session.begin(kind, body, self.now())?;
         self.check_guard()?;
         self.transport.send_frame_until(
@@ -2236,6 +2452,9 @@ pub fn run(args: &[String]) -> Result<(), String> {
         return Err("script exceeds64KiB/256commands".into());
     }
     let mut op = Operator {
+        paired_nonce: 0,
+        paired_enabled: false,
+        maintenance_replies: std::collections::VecDeque::new(),
         transport: Box::new(Transport::connect(Path::new(&args[0]))?),
         session: Session::new(
             &args[1],
@@ -2549,6 +2768,9 @@ mod gp07_stage_tests {
         let body = json!({"input":"input-01", "config":processing.channels[0].target});
         session.ingest_processing(processing, 0).unwrap();
         let mut op = Operator {
+            paired_nonce: 0,
+            paired_enabled: false,
+            maintenance_replies: std::collections::VecDeque::new(),
             transport: Box::new(Transport { socket }),
             session,
             start: Instant::now() - Duration::from_millis(300),
@@ -3775,19 +3997,12 @@ mod brain_fifo_tests {
                         if held { json!("99999") } else { Value::Null };
                     json!({"contract":"GP15-brain","version":1,"state":"final","reason":null,"context":context,"revision":(revision+1).to_string(),"applied_frame":frame.to_string(),"snapshot":self.brain["snapshot"]})
                 }
-                "renew" => {
-                    let mut reply: Value = serde_json::from_slice(include_bytes!(
-                        "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
-                    ))
-                    .unwrap();
-                    reply["context"] = context.clone();
-                    for (k, v) in context.as_object().unwrap() {
-                        reply["outcome"][k] = v.clone();
-                    }
-                    reply["snapshot"] = Value::Null;
-                    reply["outcome"]["body"]["granted_lease"] = Value::Null;
-                    reply["outcome"]["body"]["revision"] = json!(revision.to_string());
-                    reply
+                "maintain" => {
+                    json!({"contract":"GP15-lease-maintenance","version":1,"state":"maintained","reason":null,"context":request,"result":{"revision":revision.to_string(),"source_frame":frame.to_string(),"lease_remaining_ms":2000}})
+                }
+                "readback" => {
+                    self.brain["snapshot"]["frame"] = json!(frame.to_string());
+                    json!({"contract":"GP15-paired-readback","version":1,"state":"snapshot","reason":null,"context":request,"raw":raw_at(&self.raw, &revision.to_string(), &frame.to_string())["snapshot"],"brain":self.brain["snapshot"]})
                 }
                 other => panic!("passive/ordinary maintenance entered held service: {other}"),
             };
@@ -4168,18 +4383,18 @@ mod brain_fifo_tests {
         );
         assert!(held.is_none());
         let sent = sent.lock().unwrap();
-        assert!(sent.iter().any(|(r, _, _)| r["kind"] == "renew"));
+        assert!(sent.iter().any(|(r, _, _)| r["kind"] == "maintain"));
         assert!(sent.iter().any(|(r, _, _)| r["kind"] == "release"));
         assert!(sent.iter().all(|(_, at, deadline)| *deadline >= *at
             && deadline.duration_since(*at) <= Duration::from_millis(50)));
         let renews: Vec<_> = sent
             .iter()
-            .filter(|(r, _, _)| r["kind"] == "renew")
+            .filter(|(r, _, _)| r["kind"] == "maintain")
             .collect();
         assert!(
             renews
                 .windows(2)
-                .all(|w| w[0].0["request_id"] != w[1].0["request_id"])
+                .all(|w| w[0].0["maintenance_id"] != w[1].0["maintenance_id"])
         );
     }
     #[test]
@@ -4304,101 +4519,241 @@ mod brain_fifo_tests {
             );
         }
     }
-    struct CurrentRevisionRenew {
-        raw: Value,
-        brain: Value,
-        replies: VecDeque<Vec<u8>>,
-        requests: Arc<Mutex<Vec<Value>>>,
-        race: bool,
+    // All fake response bytes are prepared before starting consumer deadlines.
+    struct AtomicPeer {
+        identity: crate::held_proof::Identity,
+        expected: Vec<Vec<u8>>,
+        responses: VecDeque<Option<Vec<u8>>>,
+        ready: Option<Vec<u8>>,
+        sent: Arc<Mutex<Vec<Vec<u8>>>>,
+        fault: bool,
+        cancel: Option<Arc<std::sync::atomic::AtomicU64>>,
     }
-    impl AuthorityConnection for CurrentRevisionRenew {
+    impl AuthorityConnection for AtomicPeer {
+        fn held_identity(&self) -> Option<crate::held_proof::Identity> {
+            Some(self.identity.clone())
+        }
         fn send_frame_until(&mut self, bytes: &[u8], _: Instant) -> Result<(), String> {
-            let request: Value = serde_json::from_slice(bytes).unwrap();
-            self.requests.lock().unwrap().push(request.clone());
-            let reply = match request["kind"].as_str().unwrap() {
-                "brain_snapshot" => self.brain.clone(),
-                "snapshot" => self.raw.clone(),
-                "renew" => {
-                    let refused = self.race || request["expected_revision"] != "1";
-                    let mut reply: Value = serde_json::from_slice(include_bytes!(
-                        "../tests/fixtures/gp15/v1/grant-16-talkback-reply.json"
-                    ))
-                    .unwrap();
-                    for key in [
-                        "show_id",
-                        "module",
-                        "epoch",
-                        "writer",
-                        "lease",
-                        "request_id",
-                        "expected_revision",
-                    ] {
-                        reply["context"][key] = request[key].clone();
-                        reply["outcome"][key] = request[key].clone();
-                    }
-                    reply["snapshot"] = Value::Null;
-                    reply["outcome"]["body"]["granted_lease"] = Value::Null;
-                    reply["outcome"]["body"]["revision"] = json!(if self.race { "2" } else { "1" });
-                    if refused {
-                        reply["outcome"]["kind"] = json!("conflict");
-                        reply["outcome"]["body"]["reason"] = json!("stale_revision");
-                        reply["outcome"]["body"]["lease_remaining_ms"] = Value::Null;
-                        reply["outcome"]["body"]["scope"] = Value::Null;
-                    }
-                    reply
-                }
-                other => panic!("unexpected operation {other}"),
-            };
-            self.replies.push_back(serde_json::to_vec(&reply).unwrap());
+            let mut sent = self.sent.lock().unwrap();
+            assert_eq!(
+                bytes,
+                self.expected.get(sent.len()).expect("no extra operation")
+            );
+            sent.push(bytes.to_vec());
+            self.ready = self.responses.pop_front().flatten();
             Ok(())
         }
-        fn receive_until(&mut self, _: Instant) -> Result<Option<Vec<u8>>, String> {
-            Ok(self.replies.pop_front())
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            if let Some(g) = &self.cancel {
+                g.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            }
+            if self.fault {
+                return Err("partial atomic frame".into());
+            }
+            if let Some(bytes) = self.ready.take() {
+                return Ok(Some(bytes));
+            }
+            std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+            Ok(None)
         }
         fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
-            Ok(self.replies.pop_front())
+            Ok(None)
+        }
+    }
+    fn atomic_identity(op: &Operator) -> crate::held_proof::Identity {
+        crate::held_proof::Identity {
+            session: "1".into(),
+            epoch: "1".into(),
+            capability: "1".into(),
+            map: op
+                .session
+                .snapshot
+                .as_ref()
+                .unwrap()
+                .topology
+                .as_ref()
+                .unwrap()
+                .map_revision
+                .to_string(),
+        }
+    }
+    fn maintenance_reply(
+        request: &crate::lease_maintenance::Request,
+        reason: Option<&str>,
+    ) -> Vec<u8> {
+        serde_json::to_vec(&json!({"contract":"GP15-lease-maintenance","version":1,"state":if reason.is_some() {"refused"} else {"maintained"},"reason":reason,"context":request,"result":if reason.is_some() {Value::Null} else {json!({"revision":"999","source_frame":"4800","lease_remaining_ms":2000})}})).unwrap()
+    }
+    fn atomic_peer(
+        op: &mut Operator,
+        expected: Vec<Vec<u8>>,
+        responses: Vec<Option<Vec<u8>>>,
+        fault: bool,
+        cancel: Option<Arc<std::sync::atomic::AtomicU64>>,
+    ) -> Arc<Mutex<Vec<Vec<u8>>>> {
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        op.transport = Box::new(AtomicPeer {
+            identity: atomic_identity(op),
+            expected,
+            responses: responses.into(),
+            ready: None,
+            sent: sent.clone(),
+            fault,
+            cancel,
+        });
+        sent
+    }
+    #[test]
+    fn atomic_maintenance_retries_exact_bytes_and_anchors_original_send_without_topology() {
+        let (mut op, _, _) = setup();
+        let identity = atomic_identity(&op);
+        let request = op
+            .session
+            .clone()
+            .begin_maintenance(&identity, 500)
+            .unwrap();
+        let bytes = request.encode().unwrap();
+        let sent = atomic_peer(
+            &mut op,
+            vec![bytes.clone(), bytes],
+            vec![None, Some(maintenance_reply(&request, None))],
+            false,
+            None,
+        );
+        let raw = op.session.snapshot.clone();
+        op.start = Instant::now() - Duration::from_millis(500);
+        let first = op.now();
+        op.mutate("renew", json!({})).unwrap();
+        assert_eq!(sent.lock().unwrap().len(), 2);
+        assert!(op.now() >= first + 100);
+        assert!(op.session.lease_deadline().unwrap() <= first + 2002);
+        let confirmed = op.session.lease_deadline();
+        assert!(
+            op.processing_frame(&maintenance_reply(&request, None))
+                .unwrap()
+        );
+        assert_eq!(
+            op.session.lease_deadline(),
+            confirmed,
+            "duplicate reply cannot renew twice"
+        );
+        let mut changed: Value =
+            serde_json::from_slice(&maintenance_reply(&request, None)).unwrap();
+        changed["result"]["revision"] = json!("1000");
+        assert!(
+            op.processing_frame(&serde_json::to_vec(&changed).unwrap())
+                .is_err()
+        );
+        assert_eq!(op.session.snapshot, raw);
+        assert!(!op.session.brain_fresh(op.now()));
+    }
+    #[test]
+    fn atomic_busy_allows_new_id_but_unknown_partial_and_canceled_never_reissue() {
+        let (mut op, _, _) = setup();
+        let identity = atomic_identity(&op);
+        let mut model = op.session.clone();
+        let first = model.begin_maintenance(&identity, 0).unwrap();
+        let busy = maintenance_reply(&first, Some("unavailable"));
+        model
+            .accept_maintenance(crate::lease_maintenance::Reply::decode(&busy).unwrap(), 1)
+            .unwrap();
+        let second = model.begin_maintenance(&identity, 1).unwrap();
+        let sent = atomic_peer(
+            &mut op,
+            vec![first.encode().unwrap(), second.encode().unwrap()],
+            vec![Some(busy), Some(maintenance_reply(&second, None))],
+            false,
+            None,
+        );
+        op.mutate_inner("renew", json!({})).unwrap();
+        assert_eq!(sent.lock().unwrap().len(), 2);
+        for mode in ["unknown", "partial", "cancel", "unsupported"] {
+            let (mut op, _, _) = setup();
+            let request = op.session.clone().begin_maintenance(&identity, 0).unwrap();
+            let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+            op.guard(guard.clone(), 1);
+            let response = if mode == "unknown" {
+                None
+            } else if mode == "unsupported" {
+                let mut value: Value =
+                    serde_json::from_slice(&maintenance_reply(&request, None)).unwrap();
+                value["version"] = json!(2);
+                Some(serde_json::to_vec(&value).unwrap())
+            } else {
+                Some(maintenance_reply(&request, None))
+            };
+            let sent = atomic_peer(
+                &mut op,
+                vec![request.encode().unwrap()],
+                vec![response],
+                mode == "partial",
+                (mode == "cancel").then_some(guard),
+            );
+            assert!(
+                op.maintain(Instant::now() + Duration::from_millis(20), &mut 64, false)
+                    .is_err(),
+                "{mode}"
+            );
+            assert!(op.session.lease_deadline().is_none(), "{mode}");
+            assert!(op.session.begin_maintenance(&identity, op.now()).is_err());
+            assert_eq!(sent.lock().unwrap().len(), 1);
+            assert!(
+                op.session
+                    .accept_maintenance(
+                        crate::lease_maintenance::Reply::decode(&maintenance_reply(&request, None))
+                            .unwrap(),
+                        op.now()
+                    )
+                    .is_err()
+            );
         }
     }
     #[test]
-    fn gp15_renew_anchors_new_probe_and_raw_before_pinning_and_reports_later_conflict() {
-        for race in [false, true] {
-            let (mut op, peer, raw) = setup();
-            // An old progressing query reply must not satisfy the new renewal probe.
-            probe_connection(&mut op, &peer, false);
-            op.send_brain_probe(Instant::now() + Duration::from_millis(50))
-                .unwrap();
-            let old = probe_reply(&op, 48);
-            let mut current = probe_reply(&op, 96);
-            current["revision"] = json!("1");
-            current["snapshot"]["revision"] = json!("1");
-            let requests = Arc::new(Mutex::new(Vec::new()));
-            op.transport = Box::new(CurrentRevisionRenew {
-                raw: raw_at(&raw, "1", "96"),
-                brain: current,
-                replies: VecDeque::from([serde_json::to_vec(&old).unwrap()]),
-                requests: requests.clone(),
-                race,
-            });
-            op.start = Instant::now() - Duration::from_millis(100);
-            assert!(op.session.brain_fresh(op.now()));
-            let expiry = op.session.lease_deadline();
-            let result = op.mutate_inner("renew", json!({}));
-            if race {
-                assert!(result.unwrap_err().contains("stale_revision"));
-                assert_eq!(op.session.lease_deadline(), expiry);
-            } else {
-                result.unwrap();
-                assert!(op.session.lease_deadline().unwrap() >= expiry.unwrap() + 100);
+    fn atomic_paired_install_is_correlated_transactional_and_uses_query_age() {
+        for mode in ["valid", "half", "nonce", "version", "cancel", "budget"] {
+            let (mut op, _, _) = setup();
+            let identity = atomic_identity(&op);
+            let request = op.session.paired_request(&identity, 1).unwrap();
+            let mut raw = op.session.snapshot.clone().unwrap();
+            raw.frame = "48".into();
+            let mut brain = op.session.brain.clone().unwrap();
+            brain.frame = "48".into();
+            let mut value = json!({"contract":"GP15-paired-readback","version":1,"state":"snapshot","reason":null,"context":request,"raw":raw,"brain":brain});
+            match mode {
+                "half" => {
+                    value["brain"]["held_generation"] = json!("0");
+                }
+                "nonce" => {
+                    value["context"]["query_id"] = json!("2");
+                }
+                "version" => {
+                    value["version"] = json!(2);
+                }
+                _ => (),
             }
-            assert!(op.session.pending.is_none());
-            let requests = requests.lock().unwrap();
-            let kinds: Vec<_> = requests
-                .iter()
-                .map(|r| r["kind"].as_str().unwrap())
-                .collect();
-            assert_eq!(kinds, ["brain_snapshot", "snapshot", "renew"]);
-            assert_eq!(requests[2]["expected_revision"], "1");
-            assert_eq!(op.brain_probes.matched.as_ref().unwrap().0, 2);
+            let guard = Arc::new(std::sync::atomic::AtomicU64::new(1));
+            op.guard(guard.clone(), 1);
+            atomic_peer(
+                &mut op,
+                vec![request.encode().unwrap()],
+                vec![Some(serde_json::to_vec(&value).unwrap())],
+                false,
+                (mode == "cancel").then_some(guard),
+            );
+            let old = op.session.snapshot.clone();
+            let age = op.session.brain_age(op.now());
+            let result = op.read_paired(
+                Instant::now() + Duration::from_millis(250),
+                &mut if mode == "budget" { 0 } else { 64 },
+            );
+            if mode == "valid" {
+                result.map_err(BrainOperationError::message).unwrap();
+                assert_eq!(op.session.snapshot.as_ref().unwrap().frame, "48");
+                assert_eq!(op.session.brain.as_ref().unwrap().frame, "48");
+            } else {
+                assert!(result.is_err(), "{mode}");
+                assert_eq!(op.session.snapshot, old);
+                assert!(op.session.brain_age(op.now()).unwrap() >= age.unwrap());
+            }
         }
     }
     struct RenewBackpressure {
@@ -4485,7 +4840,12 @@ mod brain_fifo_tests {
             replies: VecDeque::new(),
             started: Instant::now(),
         });
-        op.mutate_inner("renew", json!({})).unwrap();
+        op.mutate_ordinary_inner(
+            "renew",
+            json!({}),
+            Instant::now() + Duration::from_millis(1900),
+        )
+        .unwrap();
         assert_eq!(sent.lock().unwrap().len(), 2);
         assert!(op.session.pending.is_none());
         assert!(op.session.lease_deadline().unwrap() >= original_expiry + 500);
@@ -4515,7 +4875,14 @@ mod brain_fifo_tests {
         });
         op.transport = Box::new(Transport { socket });
         op.start = Instant::now();
-        assert!(op.mutate_inner("renew", json!({})).is_err());
+        assert!(
+            op.mutate_ordinary_inner(
+                "renew",
+                json!({}),
+                Instant::now() + Duration::from_millis(1900)
+            )
+            .is_err()
+        );
         assert!(op.session.lease_deadline().is_none());
         assert!(op.session.pending.is_none());
         child.join().unwrap();

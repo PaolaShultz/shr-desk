@@ -177,3 +177,21 @@ and retries require the same fresh device identity. Replacement with an unchange
 shared revision cannot reinterpret an old draft against the new device. These
 pins are local metadata; the producer wire envelope is unchanged, and the producer
 must independently reject replacement between its snapshot and application.
+
+
+### Atomic GP15 additive operations
+
+`GP15-lease-maintenance:1` renews the current authenticated live lease for exactly
+one existing Brain scope without an expected revision or topology query. Replies
+are strictly correlated to an immutable maintenance ID and first send; only a
+confirmed result extends conservative local expiry to that first send + 2000 ms.
+It grants no authority and establishes neither held proof nor observation freshness.
+An explicit terminal busy refusal can use a new ID within the original budget;
+unknown outcomes and cancellation cannot. Unsupported versions fail closed.
+
+`GP15-paired-readback:1` has an independent authenticated connection query nonce.
+The producer returns one committed raw/Brain revision and frame. The consumer
+validates both complete strict schemas and identity/map/topology before atomic
+installation, with one original 250 ms deadline and 64-document budget. Query-send
+time anchors freshness; a late or malformed half installs neither view. Existing
+framing, page, dimension and 1 MiB whole-document limits remain unchanged.

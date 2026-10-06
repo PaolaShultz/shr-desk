@@ -86,7 +86,7 @@ pub struct RenderedSnapshot {
     pub resources: Option<crate::topology::Resources>,
 }
 impl RenderedSnapshot {
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         capability(&self.capability, self.capability_version)?;
         if !self.rendered_application
             || !self.release_commit
@@ -272,7 +272,7 @@ pub fn decode_snapshot(bytes: &[u8]) -> Result<RenderedSnapshot, String> {
     s.validate()?;
     Ok(s)
 }
-fn validate_snapshot_value(v: &Value) -> Result<(), String> {
+pub(crate) fn validate_snapshot_value(v: &Value) -> Result<(), String> {
     let mut fields = vec![
         "capability",
         "capability_version",
@@ -667,6 +667,8 @@ pub struct Session {
     writer: String,
     scope: String,
     next_id: u64,
+    next_maintenance_id: u64,
+    pub(crate) maintenance: Option<crate::lease_maintenance::Pending>,
     pub snapshot: Option<RenderedSnapshot>,
     receipt: Option<u64>,
     pub device: Option<crate::brain_device::Snapshot>,
@@ -723,6 +725,8 @@ impl Session {
             writer: writer.into(),
             scope: scoped.into(),
             next_id: 1,
+            next_maintenance_id: 1,
+            maintenance: None,
             snapshot: None,
             receipt: None,
             device: None,
@@ -817,6 +821,9 @@ impl Session {
         self.armed = !self.context_exhausted;
     }
     pub fn context_changed(&mut self) {
+        if self.maintenance.take().is_some() {
+            self.lease = None;
+        }
         self.armed = false;
         self.preview = None;
         if let Some(next) = self.generation.checked_add(1) {
@@ -871,11 +878,179 @@ impl Session {
         self.lease.as_ref().map(|l| l.deadline)
     }
     pub fn renewal_due(&self, now: u64) -> bool {
-        self.pending.is_none()
+        self.maintenance.is_none()
+            && self.pending.is_none()
             && self
                 .lease
                 .as_ref()
                 .is_some_and(|l| now >= l.renew_at && now < l.deadline)
+    }
+    pub fn paired_request(
+        &self,
+        identity: &crate::held_proof::Identity,
+        nonce: u64,
+    ) -> Result<crate::paired_readback::Request, String> {
+        if self.version != 2 || self.context_exhausted || identity.epoch != self.epoch.to_string() {
+            return fail("paired attachment");
+        }
+        let request = crate::paired_readback::Request {
+            contract: crate::paired_readback::CONTRACT.into(),
+            version: 1,
+            kind: "readback".into(),
+            show_id: self.show.clone(),
+            module: "audio".into(),
+            epoch: identity.epoch.clone(),
+            authenticated_session: identity.session.clone(),
+            writer: self.writer.clone(),
+            capability_generation: identity.capability.clone(),
+            map_generation: identity.map.clone(),
+            query_id: nonce.to_string(),
+        };
+        request.validate()?;
+        Ok(request)
+    }
+    /// Validate and install a complete pair transactionally, keeping query-send freshness.
+    pub fn accept_paired(
+        &mut self,
+        reply: crate::paired_readback::Reply,
+        expected: &crate::paired_readback::Request,
+        sent: u64,
+        generation: u64,
+        now: u64,
+    ) -> Result<(), String> {
+        reply.validate()?;
+        if expected.show_id != self.show
+            || expected.writer != self.writer
+            || expected.epoch != self.epoch.to_string()
+            || reply.context != *expected
+            || generation != self.generation
+            || now < sent
+            || now - sent >= 250
+        {
+            return fail("paired correlation/generation/deadline");
+        }
+        let raw = reply.raw.ok_or("paired refused or missing raw")?;
+        let brain = reply.brain.ok_or("paired missing Brain")?;
+        if raw.authority.revision != brain.revision || raw.frame != brain.frame {
+            return fail("paired boundary");
+        }
+        let mut next = self.clone();
+        if !next.ingest_snapshot(raw, sent)? {
+            return fail("paired regressive raw");
+        }
+        // A pair may repeat the boundary just confirmed by a command. It can
+        // complete its missing raw half, but never rejuvenate an unchanged view.
+        if self.snapshot.as_ref().is_some_and(|old| {
+            next.snapshot.as_ref().is_some_and(|new| {
+                old.frame == new.frame && old.authority.revision == new.authority.revision
+            })
+        }) {
+            next.receipt = self.receipt.map(|old| old.min(sent));
+        }
+        if !next.ingest_brain(brain, sent)? {
+            next.brain_receipt = self.brain_receipt.map(|old| old.min(sent));
+        }
+        if !next.brain_fresh(now) {
+            return fail("paired source boundary stale");
+        }
+        *self = next;
+        Ok(())
+    }
+    pub fn begin_maintenance(
+        &mut self,
+        identity: &crate::held_proof::Identity,
+        now: u64,
+    ) -> Result<crate::lease_maintenance::Request, String> {
+        if self.pending.is_some()
+            || self.maintenance.is_some()
+            || self.context_exhausted
+            || self.version != 2
+            || identity.epoch != self.epoch.to_string()
+        {
+            return fail("maintenance pending/attachment");
+        }
+        let lease = self
+            .lease
+            .as_ref()
+            .filter(|l| now < l.deadline)
+            .ok_or("maintenance requires existing live lease")?;
+        let request = crate::lease_maintenance::Request {
+            contract: crate::lease_maintenance::CONTRACT.into(),
+            version: 1,
+            kind: "maintain".into(),
+            show_id: self.show.clone(),
+            module: "audio".into(),
+            epoch: identity.epoch.clone(),
+            authenticated_session: identity.session.clone(),
+            writer: self.writer.clone(),
+            capability_generation: identity.capability.clone(),
+            map_generation: identity.map.clone(),
+            maintenance_id: self.next_maintenance_id.to_string(),
+            scope: self.scope.clone(),
+            lease: lease.token.clone(),
+        };
+        request.validate()?;
+        self.next_maintenance_id = self
+            .next_maintenance_id
+            .checked_add(1)
+            .ok_or("maintenance ID exhausted")?;
+        self.maintenance = Some(crate::lease_maintenance::Pending {
+            request: request.clone(),
+            first_send: now,
+            generation: self.generation,
+            deadline: lease.deadline.min(
+                now.checked_add(1900)
+                    .ok_or("maintenance deadline overflow")?,
+            ),
+            retry: 0,
+        });
+        Ok(request)
+    }
+    pub fn accept_maintenance(
+        &mut self,
+        reply: crate::lease_maintenance::Reply,
+        now: u64,
+    ) -> Result<Option<String>, String> {
+        reply.validate()?;
+        let p = self.maintenance.as_ref().ok_or("unmatched maintenance")?;
+        if reply.context != p.request
+            || p.generation != self.generation
+            || now < p.first_send
+            || now >= p.deadline
+            || self
+                .lease
+                .as_ref()
+                .is_none_or(|l| l.token != p.request.lease || now >= l.deadline)
+        {
+            return fail("maintenance correlation/expired/canceled");
+        }
+        if let Some(result) = &reply.result {
+            if result.lease_remaining_ms != 2000
+                || reply.state != "maintained"
+                || reply.reason.is_some()
+            {
+                return fail("maintenance result");
+            }
+            let deadline = p
+                .first_send
+                .checked_add(2000)
+                .ok_or("maintenance deadline overflow")?;
+            let renew_at = p
+                .first_send
+                .checked_add(500)
+                .ok_or("maintenance renewal overflow")?;
+            let lease = self.lease.as_mut().unwrap();
+            lease.deadline = deadline;
+            lease.renew_at = renew_at;
+        } else if reply.state != "refused" || reply.reason.is_none() {
+            return fail("maintenance refusal");
+        }
+        let reason = reply.reason;
+        self.maintenance = None;
+        if reason.as_deref().is_some_and(|r| r != "unavailable") {
+            self.lease = None;
+        }
+        Ok(reason)
     }
     pub fn device_request(&self) -> Request {
         let mut r = self.snapshot_request();
@@ -1457,7 +1632,8 @@ impl Session {
         Ok(())
     }
     pub(crate) fn can_pin_held_baseline(&self, now: u64) -> bool {
-        self.pending.is_none()
+        self.maintenance.is_none()
+            && self.pending.is_none()
             && self.brain_closing.is_none()
             && self
                 .brain
@@ -1510,7 +1686,8 @@ impl Session {
         generation: Option<u64>,
         now: u64,
     ) -> Result<(Request, u64), String> {
-        if !matches!(kind, "brain_hold" | "brain_heartbeat" | "renew")
+        if self.maintenance.is_some()
+            || !matches!(kind, "brain_hold" | "brain_heartbeat")
             || self.pending.is_some()
             || self.brain_closing.is_some()
             || !proof.fresh()
@@ -1535,7 +1712,7 @@ impl Session {
         {
             return fail("held proof grant changed");
         }
-        if !self.armed && kind != "renew" {
+        if !self.armed {
             return fail("release input and pickup first");
         }
         let w = proof.witness();
@@ -1565,7 +1742,6 @@ impl Session {
             return fail("held proof generation changed");
         }
         let body = match kind {
-            "renew" => json!({}),
             "brain_heartbeat" => {
                 json!({"generation":selected.to_string(),"observed_frame":w.source_frame})
             }
@@ -1600,7 +1776,7 @@ impl Session {
         Ok((request, selected))
     }
     pub fn begin(&mut self, kind: &str, body: Value, now: u64) -> Result<Request, String> {
-        if self.pending.is_some() {
+        if self.pending.is_some() || self.maintenance.is_some() {
             return fail("pending mutation");
         }
         if !self.fresh(now) {
