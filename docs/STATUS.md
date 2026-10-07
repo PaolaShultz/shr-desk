@@ -1,5 +1,37 @@
 # Status and next steps
 
+## Master EQ setup surface — 2026-10-07
+
+Implemented and owner-reviewed a focused native/frontend editor over the existing
+PA graph: eight parametric and 31 graphic bands, linked or independent main L/R
+edits, human-readable fields and unique program-bus selection. Admission refuses
+duplicate/unknown EQ JSON members, invalid inactive values and mismatched producer
+rate/block/port dimensions. Stereo edits validate atomically, and submission proves
+that routing, monitor inputs, crossover/protection and all non-EQ settings equal
+the original readback. Opening requires observed output quiescence; Apply also
+requires a live PA grant and fresh matching show/epoch/revision/generation plus
+unchanged configuration and bus map. Existing complete review and separate rearm
+remain authoritative. This is muted setup, not hot EQ adjustment. See
+[Master EQ](MASTER_EQ.md) for exact owner revisions, admission and limitations.
+
+Package A offline validation: **256 default / 258 native tests passed**, with
+12 opt-ins skipped per suite, including the explicit CPU-lavapipe native check.
+Both warning-denied Clippy configurations, formatting, 9 Python publication tests,
+local documentation links and whitespace checks pass. Both locked release builds
+and final complete-index/history guards are recorded in the worker handoff.
+The added regressions cover owner-shaped EQ admission, preservation, atomicity,
+authority/context loss, complete review presentation and no reconnect replay/rearm.
+The final source is isolated on `task/0018-master-eq`; acceptance/integration and
+source publication remain coordinator-owned. Current actual-provider EQ transaction,
+physical mappings, listening and clock-lock evidence remain separate gates.
+Historical/exhaustive/long, actual-provider opt-ins and hardware trials were excluded;
+no physical output was activated.
+
+The initial simulator gallery still contains historical unavailable labels.
+Current channel four-band EQ and compressor controls are already software-validated;
+independent raw/post-mute monitor sends also exist. Selectable pre/post aux taps,
+a dedicated sends overview and live master-EQ transitions remain separate work.
+
 Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
 Task0012 processing source was published and synchronized. Task0013 four-band
 processing software acceptance is recorded below; source publication is coordinator-owned.

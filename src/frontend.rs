@@ -1377,7 +1377,10 @@ impl Frontend {
                 {
                     let opens_editor = matches!(
                         action,
-                        Action::ProcessingEdit | Action::StructureEdit | Action::DeviceEdit
+                        Action::ProcessingEdit
+                            | Action::StructureEdit
+                            | Action::MasterEqEdit
+                            | Action::DeviceEdit
                     );
                     if let Err(e) = self.action(action) {
                         self.message = e;
@@ -1405,7 +1408,7 @@ impl Frontend {
                         && ((self.processing_draft.is_none()
                             && self.structural_draft.is_none()
                             && self.device_draft.is_none())
-                            || matches!(key.as_str(), "E" | "F9"))
+                            || matches!(key.as_str(), "E" | "F9" | "F11"))
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
@@ -1607,9 +1610,20 @@ impl Frontend {
         } else {
             key
         };
+        if self
+            .structural_draft
+            .as_ref()
+            .is_some_and(|d| d.master_eq.is_some())
+        {
+            match key {
+                "C" => return self.action(Action::MasterEqChannel),
+                "B" => return self.action(Action::MasterEqSection),
+                _ => (),
+            }
+        }
         if self.brain_enabled {
             match key {
-                "F3" => return self.action(Action::BrainPage),
+                "F3" if self.structural_draft.is_none() => return self.action(Action::BrainPage),
                 "T" => return self.action(Action::TalkbackPress),
                 _ => {}
             }
@@ -1946,7 +1960,7 @@ impl Frontend {
                     body: json!({"enabled":enabled}),
                 })
             }
-            Action::StructureEdit => {
+            Action::StructureEdit | Action::MasterEqEdit => {
                 if self.processing_draft.is_some()
                     || self.structural_draft.is_some()
                     || self.state.as_ref().is_some_and(|u| u.review.is_some())
@@ -1958,13 +1972,44 @@ impl Frontend {
                     .as_ref()
                     .filter(|u| u.structure_is_fresh() && self.fresh())
                     .ok_or("fresh structural readback required")?;
-                self.structural_draft = Some(crate::structure::Draft::new(
-                    state.structural.as_ref().ok_or("structural unavailable")?,
-                    &self.scope,
-                    self.provider.generation(),
-                )?);
+                let snapshot = state.structural.as_ref().ok_or("structural unavailable")?;
+                self.structural_draft = Some(if matches!(action, Action::MasterEqEdit) {
+                    if self.scope != "pa_configuration" {
+                        return Err("Master EQ requires the PA configuration scope".into());
+                    }
+                    let raw = &state
+                        .snapshot
+                        .as_ref()
+                        .ok_or("Raw readback unavailable")?
+                        .authority;
+                    if raw.show_id != snapshot.show_id
+                        || raw.epoch != snapshot.epoch
+                        || raw.revision != snapshot.revision
+                    {
+                        return Err("Master EQ requires matching raw and PA readback".into());
+                    }
+                    if !snapshot.outputs_quiesced {
+                        return Err(
+                            "Mute outputs and wait for quiescence before opening Master EQ".into(),
+                        );
+                    }
+                    crate::structure::Draft::new_master_eq(snapshot, self.provider.generation())?
+                } else {
+                    crate::structure::Draft::new(snapshot, &self.scope, self.provider.generation())?
+                });
+                self.brain_page = false;
+                self.topology_page = None;
                 self.processing_entry.clear();
                 Ok(())
+            }
+            Action::MasterEqChannel | Action::MasterEqSection => {
+                if !self.processing_entry.is_empty() {
+                    return Err("Accept or cancel the field entry before changing EQ view".into());
+                }
+                self.structural_draft
+                    .as_mut()
+                    .ok_or("F11 opens Master EQ")?
+                    .eq_view(matches!(action, Action::MasterEqChannel))
             }
             Action::StructureField(delta) => {
                 if !self.processing_entry.is_empty() {
@@ -2015,6 +2060,44 @@ impl Frontend {
                     .structural_draft
                     .as_ref()
                     .ok_or("no structural draft")?;
+                if let Some(view) = &draft.master_eq {
+                    if self.scope != "pa_configuration"
+                        || !self.state.as_ref().is_some_and(Update::writer_granted)
+                    {
+                        return Err("Master EQ Apply requires current PA scope authority".into());
+                    }
+                    let current = self
+                        .state
+                        .as_ref()
+                        .and_then(|u| u.structural.as_ref())
+                        .ok_or("Structural readback unavailable")?;
+                    if current.revision != draft.revision
+                        || draft.generation != self.provider.generation()
+                        || draft.master_context.as_ref()
+                            != Some(&(current.show_id.clone(), current.epoch.clone()))
+                        || !view.matches_readback(
+                            current.pa_configuration_json.as_deref().unwrap_or(""),
+                            &current.pa_program_buses,
+                        )
+                        || self
+                            .state
+                            .as_ref()
+                            .and_then(|u| u.snapshot.as_ref())
+                            .is_none_or(|s| {
+                                s.authority.show_id != current.show_id
+                                    || s.authority.epoch != current.epoch
+                                    || s.authority.revision != current.revision
+                            })
+                    {
+                        return Err(
+                            "Master EQ context changed; cancel and reopen from current settings"
+                                .into(),
+                        );
+                    }
+                    if !current.outputs_quiesced {
+                        return Err("Mute outputs and wait for quiescence before opening/applying Master EQ".into());
+                    }
+                }
                 let operation = Operation::ReviewStructure {
                     kind: draft.kind.clone(),
                     body: draft.body()?,
@@ -2753,6 +2836,59 @@ impl Frontend {
             return scene;
         }
         if let Some(draft) = &self.structural_draft {
+            if let Some(view) = &draft.master_eq {
+                line(
+                    12,
+                    format!(
+                        "MASTER EQ / {} / {} / LOCAL DRAFT",
+                        view.channel_label(),
+                        if view.graphic {
+                            "31-band graphic"
+                        } else {
+                            "8-band parametric"
+                        }
+                    ),
+                    "#66dfd3",
+                );
+                line(60, "Main L/R -> PA program EQ -> PA graph/protection. Direct main/monitor routes bypass this EQ.".into(), "#9caebc");
+                line(108, "MUTED SETUP ONLY / no change sent / applying requires quiesced outputs and complete review".into(), "#f1bd6b");
+                line(156, "Linked edits change only the selected parameter on L+R; different existing values stay visible.".into(), "#9caebc");
+                let start = draft.selected / 24 * 24;
+                for (row, path) in draft.fields.iter().skip(start).take(24).enumerate() {
+                    line(
+                        216 + row as u32 * 24,
+                        format!(
+                            "{} {:<48} {}",
+                            if start + row == draft.selected {
+                                ">"
+                            } else {
+                                " "
+                            },
+                            view.label(path),
+                            view.display(&draft.document, path)
+                        ),
+                        if start + row == draft.selected {
+                            "#66dfd3"
+                        } else {
+                            "#e4e8e9"
+                        },
+                    );
+                }
+                line(
+                    816,
+                    format!(
+                        "FIELD {}/{} | Entry: {}",
+                        draft.selected + 1,
+                        draft.fields.len(),
+                        self.processing_entry.chars().take(80).collect::<String>()
+                    ),
+                    "#66dfd3",
+                );
+                line(864, "B PEQ/GEQ | C linked/left/right | U/I field | J/K adjust | F3 type value, Enter accepts".into(), "#9caebc");
+                line(900, "F4 Apply/review | Esc cancel | rearm is a separate reviewed action after application".into(), "#f1bd6b");
+                line(948, self.message.chars().take(150).collect(), "#f47c85");
+                return scene;
+            }
             line(
                 12,
                 format!(
@@ -2890,7 +3026,7 @@ impl Frontend {
             }
             line(
                 900,
-                "PageUp/PageDown patch | F9 scope editor | Z mute / X rearm (PA scope, reviewed) | F1/F2/F6 pages".into(),
+                "PageUp/PageDown patch | F9 scope editor | F11 Master EQ | Z mute / X rearm (PA scope, reviewed)".into(),
                 "#66dfd3",
             );
             line(948, self.message.clone(), "#f47c85");
@@ -3365,7 +3501,7 @@ impl Frontend {
         );
         line(
             1008,
-            "F5 reconnect | F8 legacy GP03 reconnect | fresh writer, no replay | REC/PA/FX writes unavailable"
+            "F5 reconnect | F8 legacy reconnect | F7 patch | F9 PA/routes editor | F11 Master EQ (PA scope)"
                 .into(),
             "#9caebc",
         );
@@ -3531,6 +3667,229 @@ mod tests {
 #[cfg(test)]
 mod processing_tests {
     use super::*;
+    fn master_surface() -> (Frontend, Receiver<Request>) {
+        let (mut f, rx) = brain_surface();
+        f.scope = "pa_configuration".into();
+        let mut snapshot = crate::structure::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp14/v1/structure-16.json"
+        ))
+        .unwrap();
+        // Altered bus map is a UI test input, not a new accepted producer fixture.
+        snapshot.pa_program_buses = vec![0, 1];
+        snapshot.outputs_quiesced = true;
+        let u = f.state.as_mut().unwrap();
+        u.snapshot.as_mut().unwrap().authority.revision = snapshot.revision.clone();
+        u.structural = Some(snapshot);
+        u.structural_fresh = true;
+        u.structural_age_ms = Some(0);
+        u.received = Instant::now();
+        (f, rx)
+    }
+    #[test]
+    fn master_eq_keyboard_edits_are_local_and_review_uses_existing_owner_transaction() {
+        let (mut f, rx) = master_surface();
+        f.key("F11").unwrap();
+        assert!(!f.brain_page);
+        let original = f.structural_draft.as_ref().unwrap().document.clone();
+        assert!(f.scene().in_bounds());
+        f.key("B").unwrap();
+        f.key("I").unwrap();
+        f.key("F3").unwrap();
+        for key in ["-", "2", ".", "5", "Enter"] {
+            f.key(key).unwrap();
+        }
+        let draft = f.structural_draft.as_ref().unwrap();
+        for side in 0..2 {
+            assert_eq!(
+                draft.document["configuration"]["inputs"][side]["geq_db"][0],
+                json!(-2.5)
+            );
+        }
+        assert_eq!(
+            draft.document["configuration"]["outputs"],
+            original["configuration"]["outputs"]
+        );
+        assert!(rx.try_recv().is_err(), "field editing sends nothing");
+        assert!(f.scene().in_bounds());
+        for _ in 0..31 {
+            f.key("I").unwrap();
+            assert!(f.scene().in_bounds());
+        }
+        let body = f.structural_draft.as_ref().unwrap().body().unwrap();
+        f.state.as_mut().unwrap().received = Instant::now();
+        f.key("F4").unwrap();
+        let request = rx.try_recv().unwrap();
+        assert!(
+            matches!(request.operation, Operation::ReviewStructure{kind,body:b} if kind=="pa_set" && b==body)
+        );
+        assert!(f.structural_draft.is_none());
+    }
+    #[test]
+    fn master_eq_refuses_unquiesced_changed_or_stale_context_without_losing_draft() {
+        for reason in [
+            "scope",
+            "stale",
+            "revision",
+            "generation",
+            "epoch",
+            "unquiesced",
+            "raw",
+            "authority",
+            "changed-readback",
+            "changed-map",
+            "changed-scope",
+        ] {
+            let (mut f, rx) = master_surface();
+            if reason == "scope" {
+                f.scope = "foh".into();
+                assert!(f.key("F11").is_err());
+                continue;
+            }
+            f.key("F11").unwrap();
+            let original = f.structural_draft.as_ref().unwrap().document.clone();
+            let u = f.state.as_mut().unwrap();
+            match reason {
+                "stale" => u.structural_age_ms = Some(251),
+                "revision" => u.structural.as_mut().unwrap().revision = "900".into(),
+                "generation" => {
+                    f.provider.generation.fetch_add(1, Ordering::AcqRel);
+                }
+                "epoch" => u.structural.as_mut().unwrap().epoch = "900".into(),
+                "unquiesced" => u.structural.as_mut().unwrap().outputs_quiesced = false,
+                "raw" => u.snapshot.as_mut().unwrap().authority.revision = "900".into(),
+                "authority" => u.writer_lease_remaining_ms = Some(0),
+                "changed-readback" => {
+                    let current = u.structural.as_mut().unwrap();
+                    let mut c: Value =
+                        serde_json::from_str(current.pa_configuration_json.as_ref().unwrap())
+                            .unwrap();
+                    c["inputs"][0]["gain_db"] = json!(1.);
+                    current.pa_configuration_json = Some(c.to_string());
+                }
+                "changed-map" => u.structural.as_mut().unwrap().pa_program_buses = vec![1, 0],
+                "changed-scope" => f.scope = "output_routes".into(),
+                _ => unreachable!(),
+            }
+            assert!(f.key("F4").is_err(), "{reason}");
+            assert_eq!(f.structural_draft.as_ref().unwrap().document, original);
+            assert!(rx.try_recv().is_err());
+        }
+    }
+    #[test]
+    fn master_eq_detached_text_survives_focus_loss_but_old_context_cannot_apply() {
+        let (mut f, rx) = master_surface();
+        f.key("F11").unwrap();
+        f.key("F3").unwrap();
+        f.key("t").unwrap();
+        let mut fresh = f.state.clone().unwrap();
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert_eq!(f.processing_entry, "t");
+        assert!(f.structural_draft.as_ref().unwrap().master_eq.is_some());
+        // Clear explicit text entry; neither focus recovery nor a fresh timestamp
+        // restores the old generation's permission to replace PA settings.
+        f.key("Esc").unwrap();
+        fresh.received = Instant::now();
+        f.state = Some(fresh);
+        assert!(f.key("F4").is_err());
+        assert!(
+            !rx.try_iter()
+                .any(|r| matches!(r.operation, Operation::ReviewStructure { .. }))
+        );
+    }
+    #[test]
+    fn master_eq_open_requires_quiescence_and_reconnect_never_replays_or_rearms() {
+        let (mut f, rx) = master_surface();
+        f.state
+            .as_mut()
+            .unwrap()
+            .structural
+            .as_mut()
+            .unwrap()
+            .outputs_quiesced = false;
+        assert!(f.key("F11").is_err());
+        assert!(f.structural_draft.is_none());
+        f.state
+            .as_mut()
+            .unwrap()
+            .structural
+            .as_mut()
+            .unwrap()
+            .outputs_quiesced = true;
+        f.key("F11").unwrap();
+        f.key("I").unwrap();
+        f.action(Action::StructureText("high_shelf".into()))
+            .unwrap();
+        let original = f.structural_draft.as_ref().unwrap().document.clone();
+        let mut fresh = f.state.clone().unwrap();
+        f.key("F5").unwrap();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::Reconnect
+        ));
+        fresh.received = Instant::now();
+        f.state = Some(fresh);
+        assert_eq!(f.structural_draft.as_ref().unwrap().document, original);
+        assert!(f.key("F4").is_err());
+        assert!(rx.try_recv().is_err());
+        let mut after_cancel = f.state.clone().unwrap();
+        f.key("Esc").unwrap();
+        // Cancel may send Cancel, but it cannot send PA settings or rearm.
+        assert!(
+            rx.try_iter()
+                .all(|r| matches!(r.operation, Operation::Cancel))
+        );
+        after_cancel.received = Instant::now();
+        f.state = Some(after_cancel);
+        f.key("F11").unwrap();
+        f.key("F4").unwrap();
+        assert!(
+            matches!(rx.try_recv().unwrap().operation, Operation::ReviewStructure { kind, .. } if kind == "pa_set")
+        );
+        assert!(rx.try_recv().is_err(), "PA Apply never queues rearm");
+    }
+    #[test]
+    fn master_eq_complete_owner_body_must_be_presented_before_confirmation() {
+        let (mut f, rx) = master_surface();
+        f.key("F11").unwrap();
+        let body = f.structural_draft.as_ref().unwrap().body().unwrap();
+        f.key("F4").unwrap();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::ReviewStructure { .. }
+        ));
+        // Match the existing operator's GP14 review format, including the exact
+        // escaped owner JSON. Presentation must cover every character of it.
+        let text =
+            format!("pa_set {body} / revision 1 / scope pa_configuration / show test / epoch 9");
+        f.state.as_mut().unwrap().review = Some((42, text.clone()));
+        f.synchronize_review();
+        assert!(f.review_pages() > 1);
+        assert!(f.key("Enter").is_err());
+        let mut recovered = String::new();
+        for page in 0..f.review_pages() {
+            f.state.as_mut().unwrap().received = Instant::now();
+            for primitive in f.scene().primitives {
+                if let Primitive::Text { y, value, .. } = primitive
+                    && (96..864).contains(&y)
+                {
+                    recovered.push_str(&value);
+                }
+            }
+            f.mark_presented();
+            if page + 1 < f.review_pages() {
+                assert!(f.key("Enter").is_err());
+                f.key("PageDown").unwrap();
+            }
+        }
+        assert_eq!(recovered, text);
+        f.state.as_mut().unwrap().received = Instant::now();
+        f.key("Enter").unwrap();
+        assert!(matches!(
+            rx.try_recv().unwrap().operation,
+            Operation::Confirm(42)
+        ));
+        assert!(rx.try_recv().is_err());
+    }
     fn brain_surface() -> (Frontend, Receiver<Request>) {
         let mut f = surface();
         let (tx, rx) = mpsc::sync_channel(8);

@@ -48,6 +48,18 @@ honestly; presentation does not fall back to fixtures.
 
 ## Actions and recovery
 
+F11 opens the [Master EQ setup editor](MASTER_EQ.md) in a dynamic
+`pa_configuration` session: eight parametric bands and a 31-band graphic EQ,
+linked or separate L/R edits, actual main-bus mapping and owner field preservation.
+Opening requires observed output quiescence. Apply requires the original
+configuration/bus map, show/epoch/revision/generation and a live PA grant, and uses
+the existing muted PA transaction, complete review and separate rearm. The pinned
+GigPies integration requires a 48 kHz owner graph; see the exact admission ranges
+and owner revisions in [Master EQ](MASTER_EQ.md).
+B switches EQ section, C switches channel edit mode, U/I select fields, J/K adjust,
+F3 enters an exact value and F4 requests review. It does not change channel EQ,
+compressor or monitor-send processing. F9 remains the general owner-field editor.
+
 Shared semantic keyboard table: arrows/Tab select, F1/F2/F6 Mix/Channel/Health page, +/- fader,
 [/] pan, M mute review, H hold review, R engine release preview, A mode picker,
 1/2/3 choose Auto/Assist/Manual, Enter confirms displayed review, Esc cancels,

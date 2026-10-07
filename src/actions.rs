@@ -5,6 +5,9 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    MasterEqEdit,
+    MasterEqChannel,
+    MasterEqSection,
     DeviceEdit,
     DeviceText(String),
     DeviceApply,
@@ -160,6 +163,7 @@ pub fn key_action(key: &str) -> Option<Action> {
         "F4" => Action::ProcessingApply,
         "F7" => Action::Topology,
         "F9" => Action::StructureEdit,
+        "F11" => Action::MasterEqEdit,
         "F1" => Action::Page(Page::Mix),
         "F2" => Action::Page(Page::Channel),
         "F6" => Action::Page(Page::Analysis),
@@ -201,6 +205,9 @@ pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
         | Action::TalkbackRelease
         | Action::Topology
         | Action::StructureEdit
+        | Action::MasterEqEdit
+        | Action::MasterEqChannel
+        | Action::MasterEqSection
         | Action::StructureField(_)
         | Action::StructureText(_)
         | Action::StructureImport(_)

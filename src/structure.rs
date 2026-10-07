@@ -236,6 +236,8 @@ pub fn read_import(path: &std::path::Path) -> Result<String, String> {
 /// physical routing selects explicit advertised sources for existing output sockets.
 #[derive(Clone, Debug)]
 pub struct Draft {
+    pub master_eq: Option<crate::master_eq::View>,
+    pub master_context: Option<(String, String)>,
     pub kind: String,
     pub document: Value,
     pub fields: Vec<String>,
@@ -268,6 +270,8 @@ impl Draft {
             return Err("no advertised editable fields".into());
         }
         Ok(Self {
+            master_eq: None,
+            master_context: None,
             kind: kind.into(),
             document,
             fields,
@@ -275,6 +279,44 @@ impl Draft {
             revision: snapshot.revision.clone(),
             generation,
         })
+    }
+    pub fn new_master_eq(snapshot: &Snapshot, generation: u64) -> Result<Self, String> {
+        snapshot.validate()?;
+        let config = crate::master_eq::parse_owner(
+            snapshot
+                .pa_configuration_json
+                .as_deref()
+                .ok_or("PA owner unavailable")?,
+        )?;
+        // GigPies module_graph at the pinned producer revision admits 48 kHz
+        // and a block capacity of at least its 48-frame render quantum.
+        if config["sample_rate"].as_u64() != Some(48000)
+            || config["max_block"]
+                .as_u64()
+                .is_none_or(|n| !(48..=8192).contains(&n))
+            || config["outputs"]
+                .as_array()
+                .is_none_or(|v| v.len() != snapshot.topology.pa_outputs)
+        {
+            return Err("PA owner dimensions/rate/block mismatch with GigPies".into());
+        }
+        let mut draft = Self::new(snapshot, "pa_configuration", generation)?;
+        let view = crate::master_eq::View::new(&draft.document)?;
+        draft.fields = view.fields();
+        draft.master_eq = Some(view);
+        draft.master_context = Some((snapshot.show_id.clone(), snapshot.epoch.clone()));
+        Ok(draft)
+    }
+    pub fn eq_view(&mut self, channel: bool) -> Result<(), String> {
+        let view = self.master_eq.as_mut().ok_or("Open Master EQ first")?;
+        if channel {
+            view.channel = (view.channel + 1) % 3;
+        } else {
+            view.graphic = !view.graphic;
+        }
+        self.fields = view.fields();
+        self.selected = self.selected.min(self.fields.len() - 1);
+        Ok(())
     }
     pub fn move_field(&mut self, delta: i32) {
         self.selected =
@@ -284,7 +326,18 @@ impl Draft {
         if text.len() > 48 * 1024 {
             return Err("field entry capacity".into());
         }
-        let value: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let value: Value = serde_json::from_str(text)
+            .or_else(|e| {
+                if self.master_eq.is_some() && self.fields[self.selected].ends_with("/kind") {
+                    Ok(Value::String(text.into()))
+                } else {
+                    Err(e)
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        if let Some(view) = &self.master_eq {
+            return view.set(&mut self.document, &self.fields[self.selected], value);
+        }
         let field = self
             .document
             .pointer_mut(&self.fields[self.selected])
@@ -305,6 +358,12 @@ impl Draft {
     }
     /// Replace the entire detached owner configuration and bus map, never send it.
     pub fn import(&mut self, text: &str) -> Result<(), String> {
+        if self.master_eq.is_some() {
+            return Err(
+                "Master EQ cannot import or replace routing; use the PA configuration editor"
+                    .into(),
+            );
+        }
         if self.kind != "pa_set" || text.len() > 48 * 1024 {
             return Err("PA import kind/resource bound".into());
         }
@@ -318,6 +377,9 @@ impl Draft {
         Ok(())
     }
     pub fn adjust(&mut self, delta: i32, snapshot: &Snapshot) -> Result<(), String> {
+        if let Some(view) = &self.master_eq {
+            return view.adjust(&mut self.document, &self.fields[self.selected], delta);
+        }
         let field = self
             .document
             .pointer_mut(&self.fields[self.selected])
@@ -360,6 +422,9 @@ impl Draft {
         Ok(())
     }
     pub fn body(&self) -> Result<Value, String> {
+        if let Some(view) = &self.master_eq {
+            view.validate_document(&self.document)?;
+        }
         if self.kind == "pa_set" {
             Ok(
                 serde_json::json!({"configuration_json":serde_json::to_string(&self.document["configuration"]).map_err(|e|e.to_string())?,"program_buses":self.document["program_buses"]}),

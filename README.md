@@ -31,6 +31,11 @@ queue/recovery behavior and software-only validation commands. The explicit
 [GP02 file reader and GP03 batch client](docs/PROVIDER_CLIENT.md) remain available.
 No default invocation opens devices, sockets or windows.
 
+The dedicated [Master EQ setup editor](docs/MASTER_EQ.md) exposes SHR PA's existing
+eight parametric and 31 graphic bands for mapped main L/R inputs. F11 opens it in
+a dynamic PA-configuration session. Linked or independent edits use the existing
+mute/review/apply/separate-rearm workflow; this is not live EQ automation.
+
 Build with the parent-held procedure in [development](docs/DEVELOPMENT.md), then:
 
 ```sh

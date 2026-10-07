@@ -24,6 +24,7 @@ pub mod scopes;
 
 pub mod topology;
 
+pub mod master_eq;
 pub mod structure;
 
 pub mod pages;
