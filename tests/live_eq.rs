@@ -138,6 +138,7 @@ fn frozen_master_corpus_and_raw_map_revision_binding_preserve_confirmed_age() {
     .unwrap();
     // Explicit adversarial transport-binding rig, not a newly produced corpus.
     raw.authority.epoch = live.epoch.clone();
+    raw.clock.as_mut().unwrap().epoch = live.epoch.parse().unwrap();
     raw.authority.revision = live.revision.clone();
     raw.topology.as_mut().unwrap().map_revision = live.map_revision.parse().unwrap();
     let mut session = shr_desk::audio::Session::new_version(

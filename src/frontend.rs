@@ -6010,7 +6010,7 @@ mod gp18_ui_tests {
             std::env::var_os("SHR_DESK_OFFLINE_GALLERY").expect("explicit output directory"),
         );
         std::fs::create_dir_all(&output).unwrap();
-        let save = |name: &str, f: &Frontend| {
+        let save = |name: &str, f: &mut Frontend| {
             let mut scene = f.scene();
             scene.primitives.push(Primitive::Rect {
                 x: 0,
@@ -6022,11 +6022,13 @@ mod gp18_ui_tests {
             scene.primitives.push(Primitive::Text{x:24,y:1044,value:"OFFLINE / SIMULATED fixture-driven current Frontend scene / NO CONNECTED ENGINE".into(),color:"#f47c85"});
             assert!(scene.in_bounds(), "{name}");
             #[cfg(feature = "native")]
-            for (w, h) in [(1920, 1080), (960, 540), (728, 1024)] {
-                println!(
-                    "{name}: {}",
-                    crate::native::offscreen_at(&scene, w, h).unwrap()
-                );
+            if std::env::var_os("VK_DRIVER_FILES").is_some() {
+                for (w, h) in [(1920, 1080), (960, 540), (728, 1024)] {
+                    println!(
+                        "{name}: {}",
+                        crate::native::offscreen_at(&scene, w, h).unwrap()
+                    );
+                }
             }
             std::fs::write(
                 output.join(format!("{name}.svg")),
@@ -6034,15 +6036,17 @@ mod gp18_ui_tests {
             )
             .unwrap();
             crate::raster::ppm(&scene, &output.join(format!("{name}.ppm"))).unwrap();
+            // Each next offline gesture starts from the same explicit simulated fixture.
+            f.state.as_mut().unwrap().received = Instant::now();
         };
         let (mut f, _rx) = sends_surface();
         f.selected = 16;
-        save("sends-overview-monitor3", &f);
+        save("sends-overview-monitor3", &mut f);
         f.sends_channel = true;
         f.action(Action::SendTapEdit).unwrap();
         f.action(Action::SendTap(crate::sends::Tap::ProcessedPreFader))
             .unwrap();
-        save("channel-sends", &f);
+        save("channel-sends", &mut f);
         f.sends_page = false;
         f.send_draft = None;
         f.scope = "foh".into();
@@ -6057,18 +6061,18 @@ mod gp18_ui_tests {
             u.processing.as_ref().unwrap().revision.clone();
         u.processing_age_ms = Some(0);
         u.received = Instant::now();
-        save("channel-eq-compressor", &f);
+        save("channel-eq-compressor", &mut f);
         let (mut f, _rx) = super::processing_tests::master_surface();
         f.key("F11").unwrap();
         f.action(Action::StructureField(3)).unwrap();
         f.action(Action::StructureText("6.125".into())).unwrap();
-        save("master-parametric", &f);
+        save("master-parametric", &mut f);
         f.key("B").unwrap();
         f.action(Action::StructureField(-3)).unwrap();
         f.action(Action::StructureText("true".into())).unwrap();
         f.action(Action::StructureField(1)).unwrap();
         f.action(Action::StructureText("-4.5".into())).unwrap();
-        save("master-graphic", &f);
+        save("master-graphic", &mut f);
         let corpus: Vec<Value> = serde_json::from_slice(include_bytes!(
             "../tests/fixtures/master-eq/v1/producer.json"
         ))
@@ -6085,6 +6089,6 @@ mod gp18_ui_tests {
         f.live_page = true;
         f.state.as_mut().unwrap().live_eq = Some(live);
         f.state.as_mut().unwrap().live_eq_age_ms = Some(0);
-        save("live-current-target", &f);
+        save("live-current-target", &mut f);
     }
 }

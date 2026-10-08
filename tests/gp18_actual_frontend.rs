@@ -142,6 +142,7 @@ fn scope(f: &mut Frontend, end: Instant, scope: &str) {
     grant(f, end);
     if scope == "foh" || scope == "pa_configuration" {
         action(f, Action::Page(Page::Mix));
+        wait(f, end, "scope navigation fresh", Frontend::fresh);
     }
 }
 struct Trace {
@@ -579,6 +580,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             trace(&f, "post-fader tap", &mut events);
             scope(&mut f, end, "foh");
             tap(&mut f, "F1");
+            wait(&mut f, end, "visible FOH mute fresh", Frontend::fresh);
             tap(&mut f, "M");
             confirm(&mut f, end);
             settled(&mut f, end);
