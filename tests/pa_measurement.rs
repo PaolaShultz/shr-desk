@@ -165,3 +165,33 @@ fn detached_editor_validates_units_limits_and_identifiers() {
     assert!(parse(Editor::Propose, "p a b c d").is_ok());
     assert!(parse(Editor::Propose, "p a a").is_err());
 }
+
+#[test]
+fn unchanged_candidate_is_exact_basis_and_remains_nonapplyable() {
+    let mut value = proposed();
+    value["status"] = "no_change".into();
+    value["changes"] = serde_json::json!([]);
+    value["added_latency_samples"] = 0.into();
+    value["reason"] = "already_aligned".into();
+    let p = Proposal::decode(&value).unwrap();
+    p.validate_candidate(&p.basis_configuration, &p.basis_configuration).unwrap();
+    let mut changed = p.basis_configuration.clone();
+    changed["outputs"][0]["muted"] = true.into();
+    assert!(p.validate_candidate(&p.basis_configuration, &changed).is_err());
+    assert_ne!(p.status, "proposed");
+}
+
+#[test]
+fn gp20_current_basis_epoch_fenced_but_historical_results_retained() {
+    let corpus:Value=serde_json::from_str(include_str!("fixtures/gp20/v1/producer.json")).unwrap();
+    let mut checked=false;
+    for e in corpus["exchanges"].as_array().unwrap(){
+        let Some(v)=e.get("reply") else{continue;};
+        if !v["snapshot"]["current_basis"].is_null(){
+            shr_desk::pa_measurement::wire::Reply::decode(&serde_json::to_vec(v).unwrap()).unwrap();
+            let mut bad=v.clone();bad["snapshot"]["current_basis"]["source_epoch"]=serde_json::json!("999");
+            assert!(shr_desk::pa_measurement::wire::Reply::decode(&serde_json::to_vec(&bad).unwrap()).is_err());checked=true;
+        }
+    }
+    assert!(checked);
+}

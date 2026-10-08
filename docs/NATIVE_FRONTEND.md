@@ -877,3 +877,12 @@ opens/probes its page; C/X/R/P/A edit capture/cancel/result/proposal/muted apply
 Literal text uses the ordinary keyboard, including Space. Escape discards an
 unsent review while retaining its measurement page; focus/resize fences never
 replay capture or configuration. PageUp/PageDown expose the complete report.
+
+## Actual remote FOH stereo FX
+
+W opens and explicitly probes the [GP21 FX page](FX.md). L/R selects a channel, E
+opens detached delay/feedback/damping/wet-gain entry, Space reviews bypass, P
+reviews selected panic and B both-channel panic. Enter requests complete review;
+all displayed pages and separate Enter confirmation are required. G grants the
+dedicated `fx_configuration` lease. Esc cancels unsent content. Unknown outcomes
+require explicit fresh owner probe and new review; reconnect is read-only.

@@ -1,0 +1,305 @@
+{
+  "applied": {
+    "apply_frame": "4800",
+    "context": {
+      "epoch": "9",
+      "expected_revision": "0",
+      "lease": "1",
+      "module": "audio",
+      "request_id": "2",
+      "show_id": "11111111-1111-4111-8111-111111111111",
+      "writer": "remote-ed5e924d115f9f07-000000000000000d"
+    },
+    "contract": "GP21-fx",
+    "observation": {
+      "applied_source_frame": "4800",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "1",
+      "next_source_frame": "4800",
+      "owner_json": "{\"channels\":[{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        960,
+        960
+      ],
+      "reset_count": "0",
+      "settled_generation": "0",
+      "settled_source_frame": "0"
+    },
+    "reason": null,
+    "revision": "1",
+    "state": "applied",
+    "ticket": "1",
+    "version": 1
+  },
+  "final_snapshot": {
+    "available": true,
+    "contract": "GP21-fx",
+    "epoch": "9",
+    "frame": "5760",
+    "observation": {
+      "applied_source_frame": "4800",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "1",
+      "next_source_frame": "5760",
+      "owner_json": "{\"channels\":[{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        0,
+        0
+      ],
+      "reset_count": "0",
+      "settled_generation": "1",
+      "settled_source_frame": "5760"
+    },
+    "pending": null,
+    "revision": "1",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "state": "snapshot",
+    "version": 1
+  },
+  "permitted": {
+    "apply_frame": "4800",
+    "context": {
+      "epoch": "9",
+      "expected_revision": "0",
+      "lease": "1",
+      "module": "audio",
+      "request_id": "2",
+      "show_id": "11111111-1111-4111-8111-111111111111",
+      "writer": "remote-ed5e924d115f9f07-000000000000000d"
+    },
+    "contract": "GP21-fx",
+    "observation": {
+      "applied_source_frame": "0",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "0",
+      "next_source_frame": "0",
+      "owner_json": "{\"channels\":[{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        0,
+        0
+      ],
+      "reset_count": "0",
+      "settled_generation": "0",
+      "settled_source_frame": "0"
+    },
+    "reason": null,
+    "revision": "1",
+    "state": "permitted",
+    "ticket": "1",
+    "version": 1
+  },
+  "preparing": {
+    "apply_frame": "4800",
+    "context": {
+      "epoch": "9",
+      "expected_revision": "0",
+      "lease": "1",
+      "module": "audio",
+      "request_id": "2",
+      "show_id": "11111111-1111-4111-8111-111111111111",
+      "writer": "remote-ed5e924d115f9f07-000000000000000d"
+    },
+    "contract": "GP21-fx",
+    "observation": {
+      "applied_source_frame": "0",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "0",
+      "next_source_frame": "0",
+      "owner_json": "{\"channels\":[{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        0,
+        0
+      ],
+      "reset_count": "0",
+      "settled_generation": "0",
+      "settled_source_frame": "0"
+    },
+    "reason": null,
+    "revision": "0",
+    "state": "preparing",
+    "ticket": "1",
+    "version": 1
+  },
+  "request": {
+    "body": {
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "configuration_json": "{\"channels\":[{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "expected_generation": "0",
+      "expected_reset_count": "0",
+      "lead_frames": "4800",
+      "panic_mask": null
+    },
+    "contract": "GP21-fx",
+    "epoch": "9",
+    "expected_revision": "0",
+    "kind": "fx_configure",
+    "lease": "1",
+    "module": "audio",
+    "request_id": "2",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "version": 1,
+    "writer": "remote-ed5e924d115f9f07-000000000000000d"
+  },
+  "settled": {
+    "apply_frame": "4800",
+    "context": {
+      "epoch": "9",
+      "expected_revision": "0",
+      "lease": "1",
+      "module": "audio",
+      "request_id": "2",
+      "show_id": "11111111-1111-4111-8111-111111111111",
+      "writer": "remote-ed5e924d115f9f07-000000000000000d"
+    },
+    "contract": "GP21-fx",
+    "observation": {
+      "applied_source_frame": "4800",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "1",
+      "next_source_frame": "5760",
+      "owner_json": "{\"channels\":[{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":1.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        0,
+        0
+      ],
+      "reset_count": "0",
+      "settled_generation": "1",
+      "settled_source_frame": "5760"
+    },
+    "reason": null,
+    "revision": "1",
+    "state": "settled",
+    "ticket": "1",
+    "version": 1
+  },
+  "snapshot": {
+    "available": true,
+    "contract": "GP21-fx",
+    "epoch": "9",
+    "frame": "0",
+    "observation": {
+      "applied_source_frame": "0",
+      "binding": {
+        "abi_version": 2,
+        "capabilities_size": 128,
+        "capability_generation": "1",
+        "channels": [
+          "foh-left",
+          "foh-right"
+        ],
+        "config_size": 104,
+        "library_sha256": "dae6d542797f5e65d542691e5db7962460711ac6025d037203cc7a88770ec0d0",
+        "map_generation": "1",
+        "owner_instance": "1",
+        "session": "12",
+        "source_epoch": "9",
+        "status_size": 168
+      },
+      "generation": "0",
+      "next_source_frame": "0",
+      "owner_json": "{\"channels\":[{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false},{\"delay_ms\":20.0,\"feedback\":0.25,\"damping\":0.35,\"wet_gain\":0.5,\"bypass\":false}]}",
+      "remaining_frames": [
+        0,
+        0
+      ],
+      "reset_count": "0",
+      "settled_generation": "0",
+      "settled_source_frame": "0"
+    },
+    "pending": null,
+    "revision": "0",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "state": "snapshot",
+    "version": 1
+  }
+}

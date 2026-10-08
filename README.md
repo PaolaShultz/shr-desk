@@ -14,7 +14,7 @@ checks and both release builds pass; [status](docs/STATUS.md) records the eviden
 and limits. Physical HDMI/controller/audio acceptance
 remains separate. The GP03 raw mixer remains offline and unprotected; meters and analysis remain
 unavailable. Optional GP05 read-only health is separate from the raw mixer;
-REC/FX writable controls remain unavailable. The explicit dynamic session adds
+REC writable controls remain unavailable. Explicit GP21 actual remote FOH stereo FX controls use the separate `fx_configuration` scope; see [FX workflow](docs/FX.md). The explicit dynamic session adds
 scoped PA configuration and output-route controls, with task0014 acceptance tracked
 in [status](docs/STATUS.md). Attaching is read-only, grants are explicit,
 and reconnect discards local intents without recalling a mix.

@@ -245,6 +245,8 @@ fn worker(
     let mut processing_poll = Instant::now();
     let mut sends_enabled = false;
     let mut sends_poll = Instant::now();
+    let mut fx_enabled = false;
+    let mut fx_poll = Instant::now();
     let mut live_enabled = false;
     let mut live_poll = Instant::now();
     let mut connect = true;
@@ -368,6 +370,8 @@ fn worker(
                 .as_ref()
                 .is_some_and(|o| o.held_transport_authenticated()),
             brain_status: brain_status.clone(),
+            fx: op.as_ref().map(|o|o.session.fx.clone()).unwrap_or_default(),
+            fx_age_ms: op.as_ref().and_then(|o|o.session.fx.receipt.map(|t|o.now().saturating_sub(t))),
             measurement: op
                 .as_ref()
                 .map(|o| o.session.measurement.clone())
@@ -440,6 +444,7 @@ fn worker(
                 && !matches!(
                     r.operation,
                     Operation::InputReleased
+                        | Operation::Fx(crate::fx::Operation::Probe)
                         | Operation::Measurement(
                             crate::pa_measurement::editor::Operation::Probe
                                 | crate::pa_measurement::editor::Operation::Result(_)
@@ -525,6 +530,7 @@ fn worker(
                     }
                     config.scope = scope.clone();
                 }
+                fx_enabled = false;
                 op = None;
                 review = None;
                 reconnects += 1;
@@ -556,7 +562,9 @@ fn worker(
                         held_baseline_ready: o.held_baseline_ready(),
                         held_transport_authenticated: o.held_transport_authenticated(),
                         brain_status: brain_status.clone(),
-                        measurement: o.session.measurement.clone(),
+                        fx_age_ms: o.session.fx.receipt.map(|t|o.now().saturating_sub(t)),
+                    fx: o.session.fx.clone(),
+                    measurement: o.session.measurement.clone(),
                         live_eq: o.session.live_eq.clone(),
                         live_eq_age_ms: o.session.live_eq_age(o.now()),
                         live_eq_final: o.session.live_eq_final.clone(),
@@ -578,6 +586,7 @@ fn worker(
                             match &r.operation {
                                 Operation::EnableLiveEq => "live EQ probe",
                                 Operation::ReviewLiveEq(_) => "live EQ review",
+                                Operation::Fx(_) => "FX actual owner",
                                 Operation::Measurement(_) => "PA measurement",
                                 Operation::EnableSends => "sends capability query",
                                 Operation::ReviewTap(_) => "separate tap review",
@@ -606,7 +615,8 @@ fn worker(
                     });
                 }
                 let local_result = match &r.operation {
-                    Operation::ReviewDevice(..)
+                    Operation::Fx(crate::fx::Operation::Review{..})
+                    | Operation::ReviewDevice(..)
                     | Operation::ReviewBrain { .. }
                     | Operation::ReviewStructure { .. }
                     | Operation::ReviewLiveEq(_)
@@ -617,6 +627,7 @@ fn worker(
                     | Operation::Mode { .. } => {
                         Some("REVIEW READY; explicit confirmation required")
                     }
+                    Operation::Cancel if o.session.fx.unknown || o.session.pending.as_ref().is_some_and(|p|p.request.kind=="fx_configure") => Some("FX unsent review discarded; submitted outcome remains pending/unknown; no cancellation or undo claim"),
                     Operation::Cancel => Some("CANCELLED; unsent review discarded"),
                     _ => None,
                 };
@@ -639,6 +650,16 @@ fn worker(
                         return Err("input context changed; intent discarded".into());
                     }
                     match r.operation {
+                        Operation::Fx(command) => {
+                            match command {
+                                crate::fx::Operation::Probe => {fx_enabled=true;fx_poll=Instant::now();o.refresh_fx(true)},
+                                crate::fx::Operation::Review{basis,configuration_json,panic_mask} => {
+                                    o.stage_fx(basis,configuration_json,panic_mask)?;
+                                    serial=serial.checked_add(1).ok_or("review exhausted")?;
+                                    review=Some((serial,o.reviewed().unwrap_or_default()));Ok(())
+                                }
+                            }
+                        }
                         Operation::Measurement(command) => {
                             use crate::pa_measurement::editor::Operation as M;
                             match command {
@@ -866,6 +887,8 @@ fn worker(
                     held_baseline_ready: o.held_baseline_ready(),
                     held_transport_authenticated: o.held_transport_authenticated(),
                     brain_status: brain_status.clone(),
+                    fx_age_ms: o.session.fx.receipt.map(|t|o.now().saturating_sub(t)),
+                    fx: o.session.fx.clone(),
                     measurement: o.session.measurement.clone(),
                     live_eq: o.session.live_eq.clone(),
                     live_eq_age_ms: o.session.live_eq_age(o.now()),
@@ -921,6 +944,10 @@ fn worker(
                 {
                     status = format!("Structural state unavailable: {error}");
                 }
+                if fx_enabled && fx_poll.elapsed() >= Duration::from_millis(80) && o.session.pending.is_none() {
+                    if let Err(e)=o.refresh_fx(false) {o.session.fx.receipt=None; status=format!("FX unavailable: {e}");}
+                    fx_poll=Instant::now();
+                }
                 if live_enabled && live_poll.elapsed() >= Duration::from_millis(80) {
                     if let Err(error) = o.refresh_live_eq() {
                         status = format!("Live EQ unavailable: {error}");
@@ -965,7 +992,8 @@ fn worker(
                     review = None;
                     o.cancel();
                     o.session.disconnect();
-                    op = None;
+                    fx_enabled = false;
+                op = None;
                 } else if review.is_some() && !o.review_valid() {
                     review = None;
                     o.cancel();

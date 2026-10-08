@@ -36,6 +36,8 @@ fn complete_large_review_requires_all_rendered_pages() {
             crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
                 .unwrap(),
         ),
+        fx: Default::default(),
+        fx_age_ms: None,
         measurement: Default::default(),
         live_eq: None,
         live_eq_age_ms: None,
@@ -117,6 +119,8 @@ fn active_bank_and_channel_selection_stay_visible_without_detail_overlap() {
         last_operation: None,
         writer_lease_remaining_ms: None,
         snapshot: Some(snapshot),
+        fx: Default::default(),
+        fx_age_ms: None,
         measurement: Default::default(),
         live_eq: None,
         live_eq_age_ms: None,

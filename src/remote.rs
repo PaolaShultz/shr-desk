@@ -58,6 +58,7 @@ enum Permission {
     Foh,
     Monitor(u32),
     PaConfiguration,
+    FxConfiguration,
     OutputRoutes,
     LocalOperatorMonitor,
     TalkbackDestinations,
@@ -69,6 +70,7 @@ fn scope_permitted(permissions: &[Permission], scope: &str) -> bool {
     permissions.iter().any(|p| match p {
         Permission::Foh => scope == "foh",
         Permission::Monitor(n) => scope == format!("monitor{n}"),
+        Permission::FxConfiguration => scope == "fx_configuration",
         Permission::PaConfiguration => scope == "pa_configuration",
         Permission::OutputRoutes => scope == "output_routes",
         Permission::LocalOperatorMonitor => scope == "local_operator_monitor",

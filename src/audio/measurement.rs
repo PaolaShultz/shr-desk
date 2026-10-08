@@ -23,7 +23,8 @@ impl Session {
                 s.available
                     && s.current_basis.as_ref().is_some_and(|b| {
                         self.snapshot.as_ref().is_some_and(|raw| {
-                            self.measurement.revision.as_ref() == Some(&raw.authority.revision)
+                            b.source_epoch == raw.authority.epoch
+                                && self.measurement.revision.as_ref() == Some(&raw.authority.revision)
                                 && raw.topology.as_ref().is_some_and(|t| {
                                     provider::counter(&b.map_revision).ok() == Some(t.map_revision)
                                 })

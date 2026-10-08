@@ -49,3 +49,5 @@ pub mod live_eq;
 pub mod exact_value;
 
 pub mod pa_measurement;
+
+pub mod fx;

@@ -1,5 +1,6 @@
 //! Reviewed C-AUDIO:1 commands and GP03-rendered:1 observations. No DSP.
 mod measurement;
+mod fx;
 use crate::provider::{self, Snapshot, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -650,7 +651,11 @@ impl Request {
             let config = crate::brain_device::Config::decode(self.body["config"].clone())?;
             return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":"device_configure","body":{},"config":config})).map_err(|e|e.to_string());
         }
-        let contract = if crate::pa_measurement::wire::is_kind(&self.kind) {
+        let contract = if matches!(self.kind.as_str(), "fx_snapshot" | "fx_configure") {
+            crate::fx::validate_body(&self.kind, &self.body)?;
+            if self.version != 2 || (self.kind == "fx_configure") != c.writer.is_some() || (self.kind == "fx_configure" && c.lease.is_none()) { return fail("FX request authority"); }
+            crate::fx::CONTRACT
+        } else if crate::pa_measurement::wire::is_kind(&self.kind) {
             crate::pa_measurement::wire::validate_body(&self.kind, &self.body, None)?;
             if self.version != 2
                 || (crate::pa_measurement::wire::mutation(&self.kind) != c.writer.is_some())
@@ -671,7 +676,7 @@ impl Request {
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":if matches!(contract,"GP20-measurement"|"GP14-structure"|"GP15-brain"|"GP18-sends"|"GP18-master-eq") {1} else if contract == "GP07-processing" {processing_version(self.version)} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
+        let v = json!({"contract":contract,"version":if matches!(contract,"GP21-fx"|"GP20-measurement"|"GP14-structure"|"GP15-brain"|"GP18-sends"|"GP18-master-eq") {1} else if contract == "GP07-processing" {processing_version(self.version)} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -733,6 +738,7 @@ struct Lease {
 #[derive(Clone)]
 pub struct Session {
     pub measurement: crate::pa_measurement::wire::State,
+    pub fx: crate::fx::State,
     version: u8,
     show: String,
     epoch: u64,
@@ -798,6 +804,7 @@ impl Session {
         }
         Ok(Self {
             measurement: Default::default(),
+            fx: Default::default(),
             version,
             show: show.into(),
             epoch,
@@ -913,6 +920,7 @@ impl Session {
     }
     pub fn context_changed(&mut self) {
         self.measurement.receipt = None;
+        self.fx.receipt = None;
         if self.maintenance.take().is_some() {
             self.lease = None;
         }
@@ -2082,6 +2090,7 @@ impl Session {
     }
     fn validate_command(&self, kind: &str, body: &Value, now: u64) -> Result<(), String> {
         match kind {
+            "fx_configure" => self.validate_fx_command(body, now),
             kind if crate::pa_measurement::wire::mutation(kind) => {
                 if self.version != 2
                     || self.scope != "pa_configuration"
@@ -2301,7 +2310,7 @@ impl Session {
             || p.state == PendingState::Uncertain
             || matches!(
                 p.request.kind.as_str(),
-                "brain_hold" | "brain_heartbeat" | "brain_close"
+                "fx_configure" | "brain_hold" | "brain_heartbeat" | "brain_close"
             )
         {
             return None;
@@ -2342,7 +2351,7 @@ impl Session {
         if p.state == PendingState::Uncertain
             || matches!(
                 p.request.kind.as_str(),
-                "brain_hold" | "brain_heartbeat" | "brain_close"
+                "fx_configure" | "brain_hold" | "brain_heartbeat" | "brain_close"
             )
         {
             return None;
@@ -2368,7 +2377,7 @@ impl Session {
     fn accept_validated(&mut self, r: Reply, now: u64) -> Result<(), String> {
         let p = self.pending.as_ref().ok_or("no pending request")?;
         if p.request.kind.starts_with("processing_")
-            || matches!(p.request.kind.as_str(), "send_tap_set" | "master_eq_set")
+            || matches!(p.request.kind.as_str(), "fx_configure" | "send_tap_set" | "master_eq_set")
         {
             return fail("cross-contract reply");
         }

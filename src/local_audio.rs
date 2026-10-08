@@ -7,6 +7,7 @@ use std::{
 };
 
 mod measurement;
+mod fx;
 mod transport;
 #[cfg(test)]
 use crate::audio::Request;
@@ -18,6 +19,7 @@ pub(crate) use transport::{trace_add, trace_timing_enabled, trace_us};
 
 struct Draft {
     measurement_basis: Option<crate::pa_measurement::wire::Basis>,
+    fx_basis: Option<crate::fx::Observation>,
     monitor_device: Option<audio::MonitorDevicePin>,
     kind: String,
     body: Value,
@@ -265,7 +267,7 @@ impl Operator {
     }
     pub(crate) fn review_valid(&self) -> bool {
         self.draft.as_ref().is_some_and(|d| {
-            d.measurement_basis.as_ref().is_none_or(|b| {
+            d.fx_basis.as_ref().is_none_or(|b| self.session.fx.snapshot.as_ref().and_then(|s|s.observation.as_ref()).is_some_and(|o|b.same_basis(o)) && !self.session.fx.unknown && self.session.fx_fresh(self.now())) && d.measurement_basis.as_ref().is_none_or(|b| {
                 self.session
                     .measurement
                     .snapshot
@@ -301,6 +303,7 @@ impl Operator {
     }
     pub(crate) fn reviewed(&self) -> Option<String> {
         self.draft.as_ref().map(|d| {
+            if let Some(b)=&d.fx_basis { let m:crate::fx::Mutation=serde_json::from_value(d.body.clone()).expect("validated FX review"); return format!("{}\nAuthority revision {} / scope {} / show {} / epoch {}",crate::fx::review_lines(b,&m),d.revision,self.scope,self.session.snapshot_request().context.show_id,self.session.snapshot_request().context.epoch); }
             if d.kind=="pa_set" {return format!("MUTED WHOLE PA CONFIGURATION / revision {} / program buses {} / explicit rearm remains separate\n{}",d.revision,d.body["program_buses"],d.body["configuration_json"].as_str().and_then(|s|serde_json::from_str::<Value>(s).ok()).and_then(|v|serde_json::to_string_pretty(&v).ok()).unwrap_or_default());}
             if d.kind=="device_configure" {return format!("DEVICE CONFIGURATION / revision {} / separate rearm required\n{}",d.revision,serde_json::to_string_pretty(&d.body["config"]).unwrap_or_default());}
             if d.kind == "processing_set" {
@@ -356,7 +359,8 @@ impl Operator {
         if matches!(
             contract,
             Some(
-                "GP20-measurement"
+                "GP21-fx"
+                    | "GP20-measurement"
                     | "GP15-device"
                     | "GP15-brain"
                     | "GP15-held-proof"
@@ -381,6 +385,12 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some(crate::fx::CONTRACT) {
+            let v=crate::provider::parse_document(bytes)?;
+            if v["state"] == "snapshot" { crate::fx::Snapshot::decode(v)?; return Ok(true); }
+            if v["state"] == "authorization_replayed" && self.session.pending.as_ref().is_some_and(|p|p.request.kind=="fx_configure") { self.session.fx_unknown("authorization replay is not DSP application"); return Err("FX authorization replay".into()); }
+            self.session.dispatch_fx(crate::fx::Reply::decode(v)?)?; return Ok(true);
+        }
         if tag.contract.as_deref() == Some(crate::pa_measurement::wire::CONTRACT) {
             self.session
                 .dispatch_measurement(crate::pa_measurement::wire::Reply::decode(bytes)?)?;
@@ -2013,6 +2023,7 @@ impl Operator {
         self.mutate_inner(kind, body)
     }
     pub(crate) fn mutate_inner(&mut self, kind: &str, body: Value) -> Result<(), String> {
+        if kind == "fx_configure" { return self.mutate_fx(body); }
         let deadline = Instant::now() + Duration::from_millis(1900);
         if kind == "renew" && self.uses_atomic_maintenance() {
             return self.maintain(deadline, &mut 64, false);
@@ -2287,6 +2298,7 @@ impl Operator {
         );
         self.draft = Some(Draft {
             measurement_basis: None,
+            fx_basis: None,
             monitor_device,
             kind: kind.into(),
             body,
@@ -2366,6 +2378,10 @@ impl Operator {
             {
                 return Err("processing confirmation context changed during paired refresh".into());
             }
+        }
+        if let Some(basis) = &d.fx_basis {
+            self.refresh_fx(false)?;
+            if !self.session.fx_fresh(self.now()) || self.session.fx.unknown || self.session.fx.snapshot.as_ref().and_then(|s|s.observation.as_ref()).is_none_or(|o|!basis.same_basis(o)) || self.session.snapshot.as_ref().is_none_or(|s|s.authority.revision!=d.revision) || self.session.generation()!=d.generation { return Err("FX confirmation basis/context changed; new review required".into()); }
         }
         if let Some(basis) = &d.measurement_basis {
             self.refresh_measurement(None)?;

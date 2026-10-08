@@ -277,7 +277,17 @@ impl Proposal {
     }
     /// Validate the owner's supplied candidate, without constructing a correction or running DSP.
     pub fn validate_candidate(&self, current: &Value, candidate: &Value) -> Result<(), String> {
-        if self.status != "proposed" || &self.basis_configuration != current {
+        if &self.basis_configuration != current {
+            return Err("fresh proposed PA basis required".into());
+        }
+        if self.status == "no_change" {
+            return if candidate == current && self.changes.is_empty() && self.added_latency_samples == 0 {
+                Ok(())
+            } else {
+                Err("no_change candidate must exactly preserve reviewed basis".into())
+            };
+        }
+        if self.status != "proposed" {
             return Err("fresh proposed PA basis required".into());
         }
         let mut remaining = candidate.clone();
