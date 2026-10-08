@@ -270,31 +270,10 @@ fn actual_fx_keyboard_review_owner_readback() {
         f.state.as_ref().is_some_and(|s| s.review.is_none())
     });
     assert!(unchanged.same_basis(&observation(&f)));
-    f.inject_controller(Action::Fx(fx::Action::Edit)).unwrap();
-    f.pump();
-    f.enqueue(Event::Focus(false)).unwrap();
-    f.pump();
-    assert!(f.fx_ui.basis.is_none());
-    f.enqueue(Event::Focus(true)).unwrap();
-    f.pump();
-    tap(&mut f, "Esc");
-    tap(&mut f, "F5");
-    wait(&mut f, end, "read-only reconnect", |f| {
-        f.fresh()
-            && f.state
-                .as_ref()
-                .is_some_and(|s| !s.writer_granted() && s.fx.snapshot.is_none())
-    });
-    let scene = f.scene();
-    assert!(scene.in_bounds());
-    fs::write(root.join("fx-page.svg"), shr_desk::render::svg(&scene)).unwrap();
     if let Ok(pid) = std::env::var("GP21_OWNER_PID") {
         probe(&mut f, end);
-        tap(&mut f, "g");
-        wait(&mut f, end, "new explicit recovery grant", |f| {
-            f.state.as_ref().is_some_and(|s| s.writer_granted())
-        });
-        probe(&mut f, end);
+        // Use the lease explicitly granted above. A reconnect must not steal it.
+        assert!(f.state.as_ref().unwrap().writer_granted());
         tap(&mut f, "e");
         for c in "4 0.1 0.2 0".chars() {
             tap(&mut f, &c.to_string());
@@ -358,8 +337,27 @@ fn actual_fx_keyboard_review_owner_readback() {
                     .as_ref()
                     .is_some_and(|s| !s.writer_granted() && s.fx.snapshot.is_none())
         });
+    } else {
+        f.inject_controller(Action::Fx(fx::Action::Edit)).unwrap();
+        f.pump();
+        f.enqueue(Event::Focus(false)).unwrap();
+        f.pump();
+        assert!(f.fx_ui.basis.is_none());
+        f.enqueue(Event::Focus(true)).unwrap();
+        f.pump();
+        tap(&mut f, "Esc");
+        tap(&mut f, "F5");
+        wait(&mut f, end, "read-only reconnect", |f| {
+            f.fresh()
+                && f.state
+                    .as_ref()
+                    .is_some_and(|s| !s.writer_granted() && s.fx.snapshot.is_none())
+        });
     }
-    fs::write(root.join("desk-acceptance.json"),serde_json::to_vec_pretty(&json!({"physical":false,"selected_channel":true,"bypass":true,"selected_and_both_panic":true,"cancel_unsent":true,"focus_fence":true,"read_only_reconnect":true,"initial":initial,"after_config":changed,"after_bypass":bypassed,"after_panic":panic,"sample_witness":"independent runner reports required; this test alone proves controls/readback"})).unwrap()).unwrap();
+    let scene = f.scene();
+    assert!(scene.in_bounds());
+    fs::write(root.join("fx-page.svg"), shr_desk::render::svg(&scene)).unwrap();
+    fs::write(root.join("desk-acceptance.json"),serde_json::to_vec_pretty(&json!({"physical":false,"selected_channel":true,"bypass":true,"selected_and_both_panic":true,"cancel_unsent":true,"focus_fence":std::env::var_os("GP21_OWNER_PID").is_none(),"owner_loss":std::env::var_os("GP21_OWNER_PID").is_some(),"read_only_reconnect":true,"initial":initial,"after_config":changed,"after_bypass":bypassed,"after_panic":panic,"sample_witness":"independent runner reports required; this test alone proves controls/readback"})).unwrap()).unwrap();
 }
 
 #[test]
