@@ -93,6 +93,9 @@ enum Response {
         permissions: Vec<Permission>,
         max_datagram: usize,
     },
+    // Production replies use StrictDocument admission below; this typed shape
+    // remains only for the legacy decoder regression/benchmark helpers.
+    #[cfg(test)]
     Reply {
         session: String,
         payload: Value,
