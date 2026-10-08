@@ -520,7 +520,7 @@ impl View {
             &mut s,
             x,
             y - 48,
-            "CALCULATED EQ RESPONSE / current L/R grey; draft L cyan / R amber",
+            "CALCULATED EQ RESPONSE (Hz) / current grey / draft L cyan / R amber",
             dim,
         );
         let rate = document["configuration"]["sample_rate"]
@@ -538,12 +538,9 @@ impl View {
                 dim,
             );
         }
-        for hz in [20., 100., 1000., 10000., 20000.] {
-            if hz <= max_hz {
-                let xx = x + ((hz / 20_f64).ln() / (max_hz / 20.).ln() * f64::from(w)) as u32;
-                line(&mut s, xx, y, xx, y + h, "#3c4f63");
-                text(&mut s, xx.min(1800), y + h + 24, format!("{hz:.0}Hz"), dim);
-            }
+        for (tick, origin, label) in crate::eq_response::frequency_axis(x, w, max_hz) {
+            line(&mut s, tick, y, tick, y + h, "#3c4f63");
+            text(&mut s, origin, y + h + 24, label, dim);
         }
         for (settings, color) in [(&self.baseline, dim), (document, cyan)] {
             for side in 0..2 {

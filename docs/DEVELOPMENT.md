@@ -129,3 +129,38 @@ provider/network drivers stay opt-in and cannot discover credentials, audio
 hardware or an operator display in CI.
 
 [CI failure/recovery notifications](CI.md#failure-and-recovery-notifications) group incidents in GitHub issue threads.
+
+
+## Current Task0018 Frontend preview reproduction
+
+The ignored gallery test renders real Frontend scenes with explicit offline,
+simulated, no-connected-engine labels. It uses hash-checked accepted GP18/GP07v4,
+master-EQ and GP14 fixtures, with declared representative UI alterations. Each
+independent scene restores an explicit fresh simulated observation; this never
+changes production deadlines. Sends shows 17 inputs, three monitors and input17
+in the second bank. Channel EQ/compression, changed PEQ bell/shelf and 1kHz GEQ,
+plus live transition/settled/stale/unavailable states use the production renderer.
+
+Choose a new private output directory before this opt-in command:
+
+```sh
+flock -xn /home/shome/p/.gigpies-build.lock env -u DISPLAY -u WAYLAND_DISPLAY \
+  CARGO_TARGET_DIR=/home/shome/p/shr-desk/target \
+  CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 \
+  VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  SHR_DESK_OFFLINE_GALLERY=/absolute/new/private/preview-directory \
+  cargo +1.97.1 test --locked -j1 --features native --lib -- \
+  --ignored --exact frontend::gp18_ui_tests::current_frontend_offline_gallery \
+  --nocapture --test-threads=1
+```
+
+This writes 1920x1080 SVG and PPM files, asserts scene bounds, and checks exact CPU
+Vulkan readback at 1920x1080, 960x540 and 728x1024. Without the explicit Vulkan
+variables, the same default-feature test writes CPU scenes without adapter discovery.
+Private handoff provenance records final source, fixture and artifact hashes,
+commands and all failed attempts. Controls are documented in [sends](SENDS.md),
+[Master EQ](MASTER_EQ.md) and [native frontend](NATIVE_FRONTEND.md). The separate
+actual-provider driver saves its rastered review pages and synthetic PCM evidence;
+it never treats cancellation of an unsubmitted review as cancellation of a
+submitted mutation. Coordinator owns gallery/TV presentation and acceptance.

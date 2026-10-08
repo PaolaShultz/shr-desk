@@ -25,6 +25,13 @@ Immediate fader/knob changes retain their existing behavior. Level and tap edits
 have separate reviewed transactions; they are never claimed atomic together.
 Channel EQ/compression remains FOH-authorized even when it affects processed sends.
 
+Current send coefficient gain is displayed in dB beside the dB target; this is
+a gain conversion, not a measured level. Readable tap labels are Raw / Post-mute,
+Processed / Pre-fader and Processed / Post-fader; complete reviews retain their
+exact contract spellings. Raw and tap freshness are displayed separately, and
+observation ages include elapsed presentation time. Cached rows are explicitly
+last-confirmed when their paired observation is stale or unavailable.
+
 The screen separates current level/tap, committed target and transition, local
 unsent draft, pending operation and refusal. Fresh confirmed values come from
 validated producer readback. GP18 reads drain queued traffic then explicitly query

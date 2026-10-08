@@ -7,7 +7,9 @@ integer scale, and actual coefficient lanes remain nanogain. No integer-dB meter
 is inferred from coefficients. Analysis remains unavailable; optional accepted GP05 module health is read-only. Main pages show signed dB,
 pan direction/percent, mute on/off and readable ownership/proposal/hold labels.
 Provider counters and raw coefficient arrays are confined to the Health page;
-rendered gain is shown as a named linear ratio without inventing measured dB.
+Raw coefficients can be shown as named linear ratios. The sends page converts
+its current coefficient gain to dB beside the target dB; neither is a measured
+audio level. Raw and tap ages remain independently visible.
 
 ## Dependencies and resource review
 

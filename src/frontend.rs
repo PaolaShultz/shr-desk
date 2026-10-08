@@ -1138,6 +1138,31 @@ fn optional_display(parameter: &str, value: &Option<Value>) -> String {
 fn linear_display(n: crate::audio::Nanogain) -> String {
     format!("{}.{:09} x", n.0 / 1_000_000_000, n.0 % 1_000_000_000)
 }
+fn send_gain_display(n: crate::audio::Nanogain) -> String {
+    if n.0 == 0 {
+        "-inf dB".into()
+    } else {
+        format!("{:+.1} dB", 20.0 * (n.0 as f64 / 1_000_000_000.0).log10())
+    }
+}
+fn tap_display(tap: crate::sends::Tap) -> &'static str {
+    match tap {
+        crate::sends::Tap::RawPostMute => "Raw / Post-mute",
+        crate::sends::Tap::ProcessedPreFader => "Processed / Pre-fader",
+        crate::sends::Tap::ProcessedPostFader => "Processed / Post-fader",
+    }
+}
+fn observation_age_display(age: Option<u64>, received: Instant) -> String {
+    age.map_or_else(
+        || "unavailable".into(),
+        |age| {
+            format!(
+                "{} ms",
+                age.saturating_add(received.elapsed().as_millis() as u64)
+            )
+        },
+    )
+}
 #[derive(Clone, Debug)]
 pub struct ProcessingDraft {
     pub input: String,
@@ -5431,11 +5456,16 @@ impl Frontend {
         line(
             48,
             format!(
-                "{} / selected monitor{} / {} / no connected audio device in Desk",
+                "RAW {} / TAPS {} / monitor{} / {}",
                 if self.fresh() {
-                    "FRESH CONTROL READBACK"
+                    "fresh"
                 } else {
-                    "STALE / EDITS DISABLED"
+                    "stale / last confirmed"
+                },
+                if self.sends_ready() {
+                    "fresh + settled"
+                } else {
+                    "stale/unavailable/fading"
                 },
                 self.selected_monitor + 1,
                 if self.state.as_ref().is_some_and(Update::writer_granted) {
@@ -5460,7 +5490,17 @@ impl Frontend {
                 ),
                 cyan,
             );
-            line(216,"PAIR                       CURRENT LEVEL / TARGET       HOLD / MODE       CURRENT TAP -> COMMITTED TARGET / TRANSITION".into(),dim);
+            line(
+                216,
+                format!(
+                    "{:<27}{:<23}{:<29}{}",
+                    "PAIR",
+                    "CURRENT / TARGET dB",
+                    "HOLD / MODE",
+                    "CURRENT TAP -> COMMITTED TARGET / TRANSITION"
+                ),
+                dim,
+            );
             let rows: Vec<_> = if self.sends_channel {
                 raw.authority
                     .monitors
@@ -5516,29 +5556,43 @@ impl Frontend {
                 line(
                     264 + n as u32 * 36,
                     format!(
-                        "{} {input} / {monitor}   {} / {}   hold {} / {mode}   {}",
-                        if Some(input) == self.selected_input()
-                            && monitor == format!("monitor-{}", self.selected_monitor + 1)
-                        {
-                            ">"
-                        } else {
-                            " "
-                        },
-                        target.map_or_else(|| "--".into(), |n| linear_display(*n)),
-                        p.map_or_else(
-                            || "--".into(),
-                            |p| parameter_display("send", &p.target_value)
+                        "{:<27}{:<23}{:<29}{}",
+                        format!(
+                            "{} {input} / {monitor}",
+                            if Some(input) == self.selected_input()
+                                && monitor == format!("monitor-{}", self.selected_monitor + 1)
+                            {
+                                ">"
+                            } else {
+                                " "
+                            }
                         ),
-                        p.and_then(|p| p.hold.as_ref())
-                            .map_or_else(|| "none".into(), |h| h.to_string()),
+                        format!(
+                            "{} / {}",
+                            target.map_or_else(|| "--".into(), |n| send_gain_display(*n)),
+                            p.map_or_else(
+                                || "--".into(),
+                                |p| parameter_display("send", &p.target_value)
+                            )
+                        ),
+                        format!(
+                            "{} / {mode}",
+                            p.and_then(|p| p.hold.as_ref())
+                                .map_or_else(|| "none".into(), |h| h.to_string())
+                        ),
                         tap.map_or_else(
                             || "GP18 unavailable / no tap invented".into(),
                             |t| format!(
-                                "{} -> {} / {}f{}",
-                                t.current.name(),
-                                t.target.name(),
+                                "{} -> {} / {}f{}{}",
+                                tap_display(t.current),
+                                tap_display(t.target),
                                 t.transition_remaining_frames,
-                                if t.ready { " settled" } else { " fading" }
+                                if t.ready { " settled" } else { " fading" },
+                                if self.sends_ready() {
+                                    ""
+                                } else {
+                                    " / LAST CONFIRMED"
+                                }
                             )
                         )
                     ),
@@ -5556,13 +5610,14 @@ impl Frontend {
             line(
                 732,
                 format!(
-                    "GP18 paired {} / observation age {:?} ms / latest operation {}",
+                    "GP18 {} / raw age {} / tap age {} / operation {}",
                     if self.sends_ready() {
                         "settled"
                     } else {
                         "unavailable/stale/fading"
                     },
-                    u.sends_age_ms,
+                    observation_age_display(u.snapshot_age_ms, u.received),
+                    observation_age_display(u.sends_age_ms, u.received),
                     u.last_operation.as_deref().unwrap_or("none")
                 ),
                 amber,
@@ -5587,8 +5642,14 @@ impl Frontend {
                 || "LOCAL DRAFT: none".into(),
                 |d| {
                     format!(
-                        "LOCAL UNSENT {} / {} / {:?} / pinned revision {}",
-                        d.input, d.monitor, d.value, d.revision
+                        "LOCAL UNSENT {} / {} / {} / pinned revision {}",
+                        d.input,
+                        d.monitor,
+                        match d.value {
+                            SendDraftValue::Tap(t) => tap_display(t).into(),
+                            SendDraftValue::Level(v) => parameter_display("send", &Value::from(v)),
+                        },
+                        d.revision
                     )
                 },
             ),
@@ -5701,9 +5762,24 @@ impl Frontend {
             line(
                 204,
                 format!(
-                    "Program buses {:?} / main L/R indices {:?} / reason {}",
+                    "Program buses {:?} / main {} / raw age {} / EQ age {} / reason {}",
                     live.program_buses,
-                    live.master_input_indices,
+                    live.master_input_indices.map_or_else(
+                        || "unavailable".into(),
+                        |indices| format!("L input {} / R input {}", indices[0], indices[1])
+                    ),
+                    self.state
+                        .as_ref()
+                        .map_or("unavailable".into(), |u| observation_age_display(
+                            u.snapshot_age_ms,
+                            u.received
+                        )),
+                    self.state
+                        .as_ref()
+                        .map_or("unavailable".into(), |u| observation_age_display(
+                            u.live_eq_age_ms,
+                            u.received
+                        )),
                     live.unavailable_reason.as_deref().unwrap_or("none")
                 ),
                 "#e4e8e9",
@@ -5747,6 +5823,35 @@ impl Frontend {
                 }
                 // Separate L/R panels; endpoint settings only, no sample histories.
                 let mut curves = Vec::new();
+                for side in 0..2 {
+                    let x = 24 + side as u32 * 960;
+                    curves.push(Primitive::Text {
+                        x,
+                        y: 456,
+                        color: "#9caebc",
+                        value: format!(
+                            "MAIN {} / owner input {} / response dB / frequency Hz",
+                            if side == 0 { "L" } else { "R" },
+                            live.master_input_indices.unwrap()[side]
+                        ),
+                    });
+                    for (tick, origin, label) in crate::eq_response::frequency_axis(x, 840, 20000.)
+                    {
+                        curves.push(Primitive::Line {
+                            x1: tick,
+                            y1: 480,
+                            x2: tick,
+                            y2: 768,
+                            color: "#3c4f63",
+                        });
+                        curves.push(Primitive::Text {
+                            x: origin,
+                            y: 804,
+                            value: label.into(),
+                            color: "#9caebc",
+                        });
+                    }
+                }
                 for state in ["current", "target"] {
                     for side in 0..2 {
                         let bank =
@@ -5782,7 +5887,6 @@ impl Frontend {
                     }
                 }
                 line(420,"Owner bank order displayed by input_index; exact program bus map above identifies L/R.".into(),"#9caebc");
-                line(804,"20 Hz                     100 Hz                1 kHz                 20 kHz / log frequency".into(),"#9caebc");
                 line(852,"Curves clipped at +/-48dB; current/target are normalized owner settings calculations only.".into(),"#9caebc");
                 line(936,"E edit only when fresh, compatible and settled | G explicit PA grant | F11 separate MUTED setup".into(),"#66dfd3");
                 line(984, self.message.clone(), "#f47c85");
@@ -5864,6 +5968,68 @@ mod gp18_ui_tests {
                 | Operation::Mode { .. }
                 | Operation::Preview(_)
         )));
+    }
+    #[test]
+    fn sends_display_separates_raw_tap_age_and_elapsed_last_confirmed_values() {
+        let (mut f, _rx) = sends_surface();
+        let u = f.state.as_mut().unwrap();
+        u.snapshot_age_ms = Some(0);
+        u.sends_age_ms = Some(240);
+        u.received = Instant::now() - Duration::from_millis(20);
+        assert!(f.fresh());
+        assert!(!f.sends_ready());
+        let texts: Vec<_> = f
+            .scene()
+            .primitives
+            .into_iter()
+            .filter_map(|p| match p {
+                Primitive::Text { value, .. } => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert!(texts.iter().any(|s| s.contains("RAW fresh / TAPS stale")));
+        assert!(
+            texts
+                .iter()
+                .any(|s| s.contains("Raw / Post-mute") && s.contains("LAST CONFIRMED"))
+        );
+        assert!(texts.iter().any(|s| s.contains("-60.0 dB / -60.0 dB")));
+        assert!(
+            texts
+                .iter()
+                .any(|s| s.contains("raw age ") && s.contains("tap age "))
+        );
+        assert!(!texts.iter().any(|s| s.contains("Some(")));
+        assert!(f.action(Action::SendTapEdit).is_err());
+    }
+    #[test]
+    fn response_frequency_labels_have_disjoint_text_bounds_in_both_sections() {
+        let (mut f, _rx) = super::processing_tests::master_surface();
+        f.key("F11").unwrap();
+        for (graphic, y) in [(false, 684), (true, 852)] {
+            if graphic {
+                f.key("B").unwrap();
+            }
+            let mut labels: Vec<_> = f
+                .scene()
+                .primitives
+                .into_iter()
+                .filter_map(|p| match p {
+                    Primitive::Text {
+                        x, y: yy, value, ..
+                    } if yy == y => Some((x, value.len() as u32 * 12)),
+                    _ => None,
+                })
+                .collect();
+            labels.sort_unstable();
+            assert_eq!(labels.len(), 5);
+            assert!(
+                labels
+                    .windows(2)
+                    .all(|pair| pair[0].0 + pair[0].1 + 12 <= pair[1].0)
+            );
+            assert!(labels.iter().all(|(x, width)| x + width <= 1920));
+        }
     }
     #[test]
     fn reattachment_ignores_old_attachment_even_after_input_generation_advances() {
@@ -5950,6 +6116,26 @@ mod gp18_ui_tests {
             u.live_eq_age_ms = Some(0);
             u.snapshot_age_ms = Some(0);
             u.received = Instant::now();
+            let labels: Vec<_> = f
+                .scene()
+                .primitives
+                .into_iter()
+                .filter_map(|p| match p {
+                    Primitive::Text {
+                        x, y: 804, value, ..
+                    } => Some((x, value)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(labels.len(), 10);
+            assert!(labels.contains(&(487, "1k".into())));
+            assert!(labels.contains(&(1447, "1k".into())));
+            for pane in labels.chunks(5) {
+                assert!(
+                    pane.windows(2)
+                        .all(|p| p[0].0 + p[0].1.len() as u32 * 12 + 12 <= p[1].0)
+                );
+            }
             assert!(f.live_eq_ready());
             if expire_raw {
                 f.state.as_mut().unwrap().snapshot_age_ms = Some(251);
@@ -6011,6 +6197,7 @@ mod gp18_ui_tests {
         );
         std::fs::create_dir_all(&output).unwrap();
         let save = |name: &str, f: &mut Frontend| {
+            f.state.as_mut().unwrap().received = Instant::now();
             let mut scene = f.scene();
             scene.primitives.push(Primitive::Rect {
                 x: 0,
@@ -6061,34 +6248,77 @@ mod gp18_ui_tests {
             u.processing.as_ref().unwrap().revision.clone();
         u.processing_age_ms = Some(0);
         u.received = Instant::now();
+        let channel = u
+            .processing
+            .as_mut()
+            .unwrap()
+            .channels
+            .iter_mut()
+            .find(|c| c.input == "input-17")
+            .unwrap();
+        channel.current.eq_bypass = false;
+        channel.current.band2_hz = 1250;
+        channel.current.band2_gain_mdb = 4500;
+        channel.current.band2_bypass = false;
+        channel.current.compressor_bypass = false;
+        channel.current.threshold_mdb = -24000;
+        channel.current.ratio_milli = 3000;
+        channel.current.validate().unwrap();
+        channel.target = channel.current.clone();
+        channel.gain_reduction_mdb = None;
         save("channel-eq-compressor", &mut f);
         let (mut f, _rx) = super::processing_tests::master_surface();
         f.key("F11").unwrap();
         f.action(Action::StructureField(3)).unwrap();
         f.action(Action::StructureText("6.125".into())).unwrap();
+        f.action(Action::StructureField(3)).unwrap();
+        f.action(Action::StructureText("high_shelf".into()))
+            .unwrap();
+        f.action(Action::StructureField(1)).unwrap();
+        f.action(Action::StructureText("4000".into())).unwrap();
+        f.action(Action::StructureField(1)).unwrap();
+        f.action(Action::StructureText("-3.5".into())).unwrap();
+        f.action(Action::StructureField(-5)).unwrap();
         save("master-parametric", &mut f);
         f.key("B").unwrap();
         f.action(Action::StructureField(-3)).unwrap();
         f.action(Action::StructureText("true".into())).unwrap();
-        f.action(Action::StructureField(1)).unwrap();
+        f.action(Action::StructureField(18)).unwrap();
         f.action(Action::StructureText("-4.5".into())).unwrap();
         save("master-graphic", &mut f);
         let corpus: Vec<Value> = serde_json::from_slice(include_bytes!(
             "../tests/fixtures/master-eq/v1/producer.json"
         ))
         .unwrap();
-        let live = crate::live_eq::Snapshot::decode(
-            corpus
-                .into_iter()
-                .find(|r| r["label"] == "transition")
-                .unwrap()["snapshot"]
-                .clone(),
-        )
-        .unwrap();
         f.structural_draft = None;
         f.live_page = true;
-        f.state.as_mut().unwrap().live_eq = Some(live);
-        f.state.as_mut().unwrap().live_eq_age_ms = Some(0);
-        save("live-current-target", &mut f);
+        f.state.as_mut().unwrap().snapshot = Some(
+            crate::audio::decode_snapshot(include_bytes!(
+                "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+            ))
+            .unwrap(),
+        );
+        for (label, name) in [
+            ("transition", "live-current-target"),
+            ("settled", "live-settled"),
+            ("settled", "live-stale"),
+            ("unavailable", "live-unavailable"),
+        ] {
+            let live = crate::live_eq::Snapshot::decode(
+                corpus.iter().find(|r| r["label"] == label).unwrap()["snapshot"].clone(),
+            )
+            .unwrap();
+            let u = f.state.as_mut().unwrap();
+            let raw = u.snapshot.as_mut().unwrap();
+            raw.authority.show_id = live.show_id.clone();
+            raw.authority.epoch = live.epoch.clone();
+            raw.clock.as_mut().unwrap().epoch = live.epoch.parse().unwrap();
+            raw.authority.revision = live.revision.clone();
+            raw.topology.as_mut().unwrap().map_revision = live.map_revision.parse().unwrap();
+            u.snapshot_age_ms = Some(0);
+            u.live_eq_age_ms = Some(if name == "live-stale" { 251 } else { 0 });
+            u.live_eq = Some(live);
+            save(name, &mut f);
+        }
     }
 }

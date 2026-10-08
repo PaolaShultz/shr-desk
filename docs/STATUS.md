@@ -19,7 +19,7 @@ integration/synchronization and requested TV visual review. No physical devices,
 listening, clock-lock or whole-host hard-real-time qualification is claimed.
 
 
-## Master EQ setup surface — 2026-10-07
+## Historical Package A master EQ setup checkpoint — 2026-10-07
 
 Implemented and owner-reviewed a focused native/frontend editor over the existing
 PA graph: eight parametric and 31 graphic bands, linked or independent main L/R
@@ -41,8 +41,9 @@ and final complete-index/history guards are recorded in the worker handoff.
 The added regressions cover owner-shaped EQ admission, preservation, atomicity,
 authority/context loss, complete review presentation and no reconnect replay/rearm.
 The final source is isolated on `task/0018-master-eq`; acceptance/integration and
-source publication remain coordinator-owned. Current actual-provider EQ transaction,
-physical mappings, listening and clock-lock evidence remain separate gates.
+source publication remain coordinator-owned. Actual-provider EQ transactions were still a later gate at this Package A
+checkpoint; the current D result is stated above. Physical mappings, listening
+and clock-lock evidence remain separate gates.
 Historical/exhaustive/long, actual-provider opt-ins and hardware trials were excluded;
 no physical output was activated.
 

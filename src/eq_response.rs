@@ -130,3 +130,26 @@ pub fn response(bank: &[[f64; 5]], rate: u32, hz: f64) -> Result<(f64, f64), Str
     }
     Ok((magnitude, (phase + PI).rem_euclid(2. * PI) - PI))
 }
+
+/// Log-frequency tick and text origins for the bitmap-font response axes.
+/// Callers supply validated rate bounds and charts wider than one label.
+pub(crate) fn frequency_axis(x: u32, width: u32, max_hz: f64) -> Vec<(u32, u32, &'static str)> {
+    [
+        (20_f64, "20"),
+        (100., "100"),
+        (1000., "1k"),
+        (10000., "10k"),
+        (20000., "20k"),
+    ]
+    .into_iter()
+    .filter(|(hz, _)| *hz <= max_hz)
+    .map(|(hz, label)| {
+        let tick = x + ((hz / 20.).ln() / (max_hz / 20.).ln() * f64::from(width)) as u32;
+        let text_width = label.len() as u32 * 12;
+        let origin = tick
+            .saturating_sub(text_width / 2)
+            .clamp(x, x + width - text_width);
+        (tick, origin, label)
+    })
+    .collect()
+}

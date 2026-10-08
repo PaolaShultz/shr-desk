@@ -41,10 +41,21 @@ struct Host {
 }
 impl Drop for Host {
     fn drop(&mut self) {
-        if self.child.try_wait().ok().flatten().is_none() {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
+        use std::os::unix::process::ExitStatusExt;
+        let mut killed_by_driver = false;
+        let status = match self.child.try_wait() {
+            Ok(Some(status)) => Some(status),
+            _ => {
+                killed_by_driver = true;
+                let _ = self.child.kill();
+                self.child.wait().ok()
+            }
+        };
+        let result = json!({"killed_by_driver":killed_by_driver,"code":status.as_ref().and_then(|s| s.code()),"signal":status.as_ref().and_then(|s| s.signal()),"success":status.as_ref().is_some_and(|s| s.success())});
+        let _ = fs::write(
+            self.dir.join("host-exit.json"),
+            serde_json::to_vec_pretty(&result).unwrap(),
+        );
     }
 }
 fn wait(f: &mut Frontend, end: Instant, label: &str, ready: impl Fn(&Frontend) -> bool) {
@@ -53,6 +64,13 @@ fn wait(f: &mut Frontend, end: Instant, label: &str, ready: impl Fn(&Frontend) -
         if ready(f) {
             return;
         }
+        assert!(
+            !f.state
+                .as_ref()
+                .is_some_and(|u| u.snapshot.is_none() && u.status.starts_with("STALE/UNCERTAIN:")),
+            "attachment lost during {label}: {:?}",
+            f.state
+        );
         assert!(
             Instant::now() < end,
             "{label}: {} / {:?}",
@@ -82,6 +100,24 @@ fn present(f: &mut Frontend) {
     assert!(scene.in_bounds());
     let pixels = shr_desk::raster::rgba(&scene);
     assert_eq!(pixels.len(), 1920 * 1080 * 4);
+    if let Some(root) = std::env::var_os("GP18_DRIVER_EVIDENCE") {
+        static SCENE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let index = SCENE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = PathBuf::from(root).join("presented-reviews");
+        fs::create_dir_all(&dir).unwrap();
+        let name = format!(
+            "review-{index:03}{}",
+            if f.live_page { "-live" } else { "" }
+        );
+        fs::write(
+            dir.join(format!("{name}.svg")),
+            shr_desk::render::svg(&scene),
+        )
+        .unwrap();
+        if f.live_page {
+            shr_desk::raster::ppm(&scene, &dir.join(format!("{name}.ppm"))).unwrap();
+        }
+    }
     f.mark_presented();
 }
 fn confirm(f: &mut Frontend, end: Instant) {
@@ -363,6 +399,7 @@ fn monitor(f: &mut Frontend, end: Instant, n: usize) {
     }
 }
 fn level(f: &mut Frontend, end: Instant, text: &str) {
+    wait(f, end, "fresh paired level editor", Frontend::sends_ready);
     action(f, Action::SendLevelEdit);
     assert!(f.send_draft.is_some(), "{}", f.message);
     action(f, Action::SendLevelText(text.into()));
@@ -371,6 +408,7 @@ fn level(f: &mut Frontend, end: Instant, text: &str) {
     wait(f, end, "paired send level", Frontend::sends_ready);
 }
 fn send_tap(f: &mut Frontend, end: Instant, tap_value: Tap) {
+    wait(f, end, "fresh paired tap editor", Frontend::sends_ready);
     action(f, Action::SendTapEdit);
     assert!(f.send_draft.is_some(), "{}", f.message);
     action(f, Action::SendTap(tap_value));
@@ -400,7 +438,21 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
     let executable = PathBuf::from(
         std::env::var_os("GP18_WITNESS_EXECUTABLE").expect("explicit witness executable"),
     );
-    assert_eq!(hash(&executable), BINARY);
+    // A coordinator-reviewed witness-only correction supplies exact immutable
+    // pins in the recorded invocation; absent overrides retain the original pin.
+    let expected_binary =
+        std::env::var("GP18_WITNESS_EXPECTED_SHA256").unwrap_or_else(|_| BINARY.into());
+    let expected_source = std::env::var("GP18_WITNESS_EXPECTED_SOURCE_REVISION")
+        .unwrap_or_else(|_| "7eaa820600531bc316aa86018a0176ce76879f76".into());
+    assert_eq!(expected_binary.len(), 64);
+    assert_eq!(expected_source.len(), 40);
+    assert!(
+        expected_binary
+            .bytes()
+            .chain(expected_source.bytes())
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    assert_eq!(hash(&executable), expected_binary);
     let manifest =
         PathBuf::from(std::env::var_os("GP_EQ_MANIFEST").expect("explicit stable manifest"));
     assert_eq!(hash(&manifest), MANIFEST);
@@ -414,7 +466,25 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
         fs::create_dir(&dir).unwrap();
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
         let log = fs::File::create(root.join(format!("{run}-host.log"))).unwrap();
-        let child = Command::new(&executable)
+        let mut command = if std::env::var_os("GP18_DRIVER_TRACE_FSYNC").is_some() {
+            let mut trace = Command::new("/usr/bin/strace");
+            trace
+                .args([
+                    "--kill-on-exit",
+                    "-f",
+                    "-ttt",
+                    "-T",
+                    "-e",
+                    "trace=fsync",
+                    "-o",
+                ])
+                .arg(root.join(format!("{run}-fsync-trace.txt")))
+                .arg(&executable);
+            trace
+        } else {
+            Command::new(&executable)
+        };
+        let child = command
             .env("GP_DESK_WITNESS_DIR", &dir)
             .env("GP_EQ_MANIFEST", &manifest)
             .args([
@@ -439,12 +509,9 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             thread::sleep(Duration::from_millis(10));
         }
         let ready = read(&host.dir.join("ready.json"));
-        assert_eq!(ready["provenance"]["executable_sha256"], BINARY);
+        assert_eq!(ready["provenance"]["executable_sha256"], expected_binary);
         assert_eq!(ready["provenance"]["owner_manifest_sha256"], MANIFEST);
-        assert_eq!(
-            ready["provenance"]["gigpies_revision"],
-            "7eaa820600531bc316aa86018a0176ce76879f76"
-        );
+        assert_eq!(ready["provenance"]["gigpies_revision"], expected_source);
         assert_eq!(ready["hardware_opened"], false);
         let modules = read(&manifest);
         for name in ["rec", "fx", "pa"] {
@@ -462,6 +529,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
         }
         let fixtures = PathBuf::from(std::env::var_os("GP_PA_V2_FIXTURES").unwrap());
         assert_eq!(hash(&fixtures.join("stereo3way.json")), PA_FIXTURE);
+        assert_eq!(ready["provenance"]["initial_pa_fixture_sha256"], PA_FIXTURE);
         let output = |kind: &str, index: usize| {
             outputs
                 .iter()
@@ -689,6 +757,39 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
                 }
             }
 
+            assert_eq!(intended_patch["inputs"][0]["eq_enabled"], true);
+            assert_eq!(intended_patch["inputs"][0]["eq"][0]["kind"], "bell");
+            assert_eq!(intended_patch["inputs"][0]["eq"][0]["hz"], 1000.0);
+            assert_eq!(fixture["inputs"][0]["compressor"]["enabled"], false);
+            let fundamental = |v: &Value, slot: usize| {
+                let samples = lane(v, slot);
+                let (mut real, mut imag) = (0.0, 0.0);
+                for (n, sample) in samples.iter().enumerate() {
+                    let angle = 2.0 * std::f64::consts::PI * (n % 48) as f64 / 48.0;
+                    real += sample * angle.cos();
+                    imag -= sample * angle.sin();
+                }
+                (real / samples.len() as f64, imag / samples.len() as f64)
+            };
+            let expected = 10_f64.powf(6.125 / 20.0);
+            for slot in pa.iter().take(3) {
+                let (ar, ai) = fundamental(&baseline, *slot);
+                let (br, bi) = fundamental(&live, *slot);
+                let energy = ar * ar + ai * ai;
+                assert!(energy > 1e-18, "affected lane is independently excited");
+                let ratio_real = (br * ar + bi * ai) / energy;
+                let ratio_imag = (bi * ar - br * ai) / energy;
+                // f32 provider PCM and owner numerical error; unchanged-lane checks
+                // above retain their stricter sample-by-sample 1e-11 bound.
+                assert!(
+                    (ratio_real - expected).abs() < 1e-5,
+                    "PA slot {slot} exact 6.125 dB gain: {ratio_real}"
+                );
+                assert!(
+                    ratio_imag.abs() < 1e-5,
+                    "PA slot {slot} centre-bell phase: {ratio_imag}"
+                );
+            }
             equal(&baseline, &live, main);
             equal(&baseline, &live, mon1);
             assert!((power(&live) / power(&baseline) - 1.).abs() > 0.1);

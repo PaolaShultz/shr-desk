@@ -92,8 +92,11 @@ was reused. Apply additionally requires a current PA scope grant. Before editing
 and serializing, the complete stereo EQ is validated and all non-EQ owner settings
 are compared with the original readback. A failed edit never partially changes one
 stereo side.
-Presentation and unit tests use explicit altered fixtures, not claims of physical
-audio or of a live producer transaction. Hardware listening remains unverified. The separate live consumer requires the accepted optional producer extension.
+Current fixture previews explicitly identify offline, simulated data. The optional
+live consumer uses the accepted producer extension; the separate actual Frontend
+driver exercises the reviewed live and muted workflows with the accepted synthetic
+provider and PCM witness. Final source-matched results belong to the D handoff.
+Physical audio and hardware listening remain unverified.
 
 ## Historical Package A owner review
 
@@ -113,7 +116,7 @@ reopen. A PA apply queues no output rearm: X remains a separate reviewed action.
 The regressions derive altered inputs from retained producer fixtures and exercise
 owner filter boundaries, descriptor/rate/block refusal, unchanged-draft invalid
 JSON refusal, stereo atomicity, preservation, authority/freshness/context loss and
-no replay/rearm. These are offline checks. A current actual-provider EQ transaction,
-physical mappings, listening, clock lock and hardware output remain integration gates.
-Response plots and additional controls belong to package D; live transitions require
-an accepted package C producer.
+no replay/rearm. These are offline checks. At the Package A checkpoint, actual-provider transactions and response plots
+remained later gates. Package D implements the calculated response and accepted
+optional live transition consumer described above. Physical mappings, listening,
+clock lock and hardware output still require separate authorization and evidence.
