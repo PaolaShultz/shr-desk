@@ -70,7 +70,7 @@ impl Frontend {
                         let i = self.fx_ui.selected as usize;
                         c.channels[i].bypass = !c.channels[i].bypass;
                         self.send(Operation::Fx(O::Review {
-                            basis,
+                            basis: Box::new(basis),
                             configuration_json: Some(
                                 serde_json::to_string(&c).map_err(|e| e.to_string())?,
                             ),
@@ -82,7 +82,7 @@ impl Frontend {
                             return Err("FX panic mask".into());
                         }
                         self.send(Operation::Fx(O::Review {
-                            basis,
+                            basis: Box::new(basis),
                             configuration_json: None,
                             panic_mask: Some(u32::from(mask)),
                         }))
@@ -99,7 +99,7 @@ impl Frontend {
                 let text = self.fx_ui.text.as_ref().ok_or("FX editor absent")?;
                 let config = crate::fx::edit_channel(&basis, self.fx_ui.selected, text)?;
                 self.send(Operation::Fx(O::Review {
-                    basis,
+                    basis: Box::new(basis),
                     configuration_json: Some(config),
                     panic_mask: None,
                 }))?;

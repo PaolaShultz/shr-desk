@@ -696,7 +696,7 @@ fn worker(
                                 configuration_json,
                                 panic_mask,
                             } => {
-                                o.stage_fx(basis, configuration_json, panic_mask)?;
+                                o.stage_fx(*basis, configuration_json, panic_mask)?;
                                 serial = serial.checked_add(1).ok_or("review exhausted")?;
                                 review = Some((serial, o.reviewed().unwrap_or_default()));
                                 Ok(())

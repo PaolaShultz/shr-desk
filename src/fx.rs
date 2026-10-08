@@ -368,7 +368,7 @@ pub enum Action {
 pub enum Operation {
     Probe,
     Review {
-        basis: Observation,
+        basis: Box<Observation>,
         configuration_json: Option<String>,
         panic_mask: Option<u32>,
     },
