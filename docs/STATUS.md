@@ -1,5 +1,36 @@
 # Status and next steps
 
+## Task0020 actual remote FOH FX operator package
+
+The GP21-fx:1 consumer and [FX page](FX.md) are implemented for one actual Brain
+stereo owner, ordered foh-left/right. W explicitly probes; X explicitly selects
+the dedicated scope read-only. Independent numeric editing, tail-preserving
+bypass and selected/both panic use the existing connection, writer, queue and
+presented-pages review. GP05 fixed fallback health remains separate and read-only.
+
+Correlated preparation/permit/application/settlement remain distinct. Permit is
+authorization only; later authority revisions are accepted. Exact context,
+ticket/frame, ordered lifetime, target/partner, generation/reset and settlement
+evidence fence every write. Unknown/replay/owner loss requires explicit fresh
+owner reconciliation and a new review; no automatic retry/regrant/rearm occurs.
+Panic correlates the reviewed mask to producer-validated ticket/frame/reset
+evidence; the public wire does not echo the mask.
+
+The source includes regressions for retained terminal replies arriving before a
+new operation, panic's prior configuration frame, literal editor text/keyup
+queue admission, and first-failure poisoning after partial remote framing.
+B2 measurement also fences current basis epoch and accepts only exactly unchanged
+no_change candidates, which remain nonapplyable.
+
+Earlier checkpoints passed coordinator focused software checks. Initial actual
+episodes exposed partial-framing recovery and detached-key queue defects; those
+failures are retained and the corrected final source still requires coordinator
+actual acceptance and complete default/native gates before integration acceptance.
+The private driver connects actual keyboard/review/confirmation to owner
+readback and separately recorded wet/PA sample windows and raw REC evidence;
+old-owner and postpermit-loss episodes are explicit opt-ins. No physical device,
+window, playback, acoustic result or hardware timing qualification is claimed.
+
 ## Task0020 PA measurement integration
 
 Desk now explicitly probes GP20 measurement support and offers ordinary keyboard
