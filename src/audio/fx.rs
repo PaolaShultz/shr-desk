@@ -12,8 +12,8 @@ impl Session {
         if self.version!=2 || self.scope!="fx_configuration" || !self.fx_fresh(now) || self.fx.unknown {return fail("fresh explicitly reconciled FX owner and dedicated lease required");}
         let m:w::Mutation=serde_json::from_value(body.clone()).map_err(|e|e.to_string())?;m.validate_basis(self.fx.snapshot.as_ref().and_then(|s|s.observation.as_ref()).ok_or("FX owner missing")?)
     }
-    pub(crate) fn dispatch_fx(&mut self,r:w::Reply)->Result<(),String>{
-        if self.fx.evidence.contains(&r){return Ok(());}
+    pub(crate) fn dispatch_fx(&mut self,r:w::Reply)->Result<bool,String>{
+        if self.fx.evidence.contains(&r){return Ok(false);}
         let p=self.pending.as_ref().filter(|p|p.request.kind=="fx_configure" && p.request.context==r.context).ok_or("FX reply correlation; unrelated pending retained")?;
         let m:w::Mutation=serde_json::from_value(p.request.body.clone()).map_err(|e|e.to_string())?;
         let frame=provider::counter(&r.apply_frame)?;
@@ -48,7 +48,7 @@ impl Session {
         if self.fx.evidence.len()==64{self.fx.evidence.remove(0);}
         self.fx.evidence.push(r.clone());
         if terminal {self.pending=None;self.fx.receipt=None;self.needs_snapshot=true;self.preview=None;}else{let p=self.pending.as_mut().unwrap();p.state=PendingState::Accepted;p.ticket=Some(r.ticket);p.timing=Some((r.apply_frame,0));}
-        Ok(())
+        Ok(true)
     }
     pub(crate) fn fx_unknown(&mut self,reason:&str){
         self.fx.unknown=true;self.fx.receipt=None;self.last_result=format!("FX UNKNOWN: {reason}; fresh explicit probe and new review required; no replay");
@@ -56,10 +56,10 @@ impl Session {
     }
 }
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     fn corpus()->Value{serde_json::from_str(include_str!("../../tests/fixtures/gp21/v1/owner-relay.json")).unwrap()}
-    fn pending()->Session{
+    pub(crate) fn pending()->Session{
         let c=corpus();let v:Value=serde_json::from_str(include_str!("../../tests/fixtures/gp14/v1/profile-48.json")).unwrap();
         let mut raw=decode_reply(&serde_json::to_vec(&v["snapshot"]).unwrap()).unwrap().snapshot.unwrap();raw.authority.epoch="9".into();raw.authority.revision="0".into();raw.frame="0".into();raw.clock.as_mut().unwrap().epoch=9;raw.clock.as_mut().unwrap().next_frame=0;
         let context:Context=serde_json::from_value(c["preparing"]["context"].clone()).unwrap();
@@ -111,7 +111,7 @@ mod duplicate_regression {
         s.fx.evidence.push(r.clone());
         let mut context=r.context.clone();context.request_id=Some("3".into());context.expected_revision=Some("1".into());
         s.pending=Some(Pending{monitor_device:None,request:Request{version:2,context:context.clone(),kind:"fx_configure".into(),body:c["request"]["body"].clone()},first_send:0,state:PendingState::Sent,ticket:None,timing:None,observed_frame:5760,retry:0});
-        s.dispatch_fx(r.clone()).unwrap();
+        assert!(!s.dispatch_fx(r.clone()).unwrap());
         assert_ne!(r.context,context);assert_eq!(s.pending.as_ref().unwrap().request.context,context);
     }
 }

@@ -1,6 +1,8 @@
 //! Reviewed C-AUDIO:1 commands and GP03-rendered:1 observations. No DSP.
 mod measurement;
 mod fx;
+#[cfg(test)]
+pub(crate) use fx::tests::pending as fx_test_pending;
 use crate::provider::{self, Snapshot, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
