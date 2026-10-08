@@ -24,6 +24,7 @@ fn confirmed_mode_keeps_reviewed_revision_when_authority_changes() {
         let (mut s, _) = listener.accept().unwrap();
         s.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         let mut mode_seen = false;
+        let mut sequence = 0u64;
         loop {
             let mut h = [0; 4];
             if let Err(e) = s.read_exact(&mut h) {
@@ -52,6 +53,15 @@ fn confirmed_mode_keeps_reviewed_revision_when_authority_changes() {
                         r["outcome"]["body"][k] = Value::Null;
                     }
                     r["snapshot"] = c["initial"].clone();
+                    // Advancing telemetry must preserve the adversarial revision.
+                    sequence = sequence.max(
+                        r["snapshot"]["authority"]["sequence"]
+                            .as_str()
+                            .unwrap()
+                            .parse()
+                            .unwrap(),
+                    ) + 1;
+                    r["snapshot"]["authority"]["sequence"] = json!(sequence.to_string());
                     if mode_seen {
                         r["outcome"]["body"]["revision"] = json!("13");
                         r["snapshot"]["authority"]["revision"] = json!("13");
