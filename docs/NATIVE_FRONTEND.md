@@ -858,3 +858,15 @@ passed; exact results and software limits are recorded in [Status](STATUS.md).
 Only narrow owner allocation-free commit/render has supporting owner evidence;
 the surrounding allocating host/control-I/O paths have no whole-host deadline or
 hardware qualification.
+
+## Internal worker boundary
+
+`frontend/provider.rs` owns the bounded request queue, pending-edit tickets,
+worker lifetime, generation fence, held-action service and coalesced update slot.
+The worker uses the existing `local_audio::Operator`; it does not create a second
+authority, epoch, revision or observation-age owner. `frontend.rs` retains operator
+input state, detached drafts, review presentation and scene generation. The
+`Config`, `Operation`, `Update` and `Provider` public paths remain unchanged.
+Operator-state and rendering regressions live in `frontend/` under their original
+test module names. Reconnect still discards submitted intents, requires fresh
+readback and never replays detached drafts. This organization adds no UI behavior.

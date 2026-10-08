@@ -120,3 +120,14 @@ commands and a bounded owned Unix packet-loss proxy; the second checks raw bad
 version/lease refusal and unchanged rendered mix. Binary SHA256 is
 ad8a4a74ca426ee3d3594929b00fca5daa2603d5c7ddfb7aef542d5782fa9b0a.
 No generated executable or private integration logs belong in Git.
+
+## Internal ownership
+
+`local_audio::Operator` remains the single transaction coordinator over its
+`audio::Session`: it owns paired readback, correlated completion, complete reviews,
+held proofs and recovery admission. `local_audio/transport.rs` owns authenticated
+Unix framing, whole-frame budgets and the byte-only `AuthorityConnection` seam;
+it owns no lease, revision or freshness policy. `local_audio/batch.rs` parses the
+bounded batch invocation and delegates transactions to the same operator. Existing
+public module paths, wire versions and fixture bytes remain unchanged. Owner tests
+live in `local_audio/` with their original test module names.
