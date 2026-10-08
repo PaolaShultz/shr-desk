@@ -789,7 +789,8 @@ D3's actual software driver passed with ten sends and six master captures, then
 passed independently on Pi5 using the identical hash-pinned executable and witness.
 This includes actual rastered review presentation, correlated completion, explicit
 software rearm, PCM route/gain/phase checks and reconnect without replay. Complete
-package acceptance still requires the final gates recorded in [Status](STATUS.md).
+normal default/native suites, both Clippy configurations and both release builds
+passed; exact results and software limits are recorded in [Status](STATUS.md).
 Only narrow owner allocation-free commit/render has supporting owner evidence;
 the surrounding allocating host/control-I/O paths have no whole-host deadline or
 hardware qualification.

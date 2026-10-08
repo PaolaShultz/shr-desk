@@ -66,7 +66,8 @@ D3 actual software episodes passed on both Pi4 and an independent Pi5 run of the
 same pinned driver/witness: 10 sends captures and 6 master captures per run, clean
 explicit host stop and no hardware. Sends, channel EQ/compression and shared
 mute/recovery checks use independent PCM lanes and owner state. The master episode
-checks exact6.125 dB L-side gain/phase, unchanged owner-mapped R/main/monitor routes,
+checks exact 6.125 dB L-side gain/phase, unchanged owner-mapped R/main/monitor routes,
 non-EQ preservation, muted setup, separate rearm and unsent-review reconnect/no replay.
 Stationary captures wait 48000 actual frames after relevant signal/PA history changes
-under the original run deadline. See [Status](STATUS.md) for remaining final gates.
+under the original run deadline. See [Status](STATUS.md) for final software
+acceptance and its limits.

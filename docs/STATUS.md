@@ -1,6 +1,6 @@
 # Status and next steps
 
-## Task0018 D3 post-final recovery — actual software episodes passed, full native suite pending
+## Task0018 completed software acceptance — 2026-10-08
 
 Ordinary and extension applied finals now require a bounded advancing readback even
 when old independently queued telemetry or duplicate finals arrive first. The
@@ -17,20 +17,26 @@ against its own last-operation result, not target values or a later overwritten
 status. Stationary PCM captures wait 48000 actual frames after relevant signal and
 PA history changes under the original episode deadline; route comparisons follow
 the actual owner mapping, including interleaved stereo outputs. D3 private evidence
-retains all failed trials and their exact source attribution. Actual trial8 passed
+retains all failed trials and their exact source attribution. Actual trial 8 passed
 both fresh Frontend episodes (10 sends and 6 master captures) on the pinned reviewed
 synthetic witness: independent sends/taps, channel EQ/compression, mute/recovery,
-exact6.125 dB main-side gain/phase with unaffected owner-mapped routes, non-EQ
+exact 6.125 dB main-side gain/phase with unaffected owner-mapped routes, non-EQ
 preservation, muted full setup, separate rearm and reconnect/no replay. Both hosts
-exited0 without hardware. Root independently reran the same pinned driver on Pi5
-and accepted this actual software path. The final full default suite passed286 tests
-with15 explicit opt-ins ignored; both all-target warning-denied Clippy checks,
+exited 0 without hardware. Root independently reran the same pinned driver on Pi5
+and accepted this actual software path. The final full default suite passed 286 tests
+with 15 explicit opt-ins ignored; both all-target warning-denied Clippy checks,
 formatting and the explicit CPU-native exact RGBA check passed. Nine publication
-Python tests were reused against unchanged policy/script hashes. Locked release
-results and artifact hashes are recorded in the private D3 handoff. Full normal
-native after the production correction remains NOT RUN: its prior652-second runtime
-exceeded the remaining bounded-worker budget. Coordinator must complete that exact
-gate before whole-package acceptance; the earlier D2 native pass is not final proof.
+Python tests were reused against unchanged policy/script hashes. Both locked release
+builds passed. The coordinator completed the full normal
+native suite against the frozen final source: **289 passed, zero failed, 15 explicit
+opt-ins ignored**, across 29 test binaries in 573 seconds. All 389 code, fixture,
+asset, policy and build-input hashes match the tested revision
+`062ed2b1b34a329924ef083dfe62b4fd1d922af8`; this final documentation update changes
+none of those inputs. Private evidence retains exact commands, hashes and failed
+attempts.
+Producer acceptance covers GigPies 411 default / 487 hardware-host tests and SHR PA
+91 normal tests, with their owner/provider, persistence, transition and safety
+checks. No external publication or physical activation is implied.
 D2's nine accepted scenes and 27 exact CPU RGBA comparisons remain reusable only
 with matching renderer hashes. No hardware or whole-host deadline claim is made.
 
