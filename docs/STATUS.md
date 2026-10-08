@@ -1,5 +1,36 @@
 # Status and next steps
 
+## Task0019 exact FOH controls — implementation checkpoint
+
+FOH Mix/Channel now has detached D fader dB and C pan text entry, bounded strict
+integer parsing, local Enter acceptance, F4 complete ReviewSet and separate
+presented-review/Enter confirmation. Stable input/show/epoch/revision/generation/
+scope pins, focus/role/controller fences and explicit revalidation prevent stale
+or changed-selection application; reconnect is read-only without replay. Existing
+holds, modes, sends and processing semantics remain authoritative. See
+[native frontend](NATIVE_FRONTEND.md#exact-foh-fader-and-pan).
+
+The actual synthetic GP03 episode passed keyboard/semantic controls, unchanged
+pre-confirm state, correlated Applied completion, advancing readback and expected
+settled fader/equal-power-pan coefficients with unchanged unrelated input. A frozen
+checkpoint passed294 default/297 native tests (16 opt-ins ignored each), both
+warning-denied Clippy configurations, formatting and both locked release builds,
+plus nine publication Python tests and focused links. Seven CPU-lavapipe exact
+RGBA checks passed on actual editor/review/applied/reconnect scenes.
+
+Final review then found that unshifted d/c key-up did not rearm input after a
+context fence. This narrow routing correction and focused regression are included
+in the local handoff. **Full default/native suites, both Clippy configurations and
+both release builds must be rerun on this corrected final source by Pi5**; earlier
+frozen results are retained as checkpoint evidence, not final-source acceptance.
+The bounded Pi4 worker releases source/build ownership in its task0019 receipt.
+Exact source/build/actual executable/provider/render hashes and failed observations
+are retained in the private `artifacts/task0019/INDEX.md`. The corrected focused and
+actual checks are recorded there; this is software-only validation. No physical
+audio/controller/window/clock-lock or whole-host deadline acceptance is claimed.
+Pi5 owns review, independent reproduction, final gates, integration and private
+synchronization; no external publication or service change is implied.
+
 ## Task0018 completed software acceptance — 2026-10-08
 
 Ordinary and extension applied finals now require a bounded advancing readback even

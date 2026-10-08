@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
         mpsc::{self, Receiver, SyncSender, TrySendError},
     },
     thread::{self, JoinHandle},
@@ -75,11 +75,30 @@ pub enum Operation {
     Reconnect,
     LegacyReconnect,
 }
+#[derive(Debug)]
+struct PendingEdit(Arc<AtomicUsize>);
+impl PendingEdit {
+    fn new(count: &Arc<AtomicUsize>) -> Self {
+        count.fetch_add(1, Ordering::AcqRel);
+        Self(count.clone())
+    }
+}
+impl Clone for PendingEdit {
+    fn clone(&self) -> Self {
+        Self::new(&self.0)
+    }
+}
+impl Drop for PendingEdit {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 #[derive(Clone, Debug)]
 struct Request {
     generation: u64,
     revision: Option<String>,
     operation: Operation,
+    _pending: Option<PendingEdit>,
 }
 #[derive(Clone, Debug)]
 pub struct Update {
@@ -155,6 +174,7 @@ struct Latest {
 }
 pub struct Provider {
     tx: SyncSender<Request>,
+    pending_edits: Arc<AtomicUsize>,
     latest: Arc<Latest>,
     generation: Arc<AtomicU64>,
     stop: Arc<AtomicBool>,
@@ -176,6 +196,7 @@ impl Provider {
         let child = thread::spawn(move || worker(config, rx, l, g, s, (a, b)));
         Self {
             tx,
+            pending_edits: Arc::new(AtomicUsize::new(0)),
             latest,
             generation,
             stop,
@@ -189,6 +210,8 @@ impl Provider {
             .try_send(Request {
                 generation: self.generation.load(Ordering::Acquire),
                 revision,
+                _pending: (!matches!(operation, Operation::InputReleased))
+                    .then(|| PendingEdit::new(&self.pending_edits)),
                 operation,
             })
             .map_err(|e| match e {
@@ -283,6 +306,7 @@ pub(crate) fn exercise_held_worker(
                             generation: 0,
                             revision: None,
                             operation: Operation::InputReleased,
+                            _pending: None,
                         })
                         .unwrap(),
                     _ => {}
@@ -805,9 +829,22 @@ fn worker(
                             json!({"targets":[{"target":target,"value":value}]}),
                         ),
                         Operation::ReviewSet { target, value } => {
-                            o.stage("set", json!({"targets":[{"target":target,"value":value}]}))?;
+                            o.stage("set", json!({"targets":[{"target":target.clone(),"value":value.clone()}]}))?;
                             serial = serial.checked_add(1).ok_or("review counter exhausted")?;
-                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            review = Some((
+                                serial,
+                                format!(
+                                    "{} {} {} proposed {}\n{}",
+                                    target["input"].as_str().unwrap_or("--"),
+                                    target["monitor"].as_str().unwrap_or("FOH"),
+                                    target["parameter"].as_str().unwrap_or("--"),
+                                    parameter_display(
+                                        target["parameter"].as_str().unwrap_or(""),
+                                        &value
+                                    ),
+                                    o.reviewed().unwrap_or_default()
+                                ),
+                            ));
                             Ok(())
                         }
                         Operation::Preview(target) => {
@@ -1189,6 +1226,21 @@ pub struct SendDraft {
     revision: String,
     generation: u64,
 }
+#[derive(Clone, Debug)]
+pub struct ExactDraft {
+    pub input: String,
+    pub parameter: crate::exact_value::Parameter,
+    pub text: String,
+    pub value: Option<i32>,
+    revision: String,
+    generation: u64,
+    show: String,
+    epoch: String,
+    scope: String,
+    validated: bool,
+    review_requested: bool,
+    confirmation_requested: bool,
+}
 pub struct Frontend {
     pub provider: Provider,
     pub state: Option<Update>,
@@ -1207,6 +1259,7 @@ pub struct Frontend {
     pub sends_page: bool,
     pub sends_channel: bool,
     pub selected_monitor: usize,
+    pub exact_draft: Option<ExactDraft>,
     pub send_draft: Option<SendDraft>,
     send_entry: Option<String>,
     pub selected: usize,
@@ -1259,6 +1312,7 @@ impl Frontend {
             sends_page: false,
             sends_channel: false,
             selected_monitor: 0,
+            exact_draft: None,
             send_draft: None,
             send_entry: None,
             selected: 0,
@@ -1363,6 +1417,11 @@ impl Frontend {
     }
     fn fence_local(&mut self) {
         self.talkback_release();
+        if let Some(d) = &mut self.exact_draft {
+            d.validated = false;
+            d.review_requested = false;
+            d.confirmation_requested = false;
+        }
         if let Some(d) = &mut self.hold_midi {
             d.fence();
         }
@@ -1532,7 +1591,8 @@ impl Frontend {
                 {
                     let opens_editor = matches!(
                         action,
-                        Action::SendTapEdit
+                        Action::ExactEdit(_)
+                            | Action::SendTapEdit
                             | Action::SendLevelEdit
                             | Action::LiveEqEdit
                             | Action::ProcessingEdit
@@ -1548,7 +1608,8 @@ impl Frontend {
                     if (self.processing_draft.is_none()
                         && self.structural_draft.is_none()
                         && self.device_draft.is_none()
-                        && self.send_draft.is_none())
+                        && self.send_draft.is_none()
+                        && self.exact_draft.is_none())
                         || opens_editor
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
@@ -1567,8 +1628,12 @@ impl Frontend {
                         && ((self.processing_draft.is_none()
                             && self.structural_draft.is_none()
                             && self.device_draft.is_none()
-                            && self.send_draft.is_none())
-                            || matches!(key.as_str(), "E" | "S" | "L" | "F9" | "F11"))
+                            && self.send_draft.is_none()
+                            && self.exact_draft.is_none())
+                            || matches!(
+                                key.as_str(),
+                                "E" | "S" | "L" | "D" | "C" | "d" | "c" | "F9" | "F11"
+                            ))
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
@@ -1647,6 +1712,36 @@ impl Frontend {
             self.review_page = 0;
             self.review_seen.clear();
         }
+        if self
+            .exact_draft
+            .as_ref()
+            .is_some_and(|d| d.confirmation_requested)
+            && update.review.is_none()
+            && self.exact_draft.as_ref().is_some_and(|d| {
+                d.revision
+                    .parse::<u64>()
+                    .ok()
+                    .and_then(|r| r.checked_add(1))
+                    .is_some_and(|r| {
+                        update.last_operation.as_deref()
+                            == Some(format!("set applied revision {r}").as_str())
+                    })
+            })
+        {
+            self.exact_draft = None;
+        }
+        if let Some(d) = &mut self.exact_draft
+            && d.review_requested
+            && update.review.is_none()
+            && update
+                .last_operation
+                .as_deref()
+                .is_some_and(|r| r.starts_with("REFUSED/") || r.starts_with("COMPLETED/"))
+        {
+            d.validated = false;
+            d.review_requested = false;
+            d.confirmation_requested = false;
+        }
         self.state = Some(update);
     }
     pub fn processing_fresh(&self) -> bool {
@@ -1713,6 +1808,47 @@ impl Frontend {
             self.fence();
             self.attachment_fence = Some(self.provider.generation());
             return self.provider.send(None, Operation::Reconnect);
+        }
+        if self.exact_draft.is_some() {
+            let normalized = key.to_ascii_uppercase();
+            match normalized.as_str() {
+                "G" => return self.send(Operation::Grant),
+                "Q" => return self.send(Operation::ReleaseWriter),
+                "ESC" => return self.action(Action::Cancel),
+                "F4" => return self.action(Action::ExactApply),
+                "D" => return self.action(Action::ExactEdit(crate::exact_value::Parameter::Fader)),
+                "C" => return self.action(Action::ExactEdit(crate::exact_value::Parameter::Pan)),
+                _ => (),
+            }
+            if !self.exact_draft.as_ref().unwrap().review_requested {
+                match key {
+                    "Enter" => {
+                        return self.action(Action::ExactText(
+                            self.exact_draft.as_ref().unwrap().text.clone(),
+                        ));
+                    }
+                    "Backspace" => {
+                        let d = self.exact_draft.as_mut().unwrap();
+                        d.text.pop();
+                        d.value = None;
+                        return Ok(());
+                    }
+                    _ if key.len() == 1
+                        && key
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'+')) =>
+                    {
+                        let d = self.exact_draft.as_mut().unwrap();
+                        if d.text.len() >= 16 {
+                            return Err("exact entry capacity16".into());
+                        }
+                        d.text.push_str(key);
+                        d.value = None;
+                        return Ok(());
+                    }
+                    _ => (),
+                }
+            }
         }
         if let Some(entry) = &mut self.send_entry {
             match key {
@@ -2041,6 +2177,21 @@ impl Frontend {
                 return self.action(Action::ProcessingText(self.processing_entry.clone()));
             }
         }
+        if self.scope == "foh"
+            && !self.sends_page
+            && !self.brain_page
+            && !self.live_page
+            && self.topology_page.is_none()
+            && matches!(self.page, Page::Mix | Page::Channel)
+            && self.processing_draft.is_none()
+            && self.structural_draft.is_none()
+        {
+            match key {
+                "D" => return self.action(Action::ExactEdit(crate::exact_value::Parameter::Fader)),
+                "C" => return self.action(Action::ExactEdit(crate::exact_value::Parameter::Pan)),
+                _ => (),
+            }
+        }
         let action = actions::key_action(key).ok_or("unmapped key")?;
         self.action(action)
     }
@@ -2055,7 +2206,129 @@ impl Frontend {
             })
     }
     fn action(&mut self, action: Action) -> Result<(), String> {
+        if self.exact_draft.is_some()
+            && !matches!(
+                action,
+                Action::ExactEdit(_)
+                    | Action::ExactText(_)
+                    | Action::ExactApply
+                    | Action::Confirm
+                    | Action::Cancel
+                    | Action::Back
+                    | Action::Move(_)
+                    | Action::Bank(_)
+                    | Action::Page(_)
+                    | Action::SwitchScope(_)
+                    | Action::Menu
+                    | Action::Status
+            )
+        {
+            return Err("Apply/confirm or Esc cancel exact draft first".into());
+        }
         match action {
+            Action::ExactEdit(parameter) => {
+                if self.scope != "foh"
+                    || !matches!(self.page, Page::Mix | Page::Channel)
+                    || self.sends_page
+                    || self.brain_page
+                    || self.live_page
+                    || self.topology_page.is_some()
+                    || !self.fresh()
+                    || self.mode_picker
+                    || self.provider.pending_edits.load(Ordering::Acquire) != 0
+                    || self
+                        .provider
+                        .latest
+                        .update
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .is_some_and(|u| {
+                            u.review.is_some()
+                                || u.last_operation
+                                    .as_deref()
+                                    .is_some_and(|r| r.starts_with("PENDING"))
+                        })
+                    || self.processing_draft.is_some()
+                    || self.structural_draft.is_some()
+                    || self.device_draft.is_some()
+                    || self.send_draft.is_some()
+                    || self.state.as_ref().is_some_and(|u| {
+                        u.review.is_some()
+                            || u.last_operation
+                                .as_deref()
+                                .is_some_and(|r| r.starts_with("PENDING"))
+                    })
+                    || self
+                        .exact_draft
+                        .as_ref()
+                        .is_some_and(|d| d.review_requested)
+                {
+                    return Err("exact editor requires fresh FOH Mix/Channel and no other draft/review/pending".into());
+                }
+                let input = self.selected_input().ok_or("input unavailable")?.to_owned();
+                let raw = self.state.as_ref().unwrap().snapshot.as_ref().unwrap();
+                if !raw.authority.parameters.iter().any(|p| {
+                    p.target.input == input
+                        && p.target.parameter == parameter.name()
+                        && p.target.monitor.is_none()
+                }) {
+                    return Err("parameter unavailable".into());
+                }
+                let retained = self.exact_draft.as_ref().filter(|d| {
+                    d.input == input
+                        && d.parameter == parameter
+                        && d.show == raw.authority.show_id
+                        && d.epoch == raw.authority.epoch
+                });
+                if self.exact_draft.is_some() && retained.is_none() {
+                    return Err("exact draft identity changed; Esc cancels before reopening".into());
+                }
+                self.exact_draft = Some(ExactDraft {
+                    input,
+                    parameter,
+                    text: retained.map_or_else(String::new, |d| d.text.clone()),
+                    value: retained.and_then(|d| d.value),
+                    revision: raw.authority.revision.clone(),
+                    generation: self.provider.generation(),
+                    show: raw.authority.show_id.clone(),
+                    epoch: raw.authority.epoch.clone(),
+                    scope: self.scope.clone(),
+                    validated: true,
+                    review_requested: false,
+                    confirmation_requested: false,
+                });
+                self.message = "Detached exact draft: Enter accepts text; F4 review; presented review + Enter sends".into();
+                Ok(())
+            }
+            Action::ExactText(text) => {
+                let d = self.exact_draft.as_mut().ok_or("D/C opens exact draft")?;
+                if d.review_requested {
+                    return Err("review already queued; Esc cancels only unsent intent".into());
+                }
+                let value = d.parameter.parse(&text)?;
+                d.text = text;
+                d.value = Some(value);
+                self.message = "Exact text accepted locally; F4 opens complete review".into();
+                Ok(())
+            }
+            Action::ExactApply => {
+                let d = self.exact_draft.as_ref().ok_or("no exact draft")?;
+                if d.review_requested || !self.exact_context_valid(d) {
+                    return Err("exact draft context changed; select original input and D/C revalidate, then NEW F4 review".into());
+                }
+                let value = d.value.ok_or("Enter accepts exact text before F4 review")?;
+                if d.parameter.parse(&d.text)? != value {
+                    return Err("exact text changed; accept again".into());
+                }
+                let target = json!({"input":d.input,"parameter":d.parameter.name()});
+                self.send(Operation::ReviewSet {
+                    target,
+                    value: json!(value),
+                })?;
+                self.exact_draft.as_mut().unwrap().review_requested = true;
+                Ok(())
+            }
             Action::LiveEqEdit => {
                 if self.scope != "pa_configuration" || self.module_config.wire_version != 2 {
                     return Err("live EQ requires explicit dynamic PA attachment".into());
@@ -2782,6 +3055,13 @@ impl Frontend {
                 })
             }
             Action::Confirm => {
+                if let Some(d) = &self.exact_draft
+                    && (!d.review_requested
+                        || d.confirmation_requested
+                        || !self.exact_context_valid(d))
+                {
+                    return Err("exact review context changed; revalidate original identity and request NEW review".into());
+                }
                 if self.state.as_ref().is_none_or(|s| s.review.is_none()) {
                     return Err("no displayed reviewed confirmation".into());
                 }
@@ -2795,9 +3075,18 @@ impl Frontend {
                     .and_then(|s| s.review.as_ref())
                     .map(|(id, _)| *id)
                     .ok_or("no displayed reviewed confirmation")?;
-                self.send(Operation::Confirm(id))
+                self.send(Operation::Confirm(id))?;
+                if let Some(d) = &mut self.exact_draft {
+                    d.confirmation_requested = true;
+                }
+                Ok(())
             }
             Action::Cancel | Action::Back => {
+                let submitted = self
+                    .exact_draft
+                    .as_ref()
+                    .is_some_and(|d| d.confirmation_requested);
+                self.exact_draft = None;
                 self.send_draft = None;
                 self.send_entry = None;
                 self.processing_draft = None;
@@ -2808,6 +3097,9 @@ impl Frontend {
                 self.structure_text_entry = false;
                 self.processing_entry.clear();
                 self.send_cancel();
+                if submitted {
+                    self.message = "Unsent draft discarded; submitted mutation is NOT cancelled or undone; fresh readback required".into();
+                }
                 Ok(())
             }
             Action::Adjust(delta) => self.adjust("fader", i64::from(delta), false),
@@ -2823,7 +3115,7 @@ impl Frontend {
             }
             Action::Menu => {
                 self.message =
-                    "G grant / Q writer release / A mode / R engine release / F5 reconnect".into();
+                    "D exact fader dB / C exact pan L-center-R / Enter accept / F4 review / G grant / Q release / F5 reconnect".into();
                 Ok(())
             }
             Action::Edit(_) | Action::Select(_) | Action::Status => {
@@ -2836,6 +3128,32 @@ impl Frontend {
         // navigation must release the fence, not be discarded by the next pump.
         self.fence();
         let _ = self.provider.send(None, Operation::Cancel);
+    }
+    fn exact_context_valid(&self, d: &ExactDraft) -> bool {
+        d.validated
+            && d.generation == self.provider.generation()
+            && self.selected_input() == Some(d.input.as_str())
+            && self.scope == d.scope
+            && self.scope == "foh"
+            && self.focused
+            && self.device_ready
+            && self.width > 0
+            && self.height > 0
+            && self.fresh()
+            && (!self.role_required || self.provider.authorization.load(Ordering::Acquire))
+            && matches!(self.page, Page::Mix | Page::Channel)
+            && !self.sends_page
+            && !self.brain_page
+            && !self.live_page
+            && self.topology_page.is_none()
+            && self.state.as_ref().is_some_and(|u| {
+                u.writer_granted()
+                    && u.snapshot.as_ref().is_some_and(|raw| {
+                        raw.authority.revision == d.revision
+                            && raw.authority.show_id == d.show
+                            && raw.authority.epoch == d.epoch
+                    })
+            })
     }
     fn selected_input(&self) -> Option<&str> {
         self.state
@@ -3099,6 +3417,75 @@ impl Frontend {
                 "#66dfd3",
             );
             line(972, self.message.clone(), "#f47c85");
+            return scene;
+        }
+        if let Some(d) = &self.exact_draft {
+            line(
+                12,
+                format!(
+                    "DETACHED FOH EXACT DRAFT / {} / {}",
+                    d.input,
+                    d.parameter.name()
+                ),
+                "#66dfd3",
+            );
+            line(60, "Local text and proposed value are separate from committed target, current coefficients and pending".into(), "#e4e8e9");
+            line(108, format!("Entry: {}", d.text), "#66dfd3");
+            line(
+                156,
+                format!(
+                    "Proposed: {}",
+                    d.value
+                        .map_or_else(|| "not accepted".into(), |v| d.parameter.display(v))
+                ),
+                "#f1bd6b",
+            );
+            line(204, "Fader -60.0..+12.0 dB step0.1 | Pan -100..100 integer: negative L / 0 center / positive R".into(), "#e4e8e9");
+            if let Some(raw) = self.state.as_ref().and_then(|u| u.snapshot.as_ref()) {
+                if let Some(p) = raw.authority.parameters.iter().find(|p| {
+                    p.target.input == d.input
+                        && p.target.parameter == d.parameter.name()
+                        && p.target.monitor.is_none()
+                }) {
+                    line(
+                        252,
+                        format!(
+                            "Committed target: {} / hold {} / owner {}",
+                            parameter_display(d.parameter.name(), &p.target_value),
+                            optional_display(d.parameter.name(), &p.hold),
+                            p.owner.as_deref().unwrap_or("none")
+                        ),
+                        "#e4e8e9",
+                    );
+                }
+                if let Some(c) = raw.coefficients.iter().find(|c| c.input == d.input) {
+                    line(
+                        300,
+                        format!(
+                            "Current coefficients (linear, not meters): {}",
+                            c.current_nanogain
+                                .iter()
+                                .map(|n| linear_display(*n))
+                                .collect::<Vec<_>>()
+                                .join(" / ")
+                        ),
+                        "#e4e8e9",
+                    );
+                }
+            }
+            line(
+                348,
+                format!(
+                    "Pending/review requested: {} / context validated: {} / fresh: {}",
+                    d.review_requested,
+                    self.exact_context_valid(d),
+                    self.fresh()
+                ),
+                "#f1bd6b",
+            );
+            line(888,"Enter accepts text only | F4 NEW complete review | presented review + Enter confirms | Esc unsent cancel".into(),"#66dfd3");
+            line(936,"D/C revalidate original identity | G explicit grant | Q release | F5 reconnect read-only".into(),"#e4e8e9");
+            line(984, self.message.clone(), "#f47c85");
             return scene;
         }
         if self.sends_page {
@@ -4379,6 +4766,7 @@ mod processing_tests {
         let (tx, rx) = mpsc::sync_channel(8);
         f.provider = Provider {
             tx,
+            pending_edits: Arc::new(AtomicUsize::new(0)),
             latest: Arc::new(Latest::default()),
             generation: Arc::new(AtomicU64::new(1)),
             stop: Arc::new(AtomicBool::new(false)),
@@ -4726,6 +5114,377 @@ mod processing_tests {
         f.page = Page::Channel;
         f
     }
+    fn exact_surface() -> (Frontend, Receiver<Request>) {
+        let (mut f, rx) = brain_surface();
+        f.brain_page = false;
+        f.brain_enabled = false;
+        f.page = Page::Mix;
+        (f, rx)
+    }
+    #[test]
+    fn exact_keyboard_semantic_review_and_exclusivity() {
+        use crate::exact_value::Parameter;
+        for parameter in [Parameter::Fader, Parameter::Pan] {
+            let (mut f, rx) = exact_surface();
+            f.key(if parameter == Parameter::Fader {
+                "d"
+            } else {
+                "c"
+            })
+            .unwrap();
+            let text = if parameter == Parameter::Fader {
+                "-6.1"
+            } else {
+                "+31"
+            };
+            for c in text.chars() {
+                f.key(&c.to_string()).unwrap();
+            }
+            f.key("Enter").unwrap();
+            assert!(rx.try_recv().is_err());
+            let d = f.exact_draft.as_ref().unwrap();
+            assert_eq!(d.value, Some(parameter.parse(text).unwrap()));
+            assert!(f.scene().in_bounds());
+            for action in [
+                Action::ProcessingEdit,
+                Action::SendLevelEdit,
+                Action::DeviceEdit,
+                Action::StructureEdit,
+                Action::MasterEqEdit,
+                Action::LiveEqEdit,
+                Action::Mute,
+                Action::Hold,
+                Action::Release,
+                Action::Adjust(1000),
+                Action::AdjustPan(1),
+                Action::ModePicker,
+            ] {
+                assert!(f.action(action).is_err());
+            }
+            assert!(f.key("Enter").is_ok()); // accepting twice never sends
+            assert!(rx.try_recv().is_err());
+            f.key("F4").unwrap();
+            let r = rx.try_recv().unwrap();
+            assert_eq!(r.revision.as_deref(), Some("0"));
+            assert!(
+                matches!(r.operation,Operation::ReviewSet{ref target,ref value} if target["input"]=="input-01" && target["parameter"]==parameter.name() && value==&json!(parameter.parse(text).unwrap()))
+            );
+            assert!(f.key("F4").is_err());
+            assert!(f.action(Action::ExactText("0".into())).is_err());
+            assert!(f.key("Enter").is_err()); // no displayed review
+            assert!(rx.try_recv().is_err());
+            let (mut semantic, sr) = exact_surface();
+            semantic.action(Action::ExactEdit(parameter)).unwrap();
+            semantic.action(Action::ExactText(text.into())).unwrap();
+            semantic.action(Action::ExactApply).unwrap();
+            assert!(
+                matches!(sr.try_recv().unwrap().operation,Operation::ReviewSet{ref target,ref value} if target["parameter"]==parameter.name() && value==&json!(parameter.parse(text).unwrap()))
+            );
+        }
+    }
+    #[test]
+    fn exact_accepted_dynamic_inventory_and_controller_fence() {
+        let (mut f, rx) = exact_surface();
+        let u = f.state.as_mut().unwrap();
+        u.snapshot = Some(
+            crate::audio::decode_snapshot(include_bytes!(
+                "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+            ))
+            .unwrap(),
+        );
+        u.received = Instant::now();
+        f.selected = 16;
+        f.page = Page::Channel;
+        f.key("C").unwrap();
+        f.action(Action::ExactText("-100".into())).unwrap();
+        assert_eq!(f.exact_draft.as_ref().unwrap().input, "input-17");
+        f.inject_controller(Action::ExactApply).unwrap();
+        f.controller_removed();
+        assert!(f.queue.is_empty());
+        assert_eq!(f.exact_draft.as_ref().unwrap().value, Some(-100));
+        assert!(rx.try_recv().is_err());
+    }
+    #[test]
+    fn exact_open_refuses_each_existing_draft_and_review() {
+        for kind in 0..5 {
+            let (mut f, _rx) = exact_surface();
+            match kind {
+                0 => {
+                    f.processing_draft = Some(ProcessingDraft {
+                        input: "input-01".into(),
+                        config: f
+                            .state
+                            .as_ref()
+                            .unwrap()
+                            .processing
+                            .as_ref()
+                            .unwrap()
+                            .channels[0]
+                            .target
+                            .clone(),
+                        revision: "0".into(),
+                        generation: 1,
+                    })
+                }
+                1 => {
+                    f.send_draft = Some(SendDraft {
+                        input: "input-01".into(),
+                        monitor: "monitor-1".into(),
+                        value: SendDraftValue::Level(0),
+                        revision: "0".into(),
+                        generation: 1,
+                    })
+                }
+                2 => {
+                    f.structural_draft = Some(
+                        crate::structure::Draft::new(
+                            &crate::structure::decode_snapshot(include_bytes!(
+                                "../tests/fixtures/gp14/v1/structure-16.json"
+                            ))
+                            .unwrap(),
+                            "output_routes",
+                            1,
+                        )
+                        .unwrap(),
+                    )
+                }
+                3 => {
+                    let crate::brain_device::Message::Snapshot(s) = crate::brain_device::decode(
+                        include_bytes!("../tests/fixtures/gp15/device-v1/snapshot-unarmed.json"),
+                    )
+                    .unwrap() else {
+                        panic!()
+                    };
+                    f.device_draft = s.observation.map(|o| o.config);
+                }
+                4 => f.state.as_mut().unwrap().review = Some((1, "existing review".into())),
+                _ => unreachable!(),
+            }
+            assert!(f.key("D").is_err());
+            assert!(f.exact_draft.is_none());
+        }
+    }
+    #[test]
+    fn exact_presented_confirm_once_and_cancel_never_claims_submitted_undo() {
+        let (mut f, rx) = exact_surface();
+        f.key("D").unwrap();
+        f.action(Action::ExactText("-6.1".into())).unwrap();
+        f.key("F4").unwrap();
+        drop(rx.try_recv().unwrap());
+        f.state.as_mut().unwrap().review = Some((
+            19,
+            "input-01 FOH fader proposed -6.1 dB / complete request".into(),
+        ));
+        f.synchronize_review();
+        assert!(f.key("Enter").is_err());
+        f.mark_presented();
+        f.key("Enter").unwrap();
+        assert!(f.key("Enter").is_err());
+        assert!(
+            f.action(Action::ExactEdit(crate::exact_value::Parameter::Fader))
+                .is_err()
+        );
+        f.key("Esc").unwrap();
+        assert!(f.message.contains("submitted mutation is NOT cancelled"));
+        assert_eq!(
+            rx.try_iter()
+                .filter(|r| matches!(r.operation, Operation::Confirm(19)))
+                .count(),
+            1
+        );
+    }
+    #[test]
+    fn exact_unshifted_editor_keyup_rearms_after_controller_fence() {
+        for (key, parameter, text) in [
+            ("d", crate::exact_value::Parameter::Fader, "-6.1"),
+            ("c", crate::exact_value::Parameter::Pan, "-31"),
+        ] {
+            let (mut f, rx) = exact_surface();
+            f.action(Action::ExactEdit(parameter)).unwrap();
+            f.action(Action::ExactText(text.into())).unwrap();
+            let update = f.state.clone().unwrap();
+            f.controller_removed();
+            f.state = Some(Update {
+                generation: f.provider.generation(),
+                received: Instant::now(),
+                ..update
+            });
+            f.enqueue(Event::Key {
+                key: key.into(),
+                pressed: true,
+            })
+            .unwrap();
+            f.pump();
+            f.enqueue(Event::Key {
+                key: key.into(),
+                pressed: false,
+            })
+            .unwrap();
+            f.pump();
+            assert!(
+                rx.try_iter()
+                    .any(|r| matches!(r.operation, Operation::InputReleased)),
+                "unshifted {key} must release input after explicit revalidation"
+            );
+            assert_eq!(f.exact_draft.as_ref().unwrap().text, text);
+            f.action(Action::ExactApply).unwrap();
+            assert!(
+                rx.try_iter()
+                    .any(|r| matches!(r.operation, Operation::ReviewSet { .. }))
+            );
+        }
+    }
+    #[test]
+    fn exact_queued_operation_blocks_open_and_count_retires_on_drop() {
+        let (mut f, rx) = exact_surface();
+        f.action(Action::Adjust(1000)).unwrap();
+        assert_eq!(f.provider.pending_edits.load(Ordering::Acquire), 1);
+        assert!(f.key("D").is_err());
+        let request = rx.try_recv().unwrap();
+        assert!(f.key("D").is_err()); // in progress, before worker PENDING publication
+        drop(request);
+        assert_eq!(f.provider.pending_edits.load(Ordering::Acquire), 0);
+        f.key("D").unwrap();
+        let (mut f, _rx) = exact_surface();
+        for _ in 0..8 {
+            f.provider.send(None, Operation::Grant).unwrap();
+        }
+        assert!(f.provider.send(None, Operation::Grant).is_err());
+        assert_eq!(f.provider.pending_edits.load(Ordering::Acquire), 8); // failed enqueue retires its ticket
+        assert!(f.key("C").is_err());
+    }
+    #[test]
+    fn exact_context_pins_and_explicit_revalidation() {
+        use crate::exact_value::Parameter;
+        for change in 0..9 {
+            let (mut f, rx) = exact_surface();
+            f.action(Action::ExactEdit(Parameter::Fader)).unwrap();
+            f.action(Action::ExactText("-6.1".into())).unwrap();
+            match change {
+                0 => f.selected = 1,
+                1 => {
+                    f.state
+                        .as_mut()
+                        .unwrap()
+                        .snapshot
+                        .as_mut()
+                        .unwrap()
+                        .authority
+                        .revision = "1".into()
+                }
+                2 => {
+                    f.state
+                        .as_mut()
+                        .unwrap()
+                        .snapshot
+                        .as_mut()
+                        .unwrap()
+                        .authority
+                        .epoch = "10".into()
+                }
+                3 => {
+                    f.state
+                        .as_mut()
+                        .unwrap()
+                        .snapshot
+                        .as_mut()
+                        .unwrap()
+                        .authority
+                        .show_id = "22222222-2222-4222-8222-222222222222".into()
+                }
+                4 => f.scope = "monitor1".into(),
+                5 => {
+                    f.provider.generation.store(2, Ordering::Release);
+                }
+                6 => f.focused = false,
+                7 => f.state.as_mut().unwrap().writer_lease_remaining_ms = None,
+                8 => {
+                    f.role_required = true;
+                    f.provider.authorization.store(false, Ordering::Release);
+                }
+                _ => unreachable!(),
+            }
+            assert!(f.action(Action::ExactApply).is_err(), "fence {change}");
+            assert!(rx.try_recv().is_err());
+            assert_eq!(f.exact_draft.as_ref().unwrap().text, "-6.1");
+        }
+        let (mut f, rx) = exact_surface();
+        f.key("D").unwrap();
+        f.key("-").unwrap();
+        f.key("6").unwrap();
+        f.key(".").unwrap();
+        let update = f.state.clone().unwrap();
+        f.inject_controller(Action::ExactApply).unwrap();
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert_eq!(f.exact_draft.as_ref().unwrap().text, "-6.");
+        assert!(f.queue.is_empty());
+        f.enqueue(Event::Focus(true)).unwrap();
+        f.state = Some(Update {
+            generation: f.provider.generation(),
+            received: Instant::now(),
+            ..update
+        });
+        f.key("1").unwrap();
+        f.key("Enter").unwrap();
+        assert!(f.key("F4").is_err());
+        f.key("D").unwrap(); // explicit revalidation, retained text
+        assert_eq!(f.exact_draft.as_ref().unwrap().text, "-6.1");
+        f.key("F4").unwrap();
+        assert!(
+            rx.try_iter()
+                .any(|r| matches!(r.operation, Operation::ReviewSet { .. }))
+        );
+    }
+    #[test]
+    fn exact_dynamic_identity_capacity_cancel_and_review_selection_fence() {
+        use crate::exact_value::Parameter;
+        let (mut f, rx) = exact_surface();
+        let raw = f.state.as_mut().unwrap().snapshot.as_mut().unwrap();
+        raw.authority.inputs[0] = "source-17".into();
+        for p in &mut raw.authority.parameters {
+            if p.target.input == "input-01" {
+                p.target.input = "source-17".into();
+            }
+        }
+        for c in &mut raw.coefficients {
+            if c.input == "input-01" {
+                c.input = "source-17".into();
+            }
+        }
+        f.action(Action::ExactEdit(Parameter::Pan)).unwrap();
+        f.key("0").unwrap();
+        f.key("Enter").unwrap();
+        f.key("F4").unwrap();
+        assert!(
+            matches!(rx.try_recv().unwrap().operation,Operation::ReviewSet{ref target,..} if target["input"]=="source-17")
+        );
+        f.state.as_mut().unwrap().review =
+            Some((7, "source-17 FOH pan proposed center / unit %".into()));
+        f.synchronize_review();
+        f.mark_presented();
+        assert!(f.scene().in_bounds());
+        f.selected = 1;
+        assert!(f.action(Action::Confirm).is_err());
+        assert!(rx.try_recv().is_err());
+        f.action(Action::Cancel).unwrap();
+        assert!(f.exact_draft.is_none());
+        assert!(
+            rx.try_iter()
+                .all(|r| !matches!(r.operation, Operation::Confirm(_) | Operation::Set { .. }))
+        );
+        let (mut f, _) = exact_surface();
+        f.key("D").unwrap();
+        for _ in 0..16 {
+            f.key("0").unwrap();
+        }
+        assert!(f.key("0").is_err());
+        assert_eq!(f.exact_draft.as_ref().unwrap().text.len(), 16);
+        f.key("Backspace").unwrap();
+        assert_eq!(f.exact_draft.as_ref().unwrap().text.len(), 15);
+        f.state.as_mut().unwrap().last_operation =
+            Some("PENDING; awaiting provider confirmation".into());
+        assert!(f.action(Action::ExactEdit(Parameter::Fader)).is_err());
+    }
     #[test]
     fn detached_content_survives_focus_resize_disconnect_and_revision_changes() {
         let (mut f, rx) = brain_surface();
@@ -4987,6 +5746,7 @@ mod processing_tests {
         let (tx, _rx) = mpsc::sync_channel(8);
         f.provider = Provider {
             tx,
+            pending_edits: Arc::new(AtomicUsize::new(0)),
             latest: Arc::new(Latest::default()),
             generation: Arc::new(AtomicU64::new(1)),
             stop: Arc::new(AtomicBool::new(false)),
@@ -5349,6 +6109,7 @@ mod processing_tests {
         let (tx, rx) = mpsc::sync_channel(8);
         f.provider = Provider {
             tx,
+            pending_edits: Arc::new(AtomicUsize::new(0)),
             latest: Arc::new(Latest::default()),
             generation: Arc::new(AtomicU64::new(1)),
             stop: Arc::new(AtomicBool::new(false)),

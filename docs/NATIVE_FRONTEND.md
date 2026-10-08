@@ -70,6 +70,70 @@ Auto requires already accepted engine bounds; absent bounds refuse at the codec.
 Monitor scopes edit independent monitor send targets. F5 reconnects using a fresh
 writer identity, discarding every queued intent and attaching read-only.
 
+### Exact FOH fader and pan
+
+On FOH Mix or Channel, **D** opens exact fader entry and **C** opens exact pan
+entry. These keys do not replace sends, Brain or processing controls. Fader accepts
+ASCII signed decimal dB from -60.0 through +12.0, with at most one fractional
+digit (0.1 dB steps); pan accepts signed integers from -100 through +100, with
+negative values left, zero center and positive values right. Input is limited to
+16 characters. Spaces, exponent notation, unit suffixes, nonfinite values,
+incomplete numbers, extra fractional digits and out-of-range values refuse;
+there is no rounding or clamping. Backspace edits the text.
+
+Enter accepts the text into a detached local proposed value. It sends no mutation
+and does not open a review. **F4** requests the existing complete ReviewSet review,
+which names stable input identity, parameter, exact proposed value/unit and the
+provider request with show, epoch, revision and scope. Every review page must be
+presented before a separate Enter confirms it. Existing engine hold, mode,
+transition and correlated-completion semantics apply unchanged. The local draft,
+committed target, current linear coefficients and pending/review state are shown
+separately; coefficients are not meters. Other editors, existing reviews and
+queued/in-progress operations exclude opening a numeric editor, and the numeric
+draft excludes other parameter edits and editors.
+
+Focus, controller/role loss, navigation, scope replacement and reconnect fence
+queued authorization and reviews. Detached numeric text remains in memory, pinned
+to its original stable input/show/epoch; F5 reconnects read-only and G remains an
+explicit grant. After loss or a changed revision/generation, select the original
+input and press its original D/C key to explicitly revalidate retained content,
+then request a **new F4 review** and confirm the presented review. A replaced show,
+epoch or input requires Esc and a newly opened draft. Selection changes cannot
+apply the draft to another channel. Inventory positions are never input identities.
+Esc discards unsent local content/review only; it does not cancel or undo a submitted
+mutation. A submitted result may remain uncertain until fresh readback; reconnect
+never replays it. No automatic grant, engine permission or hardware activation is
+introduced.
+
+The explicit ignored `exact_frontend_real` test uses real Frontend keyboard and
+semantic actions against a SHA256-pinned `gigpies-headless` synthetic service.
+It checks unchanged state before review/confirm, displayed complete review,
+correlated Applied completion independently of target, advancing readback,
+settled expected fader/equal-power-pan coefficients, unrelated input preservation,
+cancellation and read-only reconnect without replay. Set `SHR_DESK_GP03`,
+`SHR_DESK_GP03_SHA256` and a **new** private `SHR_DESK_EXACT_EVIDENCE` directory:
+
+```sh
+flock -xn /home/shome/p/.gigpies-build.lock env -u DISPLAY -u WAYLAND_DISPLAY \
+  CARGO_TARGET_DIR=/home/shome/p/shr-desk/target \
+  CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 \
+  SHR_DESK_GP03=/absolute/accepted/gigpies-headless \
+  SHR_DESK_GP03_SHA256=ACCEPTED_SHA256 \
+  SHR_DESK_EXACT_EVIDENCE=/absolute/new/private/evidence \
+  VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  cargo +1.97.1 test --locked -j1 --features native --test exact_frontend_real -- \
+  --ignored --exact actual_exact_foh_keyboard_semantics_review_coefficients_cancel_reconnect \
+  --nocapture --test-threads=1
+```
+
+Inspect that ICD before explicit CPU rendering. This saves actual editor/review
+SVG/PPM and readbacks and checks CPU Vulkan presentation when selected; it opens
+no window or audio/MIDI/DMX device. It establishes software integration only.
+Normal tests cover exact syntax/range/step, identity and context fences, key/action
+parity, exclusivity, queue admission and scene bounds. Physical acceptance remains
+separate.
+
 Input queue64, provider request queue8, provider updates1 coalesced, LED desired
 state1 coalesced are separate. Provider I/O runs on a joined worker; window input
 never waits for framing/retry/engine reply. UI exit sends no recall or release;

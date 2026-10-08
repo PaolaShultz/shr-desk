@@ -19,6 +19,13 @@ scoped PA configuration and output-route controls, with task0014 acceptance trac
 in [status](docs/STATUS.md). Attaching is read-only, grants are explicit,
 and reconnect discards local intents without recalling a mix.
 
+FOH Mix/Channel includes detached exact **D** fader dB and **C** pan entry.
+Enter accepts text locally; F4 requests a complete review, followed by presented
+review/Enter confirmation. Fader uses -60.0..+12.0 dB in 0.1 dB steps; signed
+integer pan uses -100 left, 0 center and +100 right. See
+[native frontend](docs/NATIVE_FRONTEND.md#exact-foh-fader-and-pan) for recovery,
+strict entry rules and the opt-in actual synthetic-provider check.
+
 The four-band channel-processing extension uses legacy `GP07-processing:2` or explicitly configured `GP07-processing:4`,
 four independent bell frequency/gain/Q/bypass controls and the unchanged compressor.
 It adds explicit `--processing` capability

@@ -625,7 +625,8 @@ mod operator_key_tests {
             assert_eq!(key_name(&Key::Named(key)).as_deref(), Some(name));
         }
         for key in [
-            "E", "S", "O", "F", "V", "L", "U", "I", "1", "2", "3", "-", ".", "0",
+            "D", "C", "d", "c", "+", "E", "S", "O", "F", "V", "L", "U", "I", "1", "2", "3", "-",
+            ".", "0",
         ] {
             assert_eq!(key_name(&Key::Character(key.into())).as_deref(), Some(key));
         }
