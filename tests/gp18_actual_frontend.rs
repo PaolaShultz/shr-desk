@@ -345,6 +345,32 @@ fn settled(f: &mut Frontend, end: Instant) {
             })
     });
 }
+fn compressor_converged(f: &mut Frontend, end: Instant) {
+    // Configuration-ready is not compressor envelope convergence. Allow
+    // ten configured 100ms release constants in actual processed frames,
+    // while keeping the original run deadline and observations current.
+    let convergence_frame = f
+        .state
+        .as_ref()
+        .unwrap()
+        .snapshot
+        .as_ref()
+        .unwrap()
+        .frame
+        .parse::<u64>()
+        .unwrap()
+        + 48_000;
+    wait(f, end, "compressor periodic convergence", |f| {
+        f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                u.snapshot.as_ref().is_some_and(|s| {
+                    s.frame
+                        .parse::<u64>()
+                        .is_ok_and(|frame| frame >= convergence_frame)
+                })
+            })
+    });
+}
 fn fader(f: &mut Frontend, end: Instant, mdb: i32) {
     wait(f, end, "fader fresh", Frontend::fresh);
     let current = f
@@ -627,6 +653,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             assert!(rms(&lane(&eq, mon3)) > rms(&lane(&pre, mon3)) * 1.5);
             trace(&f, "channel EQ", &mut events);
             processing_edit(&mut f, end, &[(17, "0"), (18, "-50"), (19, "4"), (23, "0")]);
+            compressor_converged(&mut f, end);
             let comp = capture(&host, &mut f, end, "compression");
             equal(&eq, &comp, mon1);
             assert!(rms(&lane(&comp, mon3)) < rms(&lane(&eq, mon3)) * 0.8);
@@ -658,6 +685,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             tap(&mut f, "M");
             confirm(&mut f, end);
             settled(&mut f, end);
+            compressor_converged(&mut f, end);
             let recovered = capture(&host, &mut f, end, "shared-unmute");
             equal(&post, &recovered, mon1);
             equal(&post, &recovered, mon3);
