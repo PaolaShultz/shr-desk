@@ -2576,7 +2576,14 @@ impl Frontend {
                 Ok(())
             }
             Action::ProcessingEdit => {
-                if self.page != Page::Channel || self.scope != "foh" || !self.processing_ready() {
+                if self.page != Page::Channel
+                    || self.sends_page
+                    || self.live_page
+                    || self.brain_page
+                    || self.topology_page.is_some()
+                    || self.scope != "foh"
+                    || !self.processing_ready()
+                {
                     return Err(
                         "Processing editor requires Channel, FOH and fresh ready GP07".into(),
                     );
@@ -4284,7 +4291,7 @@ mod processing_tests {
         );
         after_cancel.received = Instant::now();
         after_cancel.generation = f.provider.generation();
-        after_cancel.attachment_generation = f.provider.generation();
+        after_cancel.attachment_generation = f.attachment_fence.unwrap();
         f.accept_update(after_cancel);
         f.key("F11").unwrap();
         f.key("F4").unwrap();
@@ -5602,21 +5609,28 @@ impl Frontend {
     }
 }
 impl Frontend {
-    pub fn live_eq_ready(&self) -> bool {
+    fn live_eq_observation_fresh(&self) -> bool {
         self.fresh()
             && self.state.as_ref().is_some_and(|u| {
                 u.live_eq_age_ms.is_some_and(|age| {
                     age.saturating_add(u.received.elapsed().as_millis() as u64) <= 250
                 }) && u.live_eq.as_ref().is_some_and(|s| {
-                    s.editable()
-                        && u.snapshot.as_ref().is_some_and(|raw| {
-                            raw.authority.revision == s.revision
-                                && raw.topology.as_ref().is_some_and(|t| {
-                                    s.map_revision.parse::<u64>().ok() == Some(t.map_revision)
-                                })
-                        })
+                    u.snapshot.as_ref().is_some_and(|raw| {
+                        raw.authority.revision == s.revision
+                            && raw.topology.as_ref().is_some_and(|t| {
+                                s.map_revision.parse::<u64>().ok() == Some(t.map_revision)
+                            })
+                    })
                 })
             })
+    }
+    pub fn live_eq_ready(&self) -> bool {
+        self.live_eq_observation_fresh()
+            && self
+                .state
+                .as_ref()
+                .and_then(|u| u.live_eq.as_ref())
+                .is_some_and(crate::live_eq::Snapshot::editable)
     }
     fn live_scene(&self) -> Scene {
         let mut s = Scene::default();
@@ -5643,7 +5657,12 @@ impl Frontend {
         line(
             60,
             format!(
-                "PA scope {} / {}",
+                "{} / PA scope {} / {}",
+                if self.live_eq_observation_fresh() {
+                    "FRESH PAIRED READBACK"
+                } else {
+                    "STALE / LAST CONFIRMED / EDITS DISABLED"
+                },
                 self.scope,
                 if self.state.as_ref().is_some_and(Update::writer_granted) {
                     "explicit grant"
@@ -5690,7 +5709,18 @@ impl Frontend {
                 "#e4e8e9",
             );
             if let Ok(owner) = live.owner() {
-                line(252,"CALCULATED EQ RESPONSE / CURRENT cyan, COMMITTED TARGET amber / static endpoint curves".into(),"#9caebc");
+                line(
+                    252,
+                    format!(
+                        "CALCULATED EQ RESPONSE / {} CURRENT cyan, COMMITTED TARGET amber / static endpoints",
+                        if self.live_eq_observation_fresh() {
+                            ""
+                        } else {
+                            "LAST CONFIRMED"
+                        }
+                    ),
+                    "#9caebc",
+                );
                 line(288,"During a fade these curves are NOT the exact time-varying transfer. No spectrum/protection/room measurement.".into(),"#9caebc");
                 for (row, state) in ["current", "target"].into_iter().enumerate() {
                     let summary = owner[state]
@@ -5882,6 +5912,96 @@ mod gp18_ui_tests {
             assert!(f.scene().in_bounds());
             f.key("I").unwrap();
         }
+    }
+    #[test]
+    fn live_scene_independently_expired_raw_or_extension_is_last_confirmed() {
+        for expire_raw in [false, true] {
+            let (mut f, _) = super::processing_tests::master_surface();
+            f.brain_page = false;
+            f.live_page = true;
+            let corpus: Vec<Value> = serde_json::from_slice(include_bytes!(
+                "../tests/fixtures/master-eq/v1/producer.json"
+            ))
+            .unwrap();
+            let live = crate::live_eq::Snapshot::decode(
+                corpus
+                    .into_iter()
+                    .find(|v| v["label"] == "baseline")
+                    .unwrap()["snapshot"]
+                    .clone(),
+            )
+            .unwrap();
+            let u = f.state.as_mut().unwrap();
+            u.snapshot = Some(
+                crate::audio::decode_snapshot(include_bytes!(
+                    "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+                ))
+                .unwrap(),
+            );
+            u.snapshot.as_mut().unwrap().authority.revision = live.revision.clone();
+            u.snapshot
+                .as_mut()
+                .unwrap()
+                .topology
+                .as_mut()
+                .unwrap()
+                .map_revision = live.map_revision.parse().unwrap();
+            u.live_eq = Some(live);
+            u.live_eq_age_ms = Some(0);
+            u.snapshot_age_ms = Some(0);
+            u.received = Instant::now();
+            assert!(f.live_eq_ready());
+            if expire_raw {
+                f.state.as_mut().unwrap().snapshot_age_ms = Some(251);
+            } else {
+                f.state.as_mut().unwrap().live_eq_age_ms = Some(251);
+            }
+            assert!(!f.live_eq_ready());
+            assert!(f.action(Action::LiveEqEdit).is_err());
+            assert!(f.scene().primitives.iter().any(|p|matches!(p,Primitive::Text{value,..} if value.contains("STALE / LAST CONFIRMED"))));
+        }
+    }
+    #[test]
+    fn processing_controller_cannot_open_hidden_under_sends_but_visible_keys_work() {
+        let (mut f, rx) = sends_surface();
+        f.scope = "foh".into();
+        f.page = Page::Channel;
+        let u = f.state.as_mut().unwrap();
+        u.processing = crate::processing::decode_reply(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/gp07v4-ready.json"
+        ))
+        .unwrap()
+        .snapshot;
+        u.processing_age_ms = Some(0);
+        u.snapshot.as_mut().unwrap().authority.revision =
+            u.processing.as_ref().unwrap().revision.clone();
+        assert!(f.action(Action::ProcessingEdit).is_err());
+        assert!(f.processing_draft.is_none());
+        assert!(
+            f.scene()
+                .primitives
+                .iter()
+                .any(|p| matches!(p,Primitive::Text{value,..} if value.contains("SENDS")))
+        );
+        let mut fresh = f.state.clone().unwrap();
+        f.action(Action::Page(Page::Channel)).unwrap();
+        fresh.generation = f.provider.generation();
+        fresh.received = Instant::now();
+        f.accept_update(fresh);
+        f.key("E").unwrap();
+        f.key("I").unwrap();
+        assert!(f.processing_draft.is_some());
+        assert!(
+            f.scene()
+                .primitives
+                .iter()
+                .any(|p| matches!(p,Primitive::Text{value,..} if value.contains("EDIT FIELD")))
+        );
+        f.key("F4").unwrap();
+        assert!(
+            rx.try_iter()
+                .any(|r| matches!(r.operation, Operation::ReviewProcessing { .. }))
+        );
     }
     #[test]
     #[ignore = "explicit current frontend offline preview gallery; no connected engine or display"]

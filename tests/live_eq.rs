@@ -180,3 +180,47 @@ fn actual_owner_fault_retired_readback_admission() {
     s.validate().unwrap();
     assert!(!s.editable());
 }
+#[test]
+fn new_epoch_discards_old_live_counters_and_authorization_without_replay() {
+    let old = snapshot("baseline");
+    let mut raw = shr_desk::audio::decode_snapshot(include_bytes!(
+        "fixtures/gp18/v1-corrected/raw-baseline.json"
+    ))
+    .unwrap();
+    raw.authority.epoch = old.epoch.clone();
+    raw.clock.as_mut().unwrap().epoch = old.epoch.parse().unwrap();
+    raw.authority.revision = old.revision.clone();
+    raw.topology.as_mut().unwrap().map_revision = old.map_revision.parse().unwrap();
+    let mut session = shr_desk::audio::Session::new_version(
+        &old.show_id,
+        1,
+        "old-epoch-live",
+        "pa_configuration",
+        2,
+    )
+    .unwrap();
+    session.ingest_snapshot(raw.clone(), 0).unwrap();
+    session.ingest_live_eq(old.clone(), 0).unwrap();
+    session
+        .begin("grant", json!({"scope":"pa_configuration"}), 0)
+        .unwrap();
+    assert!(session.pending.is_some());
+    session.reconnect(2, "new-epoch-live").unwrap();
+    assert!(session.pending.is_none());
+    assert!(session.lease_deadline().is_none());
+    assert!(session.live_eq.is_none());
+    assert!(session.live_eq_age(1).is_none());
+    assert!(!session.fresh(1));
+    let mut fresh = old;
+    fresh.epoch = "2".into();
+    fresh.frame = "0".into();
+    fresh.revision = "0".into();
+    raw.authority.epoch = "2".into();
+    raw.clock.as_mut().unwrap().epoch = 2;
+    raw.authority.revision = "0".into();
+    session.ingest_snapshot(raw, 1).unwrap();
+    assert!(session.ingest_live_eq(fresh.clone(), 1).unwrap());
+    assert!(session.live_eq_fresh(1));
+    assert!(!session.ingest_live_eq(fresh, 2).unwrap());
+    assert_eq!(session.live_eq_age(2), Some(1));
+}

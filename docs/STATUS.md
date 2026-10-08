@@ -46,10 +46,10 @@ physical mappings, listening and clock-lock evidence remain separate gates.
 Historical/exhaustive/long, actual-provider opt-ins and hardware trials were excluded;
 no physical output was activated.
 
-The initial simulator gallery still contains historical unavailable labels.
-Current channel four-band EQ and compressor controls are already software-validated;
-independent raw/post-mute monitor sends also exist. Selectable pre/post aux taps,
-a dedicated sends overview and live master-EQ transitions remain separate work.
+The initial simulator gallery is historical and does not model channel DSP.
+Current channel four-band EQ/compression exists in production. Task0018 D adds
+independent selected GP18 taps, sends overview/editors and optional live master EQ;
+its current validation boundary is stated at the top of this document.
 
 Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
 Task0012 processing source was published and synchronized. Task0013 four-band
@@ -100,8 +100,9 @@ PA/output configuration; see the Task0014 and Task0015 checkpoints below and
   review gallery. PNGs retained only as local review evidence.
 
 The graph data and meter values are illustrative fixtures. No real FFT, audio
-measurement, live meter, mixer output or renderer timing is claimed. Eq/dynamics,
-bus/master, recorder and PA controls remain visibly unavailable/planned.
+measurement, live meter, mixer output or renderer timing is claimed for these
+historical simulator drafts. They do not represent current connected channel EQ,
+compression, sends or PA/master EQ capabilities. Recorder controls remain separate.
 
 ## Historical Task0008/0009 software scope and remaining work
 

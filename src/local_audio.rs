@@ -7030,6 +7030,17 @@ mod gp18_pair_tests {
         r["snapshot"] = body.clone();
         r["context"]["epoch"] = json!(snapshot.authority.epoch);
         r["context"]["show_id"] = json!(snapshot.authority.show_id);
+        for key in [
+            "show_id",
+            "epoch",
+            "writer",
+            "lease",
+            "expected_revision",
+            "request_id",
+            "module",
+        ] {
+            r["outcome"][key] = r["context"][key].clone();
+        }
         r["outcome"]["body"]["revision"] = json!(snapshot.authority.revision);
         r["outcome"]["body"]["snapshot"] = body["authority"].clone();
         serde_json::to_vec(&r).unwrap()

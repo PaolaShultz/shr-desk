@@ -936,6 +936,7 @@ impl Session {
         self.disconnect();
         if self.epoch != epoch {
             self.snapshot = None;
+            self.live_eq = None;
             self.sends = None;
             self.processing = None;
         }
