@@ -99,7 +99,9 @@ struct HeldQuery {
     generation: u64,
     dimensions: [u32; 6],
 }
+type FxNotice = Box<dyn FnMut(&Session) + Send>;
 pub struct Operator {
+    fx_notice: Option<FxNotice>,
     paired_nonce: u64,
     paired_enabled: bool,
     maintenance_replies: std::collections::VecDeque<crate::lease_maintenance::Reply>,
@@ -199,6 +201,7 @@ impl Operator {
         version: u8,
     ) -> Result<Self, String> {
         Ok(Self {
+            fx_notice: None,
             paired_nonce: 0,
             paired_enabled: false,
             maintenance_replies: std::collections::VecDeque::new(),

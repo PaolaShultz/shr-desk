@@ -614,6 +614,19 @@ fn worker(
                         received,
                     });
                 }
+                if matches!(r.operation, Operation::Confirm(_))
+                    && let Some(template)=latest.update.lock().unwrap().clone()
+                {
+                    let notice_latest=latest.clone();let notice_generation=generation.clone();
+                    o.fx_notice(Box::new(move |session| {
+                        if notice_generation.load(Ordering::Acquire)!=g { return; }
+                        let mut update=template.clone();
+                        update.fx=session.fx.clone();update.fx_age_ms=None;update.fresh=false;
+                        update.status=session.last_result.clone();update.last_operation=None;
+                        update.review=None;update.received=Instant::now();
+                        *notice_latest.update.lock().unwrap()=Some(update);
+                    }));
+                }
                 let local_result = match &r.operation {
                     Operation::Fx(crate::fx::Operation::Review{..})
                     | Operation::ReviewDevice(..)

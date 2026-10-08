@@ -2,6 +2,8 @@
 use super::*;
 use crate::fx as w;
 impl Operator {
+    pub(crate) fn fx_notice(&mut self, notice: super::FxNotice) { self.fx_notice=Some(notice); }
+    fn publish_fx_notice(&mut self) { if let Some(mut notice)=self.fx_notice.take(){notice(&self.session);self.fx_notice=Some(notice);} }
     pub(crate) fn refresh_fx(&mut self,explicit:bool)->Result<(),String>{
         self.check_guard()?;
         if self.session.snapshot_request().version!=2{return Err("FX requires explicit dynamic provider".into());}
@@ -53,7 +55,7 @@ impl Operator {
     }
     pub(crate) fn mutate_fx(&mut self,body:Value)->Result<(),String>{
         let result=self.mutate_fx_once(body);
-        if let Err(e)=&result && self.session.pending.as_ref().is_some_and(|p|p.request.kind=="fx_configure") {self.session.fx_unknown(e);}
+        if let Err(e)=&result && self.session.pending.as_ref().is_some_and(|p|p.request.kind=="fx_configure") {self.session.fx_unknown(e);self.publish_fx_notice();}
         result
     }
     fn mutate_fx_once(&mut self,body:Value)->Result<(),String>{
@@ -69,6 +71,7 @@ impl Operator {
                 let r=w::Reply::decode(d.value().clone())?;
                 let accepted_current=self.session.dispatch_fx(r.clone())?;
                 if !accepted_current || r.context != request.context { continue; }
+                self.publish_fx_notice();
                 if matches!(r.state.as_str(),"settled"|"refused"|"cancelled"|"unknown") {
                     if r.state!="settled"{return Err(format!("FX {} {:?}",r.state,r.reason));}
                     self.refresh_fx(false).map_err(|e|format!("correlated FX settlement; fresh readback unavailable: {e}"))?;
@@ -142,7 +145,9 @@ mod regression {
             let body=serde_json::to_value(&initial).unwrap();raw["snapshot"]=body.clone();raw["context"]["epoch"]=json!("9");raw["outcome"]["epoch"]=json!("9");raw["outcome"]["body"]["revision"]=json!("2");raw["outcome"]["body"]["snapshot"]=body["authority"].clone();
             let saw=Arc::new(AtomicBool::new(false));
             let mut op=Operator::from_document_connection(Box::new(Fixture{queue:VecDeque::new(),old,stages,raw,owner,saw_current_settled:saw.clone()}),&initial.authority.show_id,9,"unused","fx_configuration",2).unwrap();op.session=session;
+            let progress=Arc::new(std::sync::Mutex::new(Vec::new()));let visible=progress.clone();op.fx_notice(Box::new(move |s|visible.lock().unwrap().push(s.fx.evidence.last().unwrap().state.clone())));
             op.mutate_fx(w::body(&mutation).unwrap()).unwrap();
+            assert_eq!(*progress.lock().unwrap(),["preparing","permitted","applied","settled"]);
             assert!(saw.load(Ordering::Acquire));assert!(op.session.pending.is_none());assert_eq!(op.session.fx.evidence.last().unwrap().context.request_id.as_deref(),Some("3"));assert!(op.session.fx_fresh(op.now()));
         }
     }
