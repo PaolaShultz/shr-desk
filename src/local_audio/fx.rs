@@ -137,7 +137,7 @@ mod regression {
                 stages.push(r);
             }
             let mut owner=c["final_snapshot"].clone();owner["revision"]=json!("2");owner["frame"]=json!("11520");owner["observation"]=stages.last().unwrap()["observation"].clone();
-            let mut raw:Value=serde_json::from_str(include_str!("../../tests/fixtures/gp14/v1/profile-48.json")).unwrap()["snapshot"].clone();
+            let mut raw:Value=serde_json::from_str::<Value>(include_str!("../../tests/fixtures/gp14/v1/profile-48.json")).unwrap()["snapshot"].clone();
             initial.authority.revision="2".into();initial.authority.sequence=(crate::provider::counter(&initial.authority.sequence).unwrap()+1).to_string();initial.frame="11520".into();initial.clock.as_mut().unwrap().next_frame=11520;
             let body=serde_json::to_value(&initial).unwrap();raw["snapshot"]=body.clone();raw["context"]["epoch"]=json!("9");raw["outcome"]["epoch"]=json!("9");raw["outcome"]["body"]["revision"]=json!("2");raw["outcome"]["body"]["snapshot"]=body["authority"].clone();
             let saw=Arc::new(AtomicBool::new(false));
