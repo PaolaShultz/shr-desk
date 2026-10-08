@@ -1,6 +1,6 @@
 # Status and next steps
 
-## Task0018 D3 post-final recovery — final software gates pending
+## Task0018 D3 post-final recovery — actual software episodes passed, full native suite pending
 
 Ordinary and extension applied finals now require a bounded advancing readback even
 when old independently queued telemetry or duplicate finals arrive first. The
@@ -17,13 +17,25 @@ against its own last-operation result, not target values or a later overwritten
 status. Stationary PCM captures wait 48000 actual frames after relevant signal and
 PA history changes under the original episode deadline; route comparisons follow
 the actual owner mapping, including interleaved stereo outputs. D3 private evidence
-retains all failed trials and their exact source attribution. Complete actual and
-final normal/native gates are pending until the final D3 report records their exits.
+retains all failed trials and their exact source attribution. Actual trial8 passed
+both fresh Frontend episodes (10 sends and 6 master captures) on the pinned reviewed
+synthetic witness: independent sends/taps, channel EQ/compression, mute/recovery,
+exact6.125 dB main-side gain/phase with unaffected owner-mapped routes, non-EQ
+preservation, muted full setup, separate rearm and reconnect/no replay. Both hosts
+exited0 without hardware. Root independently reran the same pinned driver on Pi5
+and accepted this actual software path. The final full default suite passed286 tests
+with15 explicit opt-ins ignored; both all-target warning-denied Clippy checks,
+formatting and the explicit CPU-native exact RGBA check passed. Nine publication
+Python tests were reused against unchanged policy/script hashes. Locked release
+results and artifact hashes are recorded in the private D3 handoff. Full normal
+native after the production correction remains NOT RUN: its prior652-second runtime
+exceeded the remaining bounded-worker budget. Coordinator must complete that exact
+gate before whole-package acceptance; the earlier D2 native pass is not final proof.
 D2's nine accepted scenes and 27 exact CPU RGBA comparisons remain reusable only
 with matching renderer hashes. No hardware or whole-host deadline claim is made.
 
 
-## Task0018 D consumer implementation — software checks, integration pending
+## Historical Task0018 D2 consumer checkpoint — integration was pending
 
 Dynamic GP07 now explicitly selects4; legacy2 and historical v3 bytes remain
 separate. GP18 sends has a capability-driven overview/channel editor, separate

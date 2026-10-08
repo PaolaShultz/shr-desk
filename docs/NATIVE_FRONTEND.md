@@ -784,3 +784,12 @@ recovery path; transport/protocol faults retain their typed fault recovery and
 bounded held-action closure. A fresh compatible advancing observation, input
 release and a new review are required before another edit. A known applied final
 with unavailable readback never satisfies the actual driver's acceptance predicate.
+
+D3's actual software driver passed with ten sends and six master captures, then
+passed independently on Pi5 using the identical hash-pinned executable and witness.
+This includes actual rastered review presentation, correlated completion, explicit
+software rearm, PCM route/gain/phase checks and reconnect without replay. Complete
+package acceptance still requires the final gates recorded in [Status](STATUS.md).
+Only narrow owner allocation-free commit/render has supporting owner evidence;
+the surrounding allocating host/control-I/O paths have no whole-host deadline or
+hardware qualification.
