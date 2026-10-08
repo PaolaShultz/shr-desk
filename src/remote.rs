@@ -574,6 +574,7 @@ fn decode_response_document(document: provider::StrictDocument) -> Result<Respon
 fn decode_response(bytes: &[u8]) -> Result<Response, String> {
     decode_response_document(provider::StrictDocument::parse(bytes)?)
 }
+#[cfg(test)]
 fn accept_reply_document(
     document: provider::StrictDocument,
     session: &str,
@@ -594,6 +595,7 @@ enum ReplyAdmission {
     Payload(provider::StrictDocument),
     Refused(String),
 }
+#[cfg(test)]
 fn reply_document(
     document: provider::StrictDocument,
     expected_session: &str,
