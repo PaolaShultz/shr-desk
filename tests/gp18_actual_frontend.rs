@@ -858,7 +858,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             level(&mut f, end, "0");
             scope(&mut f, end, "pa_configuration");
             tap(&mut f, "F7");
-            wait(&mut f, end, "PA structural ready", |f| structure_ready(f));
+            wait(&mut f, end, "PA structural ready", structure_ready);
             action(&mut f, Action::OutputRearm);
             confirm(&mut f, end);
             signal_history_converged(&mut f, end);
@@ -997,7 +997,13 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             action(&mut f, Action::StructureField(3));
             action(&mut f, Action::StructureText("-4.5".into()));
             let intended = f.structural_draft.as_ref().unwrap().document.clone();
+            wait(&mut f, end, "fresh full setup Apply", structure_ready);
             action(&mut f, Action::StructureApply);
+            assert!(
+                f.structural_draft.is_none(),
+                "Apply was refused: {}",
+                f.message
+            );
             confirm(&mut f, end);
             settled(&mut f, end);
             let full = capture(&host, &mut f, end, "muted-full-eq");
@@ -1055,6 +1061,11 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
                 Frontend::live_eq_ready(f) && structure_ready(f)
             });
             action(&mut f, Action::StructureApply);
+            assert!(
+                f.structural_draft.is_none(),
+                "Apply was refused: {}",
+                f.message
+            );
             wait(&mut f, end, "unsent live review", |f| {
                 f.state.as_ref().is_some_and(|u| u.review.is_some())
             });
