@@ -1,35 +1,40 @@
 # Status and next steps
 
-## Task0019 exact FOH controls — implementation checkpoint
+## Task0019 exact FOH controls — software acceptance
 
-FOH Mix/Channel now has detached D fader dB and C pan text entry, bounded strict
-integer parsing, local Enter acceptance, F4 complete ReviewSet and separate
+FOH Mix/Channel now has detached D fader dB and C pan text entry, strict bounded
+integer parsing, local Enter acceptance, F4 complete review and separate
 presented-review/Enter confirmation. Stable input/show/epoch/revision/generation/
-scope pins, focus/role/controller fences and explicit revalidation prevent stale
-or changed-selection application; reconnect is read-only without replay. Existing
-holds, modes, sends and processing semantics remain authoritative. See
+scope pins and focus/role/controller fences protect retained drafts. Reconnect is
+read-only; explicit D/C revalidation and a new review are required before applying
+retained content. Uppercase and unshifted key-up paths release the input fence.
+Existing holds, modes, sends and processing semantics remain authoritative. See
 [native frontend](NATIVE_FRONTEND.md#exact-foh-fader-and-pan).
 
-The actual synthetic GP03 episode passed keyboard/semantic controls, unchanged
-pre-confirm state, correlated Applied completion, advancing readback and expected
-settled fader/equal-power-pan coefficients with unchanged unrelated input. A frozen
-checkpoint passed294 default/297 native tests (16 opt-ins ignored each), both
-warning-denied Clippy configurations, formatting and both locked release builds,
-plus nine publication Python tests and focused links. Seven CPU-lavapipe exact
-RGBA checks passed on actual editor/review/applied/reconnect scenes.
+The corrected runtime source `afda0ecde68bc0925733be74de4d549630561c86` passed
+**295 default / 298 native normal tests**, zero failures, with 16 explicit opt-ins
+ignored per suite. Both all-target warning-denied Clippy configurations, formatting,
+both locked release builds, nine publication Python tests, focused document links
+and complete-index/history guards passed. The final suites include the lowercase
+key-up recovery regression; earlier checkpoint results were superseded by full
+reruns after that correction. All 447 tested source/build/document input hashes
+were verified; this acceptance update changes documentation only.
 
-Final review then found that unshifted d/c key-up did not rearm input after a
-context fence. This narrow routing correction and focused regression are included
-in the local handoff. **Full default/native suites, both Clippy configurations and
-both release builds must be rerun on this corrected final source by Pi5**; earlier
-frozen results are retained as checkpoint evidence, not final-source acceptance.
-The bounded Pi4 worker releases source/build ownership in its task0019 receipt.
-Exact source/build/actual executable/provider/render hashes and failed observations
-are retained in the private `artifacts/task0019/INDEX.md`. The corrected focused and
-actual checks are recorded there; this is software-only validation. No physical
-audio/controller/window/clock-lock or whole-host deadline acceptance is claimed.
-Pi5 owns review, independent reproduction, final gates, integration and private
-synchronization; no external publication or service change is implied.
+Pi4's corrected actual synthetic GP03 episode passed keyboard/semantic controls,
+unchanged pre-confirm state, correlated Applied completion, advancing readback,
+expected settled fader/equal-power-pan coefficients, unrelated-input preservation,
+cancellation and read-only reconnect without replay. Seven actual scene comparisons
+matched CPU lavapipe RGBA exactly. Pi5 independently passed the identical pinned
+operator/provider executable, plus the existing real controls/holds/review episode.
+Pi5 has no Vulkan ICD; its checks include CPU scene generation, not Vulkan rendering.
+Normal tests additionally cover the accepted 17-input dynamic inventory. The actual
+transaction episode uses GP03 v1 and makes no new producer/capacity claim.
+
+Exact commands, hashes, failures and private synchronization receipts remain in the
+task0019 evidence and exchange ledger. Historical/exhaustive/hardware campaigns were
+not repeated; unchanged producer validation was reused against verified inputs.
+No physical audio/controller/window/clock-lock or whole-host deadline qualification,
+service change or external publication accompanies this software acceptance.
 
 ## Task0018 completed software acceptance — 2026-10-08
 
