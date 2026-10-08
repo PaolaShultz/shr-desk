@@ -1,6 +1,6 @@
 # Status and next steps
 
-## Task0018 D consumer implementation — validation in progress
+## Task0018 D consumer implementation — software checks, integration pending
 
 Dynamic GP07 now explicitly selects4; legacy2 and historical v3 bytes remain
 separate. GP18 sends has a capability-driven overview/channel editor, separate
@@ -11,9 +11,20 @@ existing muted full-configuration editor remains separate. Master EQ now display
 8/31-band settings and owner-golden-checked static response curves. Current
 fixture-driven previews use actual frontend scenes and explicit offline labels.
 
-This checkpoint reports implementation, not final acceptance. Focused, full normal,
-actual frontend/provider PCM, native CPU rendering and publication gates are
-recorded with exact final revisions and failed trials in the private D handoff.
+D2 supplies nine inspected actual Frontend offline SVG/PPM/PNG scenes, including
+independent 17-input/3-monitor sends, changed channel EQ/compression, PEQ/GEQ and
+honest live settled/stale/unavailable states. All scene bounds and 27 explicit
+lavapipe CPU readbacks pass on the current renderer. Each independent scene
+restores an explicitly simulated observation; production deadlines stay intact.
+Raw and extension freshness, elapsed ages and last-confirmed values remain distinct.
+
+Actual Frontend integration remains pending. Retained trials exposed publication
+interference in the original witness; the coordinator supplied a reviewed witness-only
+correction. Later trials reached compression and exposed envelope convergence
+requirements beyond configuration-ready status. The driver retains strict periodic
+stationarity and unaffected-route assertions and waits actual processed frames under
+the original deadline. Exact source-matched final gate results and outstanding work
+are recorded in the private D2 report; earlier failures and A/D evidence remain intact.
 Coordinator owns architectural acceptance, independent sample/diff review,
 integration/synchronization and requested TV visual review. No physical devices,
 listening, clock-lock or whole-host hard-real-time qualification is claimed.
