@@ -119,6 +119,27 @@ impl FrameState {
             }
         }
     }
+    fn reply(
+        &mut self,
+        document: provider::StrictDocument,
+        session: &str,
+        timing: &mut Option<TransportTiming>,
+    ) -> Result<provider::StrictDocument, String> {
+        self.check()?;
+        let started = timing.as_ref().map(|_| Instant::now());
+        let admitted = reply_admission(document, session);
+        add_stage(timing, 4, started);
+        match admitted {
+            Ok(ReplyAdmission::Payload(document)) => {
+                if let Some(t) = timing {
+                    trace_add(&mut t.completed_reply_documents, 1, &mut t.overflow);
+                }
+                Ok(document)
+            }
+            Ok(ReplyAdmission::Refused(reason)) => Err(format!("remote refused: {reason}")),
+            Err(error) => self.retain(Err(error)),
+        }
+    }
     async fn read<R: tokio::io::AsyncRead + Unpin>(
         &mut self,
         receive: &mut R,
@@ -357,8 +378,10 @@ impl Connection {
         let Some(document) = result? else {
             return Ok(None);
         };
-        let result = accept_reply_document(document, &self.session, &mut self.timing).map(Some);
-        let result = self.framing.retain(result);
+        let result = self
+            .framing
+            .reply(document, &self.session, &mut self.timing)
+            .map(Some);
         self.close_failed_framing();
         result
     }
@@ -567,10 +590,23 @@ fn accept_reply_document(
     result
 }
 /// The exact Reply envelope remains checked before its validated subtree moves.
+enum ReplyAdmission {
+    Payload(provider::StrictDocument),
+    Refused(String),
+}
 fn reply_document(
     document: provider::StrictDocument,
     expected_session: &str,
 ) -> Result<provider::StrictDocument, String> {
+    match reply_admission(document, expected_session)? {
+        ReplyAdmission::Payload(document) => Ok(document),
+        ReplyAdmission::Refused(reason) => Err(format!("remote refused: {reason}")),
+    }
+}
+fn reply_admission(
+    document: provider::StrictDocument,
+    expected_session: &str,
+) -> Result<ReplyAdmission, String> {
     if document.value()["kind"] == "reply" {
         provider::keys(document.value(), &["kind", "session", "payload"])?;
         let session = document.value()["session"]
@@ -579,11 +615,11 @@ fn reply_document(
         if session != expected_session {
             return Err("remote session/response mismatch".into());
         }
-        document.subtree("payload")
+        document.subtree("payload").map(ReplyAdmission::Payload)
     } else {
         match decode_response_document(document)? {
             Response::Refused { session, reason } if session == expected_session => {
-                Err(format!("remote refused: {reason}"))
+                Ok(ReplyAdmission::Refused(reason))
             }
             _ => Err("remote session/response mismatch".into()),
         }
@@ -1202,5 +1238,54 @@ mod poisoned_frames {
                 .await
                 .is_err()
         );
+    }
+}
+#[cfg(test)]
+mod application_refusal_recovery {
+    use super::*;
+    use tokio::io::AsyncWriteExt;
+    #[tokio::test(flavor = "current_thread")]
+    async fn typed_application_refusal_does_not_poison_following_valid_reply() {
+        let (mut writer, mut receiver) = tokio::io::duplex(1024);
+        for v in [
+            json!({"kind":"refused","session":"1","reason":"optional GP21 unsupported"}),
+            json!({"kind":"reply","session":"1","payload":{"n":7}}),
+        ] {
+            let b = serde_json::to_vec(&v).unwrap();
+            writer
+                .write_all(&(b.len() as u32).to_be_bytes())
+                .await
+                .unwrap();
+            writer.write_all(&b).await.unwrap();
+        }
+        let mut state = FrameState::default();
+        let refusal = state
+            .read(
+                &mut receiver,
+                Instant::now() + Duration::from_millis(50),
+                false,
+                &mut None,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            state.reply(refusal, "1", &mut None).err().unwrap(),
+            "remote refused: optional GP21 unsupported"
+        );
+        assert!(state.failure.is_none());
+        let reply = state
+            .read(
+                &mut receiver,
+                Instant::now() + Duration::from_millis(50),
+                false,
+                &mut None,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let payload = state.reply(reply, "1", &mut None).unwrap();
+        assert_eq!(payload.value()["n"], 7);
+        assert!(state.failure.is_none());
     }
 }
