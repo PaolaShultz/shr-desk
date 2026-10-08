@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    Measurement(crate::pa_measurement::editor::Action),
     ExactEdit(crate::exact_value::Parameter),
     ExactText(String),
     ExactApply,
@@ -165,6 +166,7 @@ pub fn pad_action(d: &Desk, pad: usize) -> Option<Action> {
 }
 pub fn key_action(key: &str) -> Option<Action> {
     Some(match key {
+        "Y" => Action::Measurement(crate::pa_measurement::editor::Action::Open),
         "E" => Action::ProcessingEdit,
         "U" => Action::ProcessingField(-1),
         "I" => Action::ProcessingField(1),
@@ -228,6 +230,7 @@ pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
         | Action::TalkbackPress
         | Action::TalkbackRelease
         | Action::Topology
+        | Action::Measurement(_)
         | Action::StructureEdit
         | Action::LiveEqEdit
         | Action::MasterEqEdit

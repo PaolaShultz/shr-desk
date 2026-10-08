@@ -558,6 +558,7 @@ fn surface() -> Frontend {
         last_operation: None,
         writer_lease_remaining_ms: None,
         snapshot: Some(raw),
+        measurement: Default::default(),
         live_eq: None,
         live_eq_age_ms: None,
         live_eq_final: None,

@@ -3,6 +3,12 @@ use super::*;
 use std::io::Read;
 
 pub fn run(args: &[String]) -> Result<(), String> {
+    run_version(args, 1)
+}
+pub fn run_measurement(args: &[String]) -> Result<(), String> {
+    run_version(args, 2)
+}
+fn run_version(args: &[String], version: u8) -> Result<(), String> {
     if args.len() != 5 && args.len() != 7 {
         return Err(
             "usage: --audio-local ENDPOINT SHOW EPOCH WRITER SCOPE [--script FILE|-]".into(),
@@ -61,34 +67,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
     if commands.len() > 65536 || commands.lines().count() > 256 {
         return Err("script exceeds64KiB/256commands".into());
     }
-    let mut op = Operator {
-        paired_nonce: 0,
-        paired_enabled: false,
-        maintenance_replies: std::collections::VecDeque::new(),
-        transport: Box::new(Transport::connect(Path::new(&args[0]))?),
-        session: Session::new(
-            &args[1],
-            args[2].parse().map_err(|_| "epoch")?,
-            &args[3],
-            &args[4],
-        )?,
-        start: Instant::now(),
-        draft: None,
-        scope: args[4].clone(),
-        guard: None,
-        brain_signal: None,
-        brain_probes: BrainProbes::default(),
-        held_baseline: None,
-        held_query: None,
-        held_matched: None,
-        held_reuse: None,
-        held_nonce: 0,
-        held_highwater: 0,
-        held_observation: None,
-        held_refusal: None,
-        last_brain_send: None,
-        trace_timing: trace_timing_enabled(),
-    };
+    let mut op = Operator::connect_version(
+        Path::new(&args[0]),
+        &args[1],
+        args[2].parse().map_err(|_| "epoch")?,
+        &args[3],
+        &args[4],
+        version,
+    )?;
     op.refresh()?;
     let session_deadline = Instant::now() + Duration::from_secs(30);
     for line in commands.lines() {
@@ -100,7 +86,13 @@ pub fn run(args: &[String]) -> Result<(), String> {
             []=>{},["status"]=>{op.refresh()?;println!("{}",op.status());},
             ["snapshot"]=>op.refresh()?,
             ["wait",ms]=>op.wait(ms.parse().map_err(|_|"wait milliseconds")?)?,
-            ["grant"]=>op.mutate("grant",json!({"scope":args[4]}))?,
+            ["grant"]=>op.mutate("grant",json!({"scope":crate::scopes::value(&args[4])?}))?,
+            ["measurement",rest @ ..] if version==2=>{
+                use crate::pa_measurement::editor::{Editor,Operation as M};
+                let command=match rest { ["probe"]=>M::Probe,[kind,fields @ ..]=>crate::pa_measurement::editor::parse(match *kind{"capture"=>Editor::Capture,"cancel"=>Editor::Cancel,"result"=>Editor::Result,"propose"=>Editor::Propose,"apply"=>Editor::Apply,_=>return Err("measurement operation".into())},&fields.join(" "))?,_=>return Err("measurement command".into())};
+                match command{M::Probe=>op.refresh_measurement(None)?,M::Result(id)=>op.refresh_measurement(Some(&id))?,M::Review{kind,body}=>op.stage_measurement(&kind,body)?,M::Apply(id)=>op.stage_measurement_apply(&id)?};
+                println!("{}",op.session.measurement.lines().join("\n"));if let Some(review)=op.reviewed(){println!("{review}");}
+            },
             ["input-release"]=>op.session.input_released(),
             ["renew"]|["release"]=>op.mutate(w[0],json!({}))?,
             ["set",input,parameter,value]=>{
@@ -114,7 +106,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             ["preview",input,parameter]=>{op.mutate("preview_release",json!({"targets":[{"input":input,"parameter":parameter}]}))?;let preview=op.session.preview(op.now()).ok_or("preview expired/unavailable")?.clone();println!("ENGINE PREVIEW destinations={:?} ramp={} token={}",preview.destinations,preview.ramp_frames,preview.token);op.stage("release_preview",json!({"token":preview.token}))?;},
             ["preview-send",input,monitor]=>{op.mutate("preview_release",json!({"targets":[{"input":input,"parameter":"send","monitor":monitor}]}))?;let preview=op.session.preview(op.now()).ok_or("preview expired/unavailable")?.clone();println!("ENGINE PREVIEW destinations={:?} ramp={} token={}",preview.destinations,preview.ramp_frames,preview.token);op.stage("release_preview",json!({"token":preview.token}))?;},
             ["context-reset"]=>{op.draft=None;op.session.context_changed();},
-            ["json",kind,rest @ ..]=>{let body=audio::decode_command_body(rest.join(" ").as_bytes())?;if matches!(*kind,"set_mode"|"release_preview"){op.stage(kind,body)?;}else{op.mutate(kind,body)?;}},
+            ["json",kind,rest @ ..]=>{if crate::pa_measurement::wire::is_kind(kind){return Err("measurement requires semantic reviewed commands".into());}let body=audio::decode_command_body(rest.join(" ").as_bytes())?;if matches!(*kind,"set_mode"|"release_preview"){op.stage(kind,body)?;}else{op.mutate(kind,body)?;}},
             ["export",path]=>std::fs::write(path,format!("{}\n",op.status())).map_err(|e|e.to_string())?,
             _=>return Err(format!("unknown operator command: {line}")),
         }

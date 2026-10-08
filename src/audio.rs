@@ -1,4 +1,5 @@
 //! Reviewed C-AUDIO:1 commands and GP03-rendered:1 observations. No DSP.
+mod measurement;
 use crate::provider::{self, Snapshot, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -649,7 +650,15 @@ impl Request {
             let config = crate::brain_device::Config::decode(self.body["config"].clone())?;
             return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":"device_configure","body":{},"config":config})).map_err(|e|e.to_string());
         }
-        let contract = if matches!(self.kind.as_str(), "master_eq_snapshot" | "master_eq_set") {
+        let contract = if crate::pa_measurement::wire::is_kind(&self.kind) {
+            crate::pa_measurement::wire::validate_body(&self.kind, &self.body, None)?;
+            if self.version != 2
+                || (crate::pa_measurement::wire::mutation(&self.kind) != c.writer.is_some())
+            {
+                return fail("measurement request authority");
+            }
+            crate::pa_measurement::wire::CONTRACT
+        } else if matches!(self.kind.as_str(), "master_eq_snapshot" | "master_eq_set") {
             crate::live_eq::CONTRACT
         } else if matches!(self.kind.as_str(), "sends_snapshot" | "send_tap_set") {
             crate::sends::CONTRACT
@@ -662,7 +671,7 @@ impl Request {
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":if matches!(contract,"GP14-structure"|"GP15-brain"|"GP18-sends"|"GP18-master-eq") {1} else if contract == "GP07-processing" {processing_version(self.version)} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
+        let v = json!({"contract":contract,"version":if matches!(contract,"GP20-measurement"|"GP14-structure"|"GP15-brain"|"GP18-sends"|"GP18-master-eq") {1} else if contract == "GP07-processing" {processing_version(self.version)} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -723,6 +732,7 @@ struct Lease {
 /// One writer, one immutable outstanding request, injected monotonic milliseconds.
 #[derive(Clone)]
 pub struct Session {
+    pub measurement: crate::pa_measurement::wire::State,
     version: u8,
     show: String,
     epoch: u64,
@@ -787,6 +797,7 @@ impl Session {
             return fail("session identity/scope");
         }
         Ok(Self {
+            measurement: Default::default(),
             version,
             show: show.into(),
             epoch,
@@ -901,6 +912,7 @@ impl Session {
         self.armed = !self.context_exhausted;
     }
     pub fn context_changed(&mut self) {
+        self.measurement.receipt = None;
         if self.maintenance.take().is_some() {
             self.lease = None;
         }
@@ -2070,6 +2082,19 @@ impl Session {
     }
     fn validate_command(&self, kind: &str, body: &Value, now: u64) -> Result<(), String> {
         match kind {
+            kind if crate::pa_measurement::wire::mutation(kind) => {
+                if self.version != 2
+                    || self.scope != "pa_configuration"
+                    || !self.measurement_fresh(now)
+                {
+                    return fail("fresh measurement basis and PA configuration lease required");
+                }
+                crate::pa_measurement::wire::validate_body(
+                    kind,
+                    body,
+                    self.measurement.snapshot.as_ref(),
+                )
+            }
             "device_configure" => {
                 if self.scope != "local_operator_monitor" || !self.device_fresh(now) {
                     return fail("fresh device observation and local operator lease required");

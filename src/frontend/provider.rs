@@ -368,6 +368,10 @@ fn worker(
                 .as_ref()
                 .is_some_and(|o| o.held_transport_authenticated()),
             brain_status: brain_status.clone(),
+            measurement: op
+                .as_ref()
+                .map(|o| o.session.measurement.clone())
+                .unwrap_or_default(),
             live_eq: op.as_ref().and_then(|o| o.session.live_eq.clone()),
             live_eq_age_ms: op.as_ref().and_then(|o| o.session.live_eq_age(o.now())),
             live_eq_final: op.as_ref().and_then(|o| o.session.live_eq_final.clone()),
@@ -436,6 +440,10 @@ fn worker(
                 && !matches!(
                     r.operation,
                     Operation::InputReleased
+                        | Operation::Measurement(
+                            crate::pa_measurement::editor::Operation::Probe
+                                | crate::pa_measurement::editor::Operation::Result(_)
+                        )
                         | Operation::Cancel
                         | Operation::Reconnect
                         | Operation::LegacyReconnect
@@ -548,6 +556,7 @@ fn worker(
                         held_baseline_ready: o.held_baseline_ready(),
                         held_transport_authenticated: o.held_transport_authenticated(),
                         brain_status: brain_status.clone(),
+                        measurement: o.session.measurement.clone(),
                         live_eq: o.session.live_eq.clone(),
                         live_eq_age_ms: o.session.live_eq_age(o.now()),
                         live_eq_final: o.session.live_eq_final.clone(),
@@ -569,6 +578,7 @@ fn worker(
                             match &r.operation {
                                 Operation::EnableLiveEq => "live EQ probe",
                                 Operation::ReviewLiveEq(_) => "live EQ review",
+                                Operation::Measurement(_) => "PA measurement",
                                 Operation::EnableSends => "sends capability query",
                                 Operation::ReviewTap(_) => "separate tap review",
                                 Operation::SwitchScope(_) => "scope reattachment",
@@ -629,6 +639,27 @@ fn worker(
                         return Err("input context changed; intent discarded".into());
                     }
                     match r.operation {
+                        Operation::Measurement(command) => {
+                            use crate::pa_measurement::editor::Operation as M;
+                            match command {
+                                M::Probe => o.refresh_measurement(None),
+                                M::Result(id) => o.refresh_measurement(Some(&id)),
+                                M::Review { kind, body } => {
+                                    o.stage_measurement(&kind, body)?;
+                                    serial =
+                                        serial.checked_add(1).ok_or("review counter exhausted")?;
+                                    review = Some((serial, o.reviewed().unwrap_or_default()));
+                                    Ok(())
+                                }
+                                M::Apply(id) => {
+                                    o.stage_measurement_apply(&id)?;
+                                    serial =
+                                        serial.checked_add(1).ok_or("review counter exhausted")?;
+                                    review = Some((serial, o.reviewed().unwrap_or_default()));
+                                    Ok(())
+                                }
+                            }
+                        }
                         Operation::EnableLiveEq
                         | Operation::EnableSends
                         | Operation::EnableProcessing
@@ -835,6 +866,7 @@ fn worker(
                     held_baseline_ready: o.held_baseline_ready(),
                     held_transport_authenticated: o.held_transport_authenticated(),
                     brain_status: brain_status.clone(),
+                    measurement: o.session.measurement.clone(),
                     live_eq: o.session.live_eq.clone(),
                     live_eq_age_ms: o.session.live_eq_age(o.now()),
                     live_eq_final: o.session.live_eq_final.clone(),

@@ -1,0 +1,6 @@
+{
+  "contract": "C-PA-MEASUREMENT-REFUSAL",
+  "reason": "object_capacity_or_duplicate_key at line 1 column 34",
+  "status": "refused",
+  "version": 1
+}

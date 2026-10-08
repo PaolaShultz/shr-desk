@@ -1,0 +1,423 @@
+{
+  "algorithm": "offline-h1-v1",
+  "arrival_samples": 0,
+  "capture": {
+    "clipped_mic": false,
+    "clipped_reference": false,
+    "clock_domain": "synthetic-common-clock",
+    "configuration_revision": "1",
+    "dropped_frames": "0",
+    "first_frame": "10000",
+    "id": "corpus-anchor",
+    "map_revision": "1",
+    "output_index": 0,
+    "position_id": "position-1",
+    "reference_id": "actual-input",
+    "reference_offset_frames": "0",
+    "reference_tap": "program-pre-pa",
+    "sample_rate": 48000,
+    "source_epoch": "1",
+    "timing_verified": true
+  },
+  "competing_peak_ratio": 0.11821388026584552,
+  "contract": "C-PA-MEASUREMENT-RESULT",
+  "options": {
+    "band_hz": [
+      100.0,
+      10000.0
+    ],
+    "max_arrival_samples": 2048
+  },
+  "proposal_eligible": true,
+  "reasons": [],
+  "samples": 32768,
+  "segments": 15,
+  "signed_correlation": 1.0,
+  "spectrum": [
+    {
+      "coherence": 1.0,
+      "frequency_hz": 105.46875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 257.8125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 410.15625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 574.21875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 726.5625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 878.90625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1042.96875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1195.3125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1359.375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1511.71875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1664.0625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1828.125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1980.46875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2144.53125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2296.875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2449.21875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2613.28125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2765.625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2929.6875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3082.03125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3234.375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3398.4375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3550.78125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3714.84375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3867.1875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4019.53125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4183.59375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4335.9375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4500.0,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4652.34375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4804.6875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4968.75,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5121.09375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5285.15625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5437.5,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5589.84375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5753.90625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5906.25,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6070.3125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6222.65625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6375.0,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6539.0625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6691.40625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6855.46875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7007.8125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7160.15625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7324.21875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7476.5625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7640.625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7792.96875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7945.3125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8109.375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8261.71875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8425.78125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8578.125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8730.46875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8894.53125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9046.875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9210.9375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9363.28125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9515.625,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9679.6875,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9832.03125,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9996.09375,
+      "magnitude": 1.0,
+      "phase_radians": 0.0
+    }
+  ],
+  "version": 1
+}

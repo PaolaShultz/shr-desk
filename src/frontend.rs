@@ -1,5 +1,6 @@
 //! Operator state and rendering over the real-provider worker boundary.
 //! No Simulator, device discovery or physical controller I/O.
+mod measurement;
 mod provider;
 #[cfg(test)]
 use crate::local_audio::Operator;
@@ -43,6 +44,7 @@ pub struct Config {
 }
 #[derive(Clone, Debug)]
 pub enum Operation {
+    Measurement(crate::pa_measurement::editor::Operation),
     SwitchScope(String),
     EnableLiveEq,
     ReviewLiveEq(Value),
@@ -88,6 +90,7 @@ pub enum Operation {
 }
 #[derive(Clone, Debug)]
 pub struct Update {
+    pub measurement: crate::pa_measurement::wire::State,
     pub generation: u64,
     pub attachment_generation: u64,
     pub snapshot: Option<RenderedSnapshot>,
@@ -274,6 +277,7 @@ pub struct Frontend {
     pub sends_channel: bool,
     pub selected_monitor: usize,
     pub exact_draft: Option<ExactDraft>,
+    pub measurement_ui: crate::pa_measurement::editor::State,
     pub send_draft: Option<SendDraft>,
     send_entry: Option<String>,
     pub selected: usize,
@@ -327,6 +331,7 @@ impl Frontend {
             sends_channel: false,
             selected_monitor: 0,
             exact_draft: None,
+            measurement_ui: Default::default(),
             send_draft: None,
             send_entry: None,
             selected: 0,
@@ -430,6 +435,12 @@ impl Frontend {
         self.fence_local();
     }
     fn fence_local(&mut self) {
+        if let Some(s) = &self.state
+            && s.measurement.snapshot.is_some()
+        {
+            self.measurement_ui.report = s.measurement.lines();
+            self.measurement_ui.report.insert(0,"RETAINED DESCRIPTION / stale after input-context change / explicit probe and new review required".into());
+        }
         self.talkback_release();
         if let Some(d) = &mut self.exact_draft {
             d.validated = false;
@@ -815,6 +826,9 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if let Some(action) = self.measurement_key(key) {
+            return self.action(Action::Measurement(action));
+        }
         if key == "F8" {
             return self.reconnect_legacy();
         }
@@ -1220,6 +1234,12 @@ impl Frontend {
             })
     }
     fn action(&mut self, action: Action) -> Result<(), String> {
+        if matches!(
+            action,
+            Action::Page(_) | Action::SendsPage | Action::BrainPage | Action::Topology
+        ) {
+            self.measurement_ui.open = false;
+        }
         if self.exact_draft.is_some()
             && !matches!(
                 action,
@@ -1240,6 +1260,7 @@ impl Frontend {
             return Err("Apply/confirm or Esc cancel exact draft first".into());
         }
         match action {
+            Action::Measurement(action) => self.measurement_action(action),
             Action::ExactEdit(parameter) => {
                 if self.scope != "foh"
                     || !matches!(self.page, Page::Mix | Page::Channel)
@@ -2096,6 +2117,11 @@ impl Frontend {
                 Ok(())
             }
             Action::Cancel | Action::Back => {
+                if self.measurement_ui.editor.take().is_some() {
+                    self.measurement_ui.text.clear();
+                } else if self.state.as_ref().is_none_or(|s| s.review.is_none()) {
+                    self.measurement_ui.open = false;
+                }
                 let submitted = self
                     .exact_draft
                     .as_ref()
@@ -2432,6 +2458,9 @@ impl Frontend {
             );
             line(972, self.message.clone(), "#f47c85");
             return scene;
+        }
+        if self.measurement_ui.open {
+            return self.measurement_scene();
         }
         if let Some(d) = &self.exact_draft {
             line(

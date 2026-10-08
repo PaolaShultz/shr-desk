@@ -1,5 +1,21 @@
 # Status and next steps
 
+## Task0020 PA measurement integration
+
+Desk now explicitly probes GP20 measurement support and offers ordinary keyboard
+Y/C/X/R/P/A workflows plus the same bounded headless editor. Capture, cancellation
+and proposal requests use the existing connection, request queue and scoped PA
+lease. PA owns analysis and candidate construction. Desk presents all spectral
+bins and uncertainty, checks exact proposal basis and candidate preservation, then
+uses the existing muted GP14 whole-configuration review. Rearm stays separate.
+See [measurement workflow](PA_MEASUREMENT.md) for fields, units and commands.
+
+Producer compatibility is pinned by the actual GP20 corpus; software acceptance
+uses the separately launched hash-pinned synthetic PA witness and the ignored
+`measurement_actual_frontend` test. The combined default/native production gates
+are owned by the final Task0020 Desk integration package. No microphone, physical
+output, acoustic alignment or hardware acceptance is claimed.
+
 ## Task0019 exact FOH controls — software acceptance
 
 FOH Mix/Channel now has detached D fader dB and C pan text entry, strict bounded

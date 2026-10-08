@@ -870,3 +870,10 @@ input state, detached drafts, review presentation and scene generation. The
 Operator-state and rendering regressions live in `frontend/` under their original
 test module names. Reconnect still discards submitted intents, requires fresh
 readback and never replays detached drafts. This organization adds no UI behavior.
+
+
+PA measurement has an explicit [GP20 operator workflow](PA_MEASUREMENT.md). Y
+opens/probes its page; C/X/R/P/A edit capture/cancel/result/proposal/muted apply.
+Literal text uses the ordinary keyboard, including Space. Escape discards an
+unsent review while retaining its measurement page; focus/resize fences never
+replay capture or configuration. PageUp/PageDown expose the complete report.

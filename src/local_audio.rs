@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod measurement;
 mod transport;
 #[cfg(test)]
 use crate::audio::Request;
@@ -16,6 +17,7 @@ use transport::{PollFd, poll};
 pub(crate) use transport::{trace_add, trace_timing_enabled, trace_us};
 
 struct Draft {
+    measurement_basis: Option<crate::pa_measurement::wire::Basis>,
     monitor_device: Option<audio::MonitorDevicePin>,
     kind: String,
     body: Value,
@@ -263,7 +265,14 @@ impl Operator {
     }
     pub(crate) fn review_valid(&self) -> bool {
         self.draft.as_ref().is_some_and(|d| {
-            self.session.generation() == d.generation
+            d.measurement_basis.as_ref().is_none_or(|b| {
+                self.session
+                    .measurement
+                    .snapshot
+                    .as_ref()
+                    .and_then(|s| s.current_basis.as_ref())
+                    == Some(b)
+            }) && self.session.generation() == d.generation
                 && d.monitor_device
                     .as_ref()
                     .is_none_or(|pin| self.session.validate_monitor_device(pin).is_ok())
@@ -292,6 +301,7 @@ impl Operator {
     }
     pub(crate) fn reviewed(&self) -> Option<String> {
         self.draft.as_ref().map(|d| {
+            if d.kind=="pa_set" {return format!("MUTED WHOLE PA CONFIGURATION / revision {} / program buses {} / explicit rearm remains separate\n{}",d.revision,d.body["program_buses"],d.body["configuration_json"].as_str().and_then(|s|serde_json::from_str::<Value>(s).ok()).and_then(|v|serde_json::to_string_pretty(&v).ok()).unwrap_or_default());}
             if d.kind=="device_configure" {return format!("DEVICE CONFIGURATION / revision {} / separate rearm required\n{}",d.revision,serde_json::to_string_pretty(&d.body["config"]).unwrap_or_default());}
             if d.kind == "processing_set" {
                 let config = crate::processing::decode_config(&d.body["config"]).expect("validated draft");
@@ -346,7 +356,8 @@ impl Operator {
         if matches!(
             contract,
             Some(
-                "GP15-device"
+                "GP20-measurement"
+                    | "GP15-device"
                     | "GP15-brain"
                     | "GP15-held-proof"
                     | "GP15-lease-maintenance"
@@ -370,6 +381,11 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some(crate::pa_measurement::wire::CONTRACT) {
+            self.session
+                .dispatch_measurement(crate::pa_measurement::wire::Reply::decode(bytes)?)?;
+            return Ok(true);
+        }
         if tag.contract.as_deref() == Some(crate::live_eq::CONTRACT) {
             let reply = crate::live_eq::decode_reply(bytes)?;
             self.session.dispatch_live_eq(reply, self.now())?;
@@ -2078,6 +2094,16 @@ impl Operator {
                             {
                                 return Err(format!("Brain refused: {reason}"));
                             }
+                            if crate::pa_measurement::wire::mutation(kind)
+                                && let Some(reason) = self
+                                    .session
+                                    .measurement
+                                    .final_reply
+                                    .as_ref()
+                                    .and_then(|r| r.reason.as_ref())
+                            {
+                                return Err(format!("measurement refused: {reason}"));
+                            }
                             // Structural map commits may deliberately close the old
                             // authenticated session after its final. Preserve that
                             // correlated completion independently of the next refresh.
@@ -2260,6 +2286,7 @@ impl Operator {
             self.scope, s.authority.show_id, s.authority.epoch, s.authority.revision, s.frame
         );
         self.draft = Some(Draft {
+            measurement_basis: None,
             monitor_device,
             kind: kind.into(),
             body,
@@ -2340,6 +2367,27 @@ impl Operator {
                 return Err("processing confirmation context changed during paired refresh".into());
             }
         }
+        if let Some(basis) = &d.measurement_basis {
+            self.refresh_measurement(None)?;
+            if self
+                .session
+                .measurement
+                .snapshot
+                .as_ref()
+                .and_then(|s| s.current_basis.as_ref())
+                != Some(basis)
+                || self
+                    .session
+                    .snapshot
+                    .as_ref()
+                    .is_none_or(|s| s.authority.revision != d.revision)
+                || self.session.generation() != d.generation
+            {
+                return Err(
+                    "measurement review basis changed; explicit new review required".into(),
+                );
+            }
+        }
         // No refresh between the final revision check and begin; the request pins it.
         self.mutate_inner(&d.kind, d.body)
     }
@@ -2350,7 +2398,7 @@ impl Operator {
 }
 /// Bounded script input avoids a blocking stdin read starving a granted lease.
 /// No writer is granted before the operator's explicit `grant` command.
-pub use batch::run;
+pub use batch::{run, run_measurement};
 mod batch;
 
 #[cfg(test)]

@@ -415,6 +415,7 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::PageDown => "PageDown",
             NamedKey::Enter => "Enter",
             NamedKey::Backspace => "Backspace",
+            NamedKey::Space => " ",
             NamedKey::Escape => "Esc",
             NamedKey::F1 => "F1",
             NamedKey::F2 => "F2",
@@ -621,6 +622,7 @@ mod operator_key_tests {
             (NamedKey::Enter, "Enter"),
             (NamedKey::PageDown, "PageDown"),
             (NamedKey::Escape, "Esc"),
+            (NamedKey::Space, " "),
         ] {
             assert_eq!(key_name(&Key::Named(key)).as_deref(), Some(name));
         }

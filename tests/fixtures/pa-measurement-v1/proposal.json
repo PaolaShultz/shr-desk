@@ -1,0 +1,417 @@
+{
+  "added_latency_samples": 24,
+  "basis_capture": {
+    "clipped_mic": false,
+    "clipped_reference": false,
+    "clock_domain": "synthetic-common-clock",
+    "configuration_revision": "1",
+    "dropped_frames": "0",
+    "first_frame": "10000",
+    "id": "corpus-anchor",
+    "map_revision": "1",
+    "output_index": 0,
+    "position_id": "position-1",
+    "reference_id": "actual-input",
+    "reference_offset_frames": "0",
+    "reference_tap": "program-pre-pa",
+    "sample_rate": 48000,
+    "source_epoch": "1",
+    "timing_verified": true
+  },
+  "basis_configuration": {
+    "inputs": [
+      {
+        "compressor": {
+          "attack_ms": 10.0,
+          "enabled": false,
+          "knee_db": 6.0,
+          "makeup_db": 0.0,
+          "ratio": 4.0,
+          "release_ms": 100.0,
+          "threshold_db": -18.0
+        },
+        "delay_ms": 0.0,
+        "eq": [
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          }
+        ],
+        "eq_enabled": true,
+        "gain_db": 0.0,
+        "geq_db": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "geq_enabled": false
+      },
+      {
+        "compressor": {
+          "attack_ms": 10.0,
+          "enabled": false,
+          "knee_db": 6.0,
+          "makeup_db": 0.0,
+          "ratio": 4.0,
+          "release_ms": 100.0,
+          "threshold_db": -18.0
+        },
+        "delay_ms": 0.0,
+        "eq": [
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          },
+          {
+            "db": 0.0,
+            "hz": 1000.0,
+            "kind": "bell",
+            "q": 0.707,
+            "slope": 1.0
+          }
+        ],
+        "eq_enabled": true,
+        "gain_db": 0.0,
+        "geq_db": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "geq_enabled": false
+      }
+    ],
+    "max_block": 256,
+    "nodes": [],
+    "outputs": [
+      {
+        "band": 0,
+        "muted": false,
+        "processing": {
+          "delay_ms": 0.0,
+          "eq": [
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            }
+          ],
+          "eq_enabled": true,
+          "gain_db": 0.0,
+          "inverted": false,
+          "limiter_db": -1.0,
+          "release_ms": 100.0
+        },
+        "source": {
+          "input": 0
+        },
+        "splits_hz": []
+      },
+      {
+        "band": 0,
+        "muted": false,
+        "processing": {
+          "delay_ms": 0.5,
+          "eq": [
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            },
+            {
+              "db": 0.0,
+              "hz": 1000.0,
+              "kind": "bell",
+              "q": 0.707,
+              "slope": 1.0
+            }
+          ],
+          "eq_enabled": true,
+          "gain_db": 0.0,
+          "inverted": true,
+          "limiter_db": -1.0,
+          "release_ms": 100.0
+        },
+        "source": {
+          "input": 0
+        },
+        "splits_hz": []
+      }
+    ],
+    "sample_rate": 48000,
+    "version": 2
+  },
+  "basis_configuration_revision": "1",
+  "changes": [
+    {
+      "after_delay_samples": 24,
+      "after_inverted": false,
+      "before_delay_samples": 0,
+      "before_inverted": false,
+      "output_index": 0
+    },
+    {
+      "after_delay_samples": 24,
+      "after_inverted": false,
+      "before_delay_samples": 24,
+      "before_inverted": true,
+      "output_index": 1
+    }
+  ],
+  "contract": "C-PA-ALIGNMENT-PROPOSAL",
+  "measurement_ids": [
+    "corpus-anchor",
+    "corpus-target"
+  ],
+  "reason": "offline_candidate_requires_combined_and_acoustic_verification",
+  "status": "proposed",
+  "verification_required": true,
+  "version": 1
+}

@@ -58,7 +58,10 @@ impl<'de> Deserialize<'de> for OwnerJson {
     }
 }
 pub(crate) fn parse_owner(text: &str) -> Result<Value, String> {
-    if text.is_empty() || text.len() > 48 * 1024 {
+    parse_owner_bounded(text, 48 * 1024)
+}
+pub(crate) fn parse_owner_bounded(text: &str, limit: usize) -> Result<Value, String> {
+    if text.is_empty() || text.len() > limit {
         return Err("PA owner document resource bound".into());
     }
     serde_json::from_str::<OwnerJson>(text)

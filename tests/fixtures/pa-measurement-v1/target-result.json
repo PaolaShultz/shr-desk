@@ -1,0 +1,423 @@
+{
+  "algorithm": "offline-h1-v1",
+  "arrival_samples": 24,
+  "capture": {
+    "clipped_mic": false,
+    "clipped_reference": false,
+    "clock_domain": "synthetic-common-clock",
+    "configuration_revision": "1",
+    "dropped_frames": "0",
+    "first_frame": "10000",
+    "id": "corpus-target",
+    "map_revision": "1",
+    "output_index": 1,
+    "position_id": "position-1",
+    "reference_id": "actual-input",
+    "reference_offset_frames": "0",
+    "reference_tap": "program-pre-pa",
+    "sample_rate": 48000,
+    "source_epoch": "1",
+    "timing_verified": true
+  },
+  "competing_peak_ratio": 0.11821416041680329,
+  "contract": "C-PA-MEASUREMENT-RESULT",
+  "options": {
+    "band_hz": [
+      100.0,
+      10000.0
+    ],
+    "max_arrival_samples": 2048
+  },
+  "proposal_eligible": true,
+  "reasons": [],
+  "samples": 32768,
+  "segments": 14,
+  "signed_correlation": -0.9999999999574817,
+  "spectrum": [
+    {
+      "coherence": 0.9999999999999994,
+      "frequency_hz": 105.46875,
+      "magnitude": 1.0000000001807465,
+      "phase_radians": 2.8102528033278515
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 257.8125,
+      "magnitude": 1.0000000000695126,
+      "phase_radians": 2.331650797588922
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 410.15625,
+      "magnitude": 0.999999999992366,
+      "phase_radians": 1.853048791744838
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 574.21875,
+      "magnitude": 0.9999999999931484,
+      "phase_radians": 1.3376312470431098
+    },
+    {
+      "coherence": 0.9999999999999996,
+      "frequency_hz": 726.5625,
+      "magnitude": 1.0000000000031477,
+      "phase_radians": 0.8590292412146252
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 878.90625,
+      "magnitude": 1.0000000000020959,
+      "phase_radians": 0.3804272353998049
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 1042.96875,
+      "magnitude": 0.9999999999968708,
+      "phase_radians": -0.13499030933135336
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1195.3125,
+      "magnitude": 1.0000000000005618,
+      "phase_radians": -0.6135923151518747
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 1359.375,
+      "magnitude": 0.9999999999970778,
+      "phase_radians": -1.1290098598836236
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 1511.71875,
+      "magnitude": 0.9999999999994694,
+      "phase_radians": -1.6076118657042606
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1664.0625,
+      "magnitude": 1.0000000000014178,
+      "phase_radians": -2.0862138715243943
+    },
+    {
+      "coherence": 0.9999999999999996,
+      "frequency_hz": 1828.125,
+      "magnitude": 0.9999999999991326,
+      "phase_radians": -2.601631416253578
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 1980.46875,
+      "magnitude": 1.0000000000002411,
+      "phase_radians": -3.0802334220744902
+    },
+    {
+      "coherence": 0.9999999999999997,
+      "frequency_hz": 2144.53125,
+      "magnitude": 0.9999999999996787,
+      "phase_radians": 2.687534340375944
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2296.875,
+      "magnitude": 1.0000000000007903,
+      "phase_radians": 2.20893233455597
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 2449.21875,
+      "magnitude": 0.9999999999995302,
+      "phase_radians": 1.7303303287347094
+    },
+    {
+      "coherence": 0.9999999999999996,
+      "frequency_hz": 2613.28125,
+      "magnitude": 0.9999999999999609,
+      "phase_radians": 1.2149127840055027
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 2765.625,
+      "magnitude": 0.9999999999996665,
+      "phase_radians": 0.7363107781844412
+    },
+    {
+      "coherence": 0.9999999999999997,
+      "frequency_hz": 2929.6875,
+      "magnitude": 1.0000000000002562,
+      "phase_radians": 0.22089323345527515
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3082.03125,
+      "magnitude": 0.9999999999997675,
+      "phase_radians": -0.25770877236454076
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3234.375,
+      "magnitude": 0.999999999999929,
+      "phase_radians": -0.7363107781847814
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3398.4375,
+      "magnitude": 0.9999999999996082,
+      "phase_radians": -1.251728322914748
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 3550.78125,
+      "magnitude": 0.9999999999998767,
+      "phase_radians": -1.7303303287352152
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3714.84375,
+      "magnitude": 1.0000000000000366,
+      "phase_radians": -2.2457478734645657
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 3867.1875,
+      "magnitude": 1.0000000000000429,
+      "phase_radians": -2.7243498792850533
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4019.53125,
+      "magnitude": 1.0000000000001403,
+      "phase_radians": 3.0802334220745804
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4183.59375,
+      "magnitude": 0.9999999999998842,
+      "phase_radians": 2.564815877344917
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 4335.9375,
+      "magnitude": 1.0000000000001255,
+      "phase_radians": 2.0862138715244827
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4500.0,
+      "magnitude": 1.0000000000000528,
+      "phase_radians": 1.5707963267949843
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 4652.34375,
+      "magnitude": 0.9999999999999771,
+      "phase_radians": 1.0921943209744929
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 4804.6875,
+      "magnitude": 0.9999999999997544,
+      "phase_radians": 0.6135923151542185
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 4968.75,
+      "magnitude": 0.9999999999999076,
+      "phase_radians": 0.09817477042457283
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5121.09375,
+      "magnitude": 1.0000000000000393,
+      "phase_radians": -0.38042723539569273
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 5285.15625,
+      "magnitude": 1.00000000000012,
+      "phase_radians": -0.8958447801253294
+    },
+    {
+      "coherence": 0.9999999999999999,
+      "frequency_hz": 5437.5,
+      "magnitude": 1.000000000000138,
+      "phase_radians": -1.3744467859455543
+    },
+    {
+      "coherence": 0.9999999999999993,
+      "frequency_hz": 5589.84375,
+      "magnitude": 0.9999999999999486,
+      "phase_radians": -1.8530487917658072
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5753.90625,
+      "magnitude": 0.9999999999999671,
+      "phase_radians": -2.368466336495476
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 5906.25,
+      "magnitude": 0.9999999999998899,
+      "phase_radians": -2.847068342315756
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6070.3125,
+      "magnitude": 0.9999999999999227,
+      "phase_radians": 2.9206994201344125
+    },
+    {
+      "coherence": 0.9999999999999997,
+      "frequency_hz": 6222.65625,
+      "magnitude": 0.9999999999999288,
+      "phase_radians": 2.4420974143139498
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 6375.0,
+      "magnitude": 0.9999999999999758,
+      "phase_radians": 1.9634954084934833
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6539.0625,
+      "magnitude": 1.0000000000000226,
+      "phase_radians": 1.4480778637641452
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6691.40625,
+      "magnitude": 0.9999999999999516,
+      "phase_radians": 0.9694758579437106
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 6855.46875,
+      "magnitude": 0.9999999999999578,
+      "phase_radians": 0.4540583132141701
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7007.8125,
+      "magnitude": 1.0000000000000868,
+      "phase_radians": -0.024543692606260922
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7160.15625,
+      "magnitude": 0.9999999999999883,
+      "phase_radians": -0.5031456984263291
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7324.21875,
+      "magnitude": 0.9999999999999845,
+      "phase_radians": -1.0185632431560547
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7476.5625,
+      "magnitude": 1.000000000000035,
+      "phase_radians": -1.497165248976276
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 7640.625,
+      "magnitude": 0.9999999999998636,
+      "phase_radians": -2.0125827937058487
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7792.96875,
+      "magnitude": 1.000000000000072,
+      "phase_radians": -2.4911847995263363
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 7945.3125,
+      "magnitude": 0.9999999999999827,
+      "phase_radians": -2.969786805346554
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8109.375,
+      "magnitude": 0.9999999999999479,
+      "phase_radians": 2.797980957103453
+    },
+    {
+      "coherence": 0.9999999999999997,
+      "frequency_hz": 8261.71875,
+      "magnitude": 1.0000000000000424,
+      "phase_radians": 2.319378951283075
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8425.78125,
+      "magnitude": 1.000000000000018,
+      "phase_radians": 1.803961406553563
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8578.125,
+      "magnitude": 1.0000000000000462,
+      "phase_radians": 1.3253594007331708
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 8730.46875,
+      "magnitude": 0.9999999999999932,
+      "phase_radians": 0.8467573949128537
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 8894.53125,
+      "magnitude": 1.0000000000000286,
+      "phase_radians": 0.3313398501832775
+    },
+    {
+      "coherence": 0.9999999999999998,
+      "frequency_hz": 9046.875,
+      "magnitude": 1.000000000000031,
+      "phase_radians": -0.14726215563698608
+    },
+    {
+      "coherence": 0.9999999999999996,
+      "frequency_hz": 9210.9375,
+      "magnitude": 1.0000000000000473,
+      "phase_radians": -0.6626797003666337
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9363.28125,
+      "magnitude": 0.9999999999999813,
+      "phase_radians": -1.1412817061868723
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9515.625,
+      "magnitude": 0.999999999999946,
+      "phase_radians": -1.6198837120072072
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9679.6875,
+      "magnitude": 1.0000000000000695,
+      "phase_radians": -2.1353012567368013
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9832.03125,
+      "magnitude": 0.999999999999973,
+      "phase_radians": -2.6139032625571437
+    },
+    {
+      "coherence": 1.0,
+      "frequency_hz": 9996.09375,
+      "magnitude": 1.0000000000000702,
+      "phase_radians": -3.1293208072866947
+    }
+  ],
+  "version": 1
+}

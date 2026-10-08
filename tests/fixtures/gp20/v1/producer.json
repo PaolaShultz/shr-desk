@@ -1,0 +1,1057 @@
+{
+  "exchanges": [
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": null,
+        "revision": "0",
+        "snapshot": {
+          "active_id": null,
+          "available": true,
+          "capture_progress": null,
+          "current_basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "reason": null,
+          "reference_inputs": [
+            "input-01",
+            "input-02",
+            "input-03",
+            "input-04",
+            "input-05",
+            "input-06",
+            "input-07",
+            "input-08",
+            "input-09",
+            "input-10",
+            "input-11",
+            "input-12",
+            "input-13",
+            "input-14",
+            "input-15",
+            "input-16"
+          ],
+          "reserved_mic_slots": [
+            16
+          ],
+          "results": [],
+          "software_only": true
+        },
+        "state": "snapshot",
+        "version": 1
+      },
+      "request": {
+        "body": {},
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_snapshot",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "432",
+        "reason": null,
+        "result": null,
+        "revision": "0",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "anchor-1",
+          "mic_capture_slot": 16,
+          "options": {
+            "band_hz": [
+              100,
+              10000
+            ],
+            "max_arrival_samples": 2048
+          },
+          "output_index": 0,
+          "position_id": "p1",
+          "reference_input": "input-01",
+          "samples": 32768
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "0",
+        "kind": "capture_start",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "3",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "0",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "3",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "432",
+        "reason": null,
+        "result": null,
+        "revision": "1",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": null,
+          "owner_result_json": "{\"algorithm\":\"offline-h1-v1\",\"arrival_samples\":0,\"capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"432\",\"id\":\"anchor-1\",\"map_revision\":\"1\",\"output_index\":0,\"position_id\":\"p1\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"competing_peak_ratio\":0.12284135685123476,\"contract\":\"C-PA-MEASUREMENT-RESULT\",\"options\":{\"band_hz\":[100.0,10000.0],\"max_arrival_samples\":2048},\"proposal_eligible\":true,\"reasons\":[],\"samples\":32768,\"segments\":15,\"signed_correlation\":1.0,\"spectrum\":[{\"coherence\":1.0,\"frequency_hz\":105.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":257.8125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":410.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":574.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":726.5625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":878.90625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1042.96875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1195.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1359.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1511.71875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1664.0625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1828.125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1980.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2144.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2296.875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2449.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2613.28125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2765.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2929.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3082.03125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3234.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3398.4375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3550.78125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3714.84375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3867.1875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4019.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4183.59375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4335.9375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4500.0,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4652.34375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4804.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4968.75,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5121.09375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5285.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5437.5,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5589.84375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5753.90625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5906.25,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6070.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6222.65625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6375.0,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6539.0625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6691.40625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6855.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7007.8125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7160.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7324.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7476.5625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7640.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7792.96875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7945.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8109.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8261.71875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8425.78125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8578.125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8730.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8894.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9046.875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9210.9375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9363.28125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9515.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9679.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9832.03125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9996.09375,\"magnitude\":1.0,\"phase_radians\":0.0}],\"version\":1}",
+          "summary": {
+            "id": "anchor-1",
+            "kind": "capture",
+            "reason": null,
+            "state": "measured"
+          }
+        },
+        "revision": "1",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "anchor-1"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "1",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "6",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "65136",
+        "reason": null,
+        "result": null,
+        "revision": "1",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "target-1",
+          "mic_capture_slot": 16,
+          "options": {
+            "band_hz": [
+              100,
+              10000
+            ],
+            "max_arrival_samples": 2048
+          },
+          "output_index": 1,
+          "position_id": "p1",
+          "reference_input": "input-01",
+          "samples": 32768
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "1",
+        "kind": "capture_start",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "6",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "1",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "6",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "65136",
+        "reason": null,
+        "result": null,
+        "revision": "2",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": null,
+          "owner_result_json": "{\"algorithm\":\"offline-h1-v1\",\"arrival_samples\":24,\"capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"65136\",\"id\":\"target-1\",\"map_revision\":\"1\",\"output_index\":1,\"position_id\":\"p1\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"competing_peak_ratio\":0.14196489273943538,\"contract\":\"C-PA-MEASUREMENT-RESULT\",\"options\":{\"band_hz\":[100.0,10000.0],\"max_arrival_samples\":2048},\"proposal_eligible\":true,\"reasons\":[],\"samples\":32768,\"segments\":14,\"signed_correlation\":-0.9999999401112244,\"spectrum\":[{\"coherence\":0.9999999999999968,\"frequency_hz\":105.46875,\"magnitude\":0.9999999880890702,\"phase_radians\":2.81025279366391},{\"coherence\":0.9999999999999999,\"frequency_hz\":257.8125,\"magnitude\":0.99999999910663,\"phase_radians\":2.3316507960874135},{\"coherence\":1.0,\"frequency_hz\":410.15625,\"magnitude\":0.9999999997600827,\"phase_radians\":1.8530487919480179},{\"coherence\":0.9999999999999998,\"frequency_hz\":574.21875,\"magnitude\":0.9999999998793724,\"phase_radians\":1.3376312468257925},{\"coherence\":0.9999999999999997,\"frequency_hz\":726.5625,\"magnitude\":1.0000000002862715,\"phase_radians\":0.8590292415075977},{\"coherence\":1.0,\"frequency_hz\":878.90625,\"magnitude\":1.0000000000539746,\"phase_radians\":0.38042723519144417},{\"coherence\":0.9999999999999997,\"frequency_hz\":1042.96875,\"magnitude\":1.0000000001583154,\"phase_radians\":-0.13499030972940895},{\"coherence\":0.9999999999999999,\"frequency_hz\":1195.3125,\"magnitude\":1.0000000000651972,\"phase_radians\":-0.6135923151497892},{\"coherence\":1.0,\"frequency_hz\":1359.375,\"magnitude\":1.0000000000588196,\"phase_radians\":-1.12900985994865},{\"coherence\":0.9999999999999997,\"frequency_hz\":1511.71875,\"magnitude\":0.9999999999673056,\"phase_radians\":-1.607611865729078},{\"coherence\":1.0,\"frequency_hz\":1664.0625,\"magnitude\":1.000000000079692,\"phase_radians\":-2.086213871546436},{\"coherence\":1.0,\"frequency_hz\":1828.125,\"magnitude\":0.9999999999225302,\"phase_radians\":-2.6016314162459118},{\"coherence\":1.0,\"frequency_hz\":1980.46875,\"magnitude\":0.9999999999963224,\"phase_radians\":-3.080233422110303},{\"coherence\":0.9999999999999994,\"frequency_hz\":2144.53125,\"magnitude\":1.0000000000230547,\"phase_radians\":2.6875343403761254},{\"coherence\":1.0,\"frequency_hz\":2296.875,\"magnitude\":0.9999999999940757,\"phase_radians\":2.208932334491069},{\"coherence\":0.9999999999999999,\"frequency_hz\":2449.21875,\"magnitude\":1.0000000000276903,\"phase_radians\":1.7303303287422627},{\"coherence\":1.0,\"frequency_hz\":2613.28125,\"magnitude\":1.0000000000072797,\"phase_radians\":1.2149127840021159},{\"coherence\":0.9999999999999997,\"frequency_hz\":2765.625,\"magnitude\":1.0000000000257787,\"phase_radians\":0.7363107782122857},{\"coherence\":1.0,\"frequency_hz\":2929.6875,\"magnitude\":1.0000000000148073,\"phase_radians\":0.220893233445761},{\"coherence\":0.9999999999999997,\"frequency_hz\":3082.03125,\"magnitude\":1.0000000000078633,\"phase_radians\":-0.25770877235580286},{\"coherence\":1.0,\"frequency_hz\":3234.375,\"magnitude\":0.9999999999951606,\"phase_radians\":-0.7363107781753722},{\"coherence\":1.0,\"frequency_hz\":3398.4375,\"magnitude\":0.9999999999791337,\"phase_radians\":-1.2517283229018719},{\"coherence\":1.0,\"frequency_hz\":3550.78125,\"magnitude\":0.999999999989546,\"phase_radians\":-1.7303303287204659},{\"coherence\":0.9999999999999998,\"frequency_hz\":3714.84375,\"magnitude\":0.9999999999923619,\"phase_radians\":-2.24574787348131},{\"coherence\":0.9999999999999999,\"frequency_hz\":3867.1875,\"magnitude\":0.9999999999869267,\"phase_radians\":-2.7243498792903966},{\"coherence\":1.0,\"frequency_hz\":4019.53125,\"magnitude\":0.9999999999951523,\"phase_radians\":3.0802334220683716},{\"coherence\":1.0,\"frequency_hz\":4183.59375,\"magnitude\":0.9999999999960105,\"phase_radians\":2.5648158773460716},{\"coherence\":0.9999999999999999,\"frequency_hz\":4335.9375,\"magnitude\":1.0000000000054672,\"phase_radians\":2.086213871515492},{\"coherence\":1.0,\"frequency_hz\":4500.0,\"magnitude\":1.0000000000051807,\"phase_radians\":1.5707963268019405},{\"coherence\":0.9999999999999999,\"frequency_hz\":4652.34375,\"magnitude\":1.0000000000035183,\"phase_radians\":1.092194320967144},{\"coherence\":0.9999999999999996,\"frequency_hz\":4804.6875,\"magnitude\":1.0000000000028628,\"phase_radians\":0.6135923151604856},{\"coherence\":1.0,\"frequency_hz\":4968.75,\"magnitude\":0.9999999999997505,\"phase_radians\":0.09817477043005314},{\"coherence\":1.0,\"frequency_hz\":5121.09375,\"magnitude\":1.0000000000029947,\"phase_radians\":-0.3804272353935431},{\"coherence\":1.0,\"frequency_hz\":5285.15625,\"magnitude\":0.9999999999962171,\"phase_radians\":-0.8958447801311311},{\"coherence\":0.9999999999999998,\"frequency_hz\":5437.5,\"magnitude\":0.9999999999969421,\"phase_radians\":-1.3744467859408716},{\"coherence\":1.0,\"frequency_hz\":5589.84375,\"magnitude\":1.000000000001294,\"phase_radians\":-1.8530487917643683},{\"coherence\":1.0,\"frequency_hz\":5753.90625,\"magnitude\":0.999999999996834,\"phase_radians\":-2.368466336490317},{\"coherence\":1.0,\"frequency_hz\":5906.25,\"magnitude\":0.9999999999979126,\"phase_radians\":-2.847068342321133},{\"coherence\":0.9999999999999999,\"frequency_hz\":6070.3125,\"magnitude\":0.9999999999951205,\"phase_radians\":2.9206994201317906},{\"coherence\":1.0,\"frequency_hz\":6222.65625,\"magnitude\":0.9999999999966109,\"phase_radians\":2.44209741430764},{\"coherence\":1.0,\"frequency_hz\":6375.0,\"magnitude\":0.9999999999986995,\"phase_radians\":1.9634954084965388},{\"coherence\":1.0,\"frequency_hz\":6539.0625,\"magnitude\":1.0000000000040512,\"phase_radians\":1.4480778637691545},{\"coherence\":1.0,\"frequency_hz\":6691.40625,\"magnitude\":0.9999999999999885,\"phase_radians\":0.9694758579445494},{\"coherence\":0.9999999999999994,\"frequency_hz\":6855.46875,\"magnitude\":1.000000000000246,\"phase_radians\":0.454058313218913},{\"coherence\":0.9999999999999999,\"frequency_hz\":7007.8125,\"magnitude\":1.0000000000032847,\"phase_radians\":-0.02454369260518776},{\"coherence\":1.0,\"frequency_hz\":7160.15625,\"magnitude\":0.9999999999986029,\"phase_radians\":-0.5031456984276936},{\"coherence\":1.0,\"frequency_hz\":7324.21875,\"magnitude\":1.000000000003504,\"phase_radians\":-1.018563243156044},{\"coherence\":1.0,\"frequency_hz\":7476.5625,\"magnitude\":0.9999999999975709,\"phase_radians\":-1.4971652489744462},{\"coherence\":1.0,\"frequency_hz\":7640.625,\"magnitude\":0.9999999999987037,\"phase_radians\":-2.012582793703536},{\"coherence\":1.0,\"frequency_hz\":7792.96875,\"magnitude\":0.9999999999973849,\"phase_radians\":-2.4911847995272316},{\"coherence\":1.0,\"frequency_hz\":7945.3125,\"magnitude\":1.0000000000016123,\"phase_radians\":-2.9697868053463834},{\"coherence\":0.9999999999999999,\"frequency_hz\":8109.375,\"magnitude\":0.9999999999988195,\"phase_radians\":2.7979809571040852},{\"coherence\":1.0,\"frequency_hz\":8261.71875,\"magnitude\":1.0000000000005782,\"phase_radians\":2.3193789512803216},{\"coherence\":1.0,\"frequency_hz\":8425.78125,\"magnitude\":0.9999999999990705,\"phase_radians\":1.8039614065536091},{\"coherence\":0.9999999999999999,\"frequency_hz\":8578.125,\"magnitude\":1.000000000002726,\"phase_radians\":1.325359400734514},{\"coherence\":1.0,\"frequency_hz\":8730.46875,\"magnitude\":0.999999999998406,\"phase_radians\":0.8467573949128931},{\"coherence\":1.0,\"frequency_hz\":8894.53125,\"magnitude\":0.9999999999999225,\"phase_radians\":0.3313398501826486},{\"coherence\":1.0,\"frequency_hz\":9046.875,\"magnitude\":1.0000000000034208,\"phase_radians\":-0.14726215563795267},{\"coherence\":0.9999999999999998,\"frequency_hz\":9210.9375,\"magnitude\":0.9999999999977865,\"phase_radians\":-0.6626797003688187},{\"coherence\":1.0,\"frequency_hz\":9363.28125,\"magnitude\":0.9999999999992246,\"phase_radians\":-1.1412817061851956},{\"coherence\":0.9999999999999999,\"frequency_hz\":9515.625,\"magnitude\":1.0000000000002836,\"phase_radians\":-1.6198837120072396},{\"coherence\":0.9999999999999997,\"frequency_hz\":9679.6875,\"magnitude\":1.0000000000008817,\"phase_radians\":-2.1353012567360197},{\"coherence\":1.0,\"frequency_hz\":9832.03125,\"magnitude\":0.9999999999974328,\"phase_radians\":-2.6139032625576055},{\"coherence\":1.0,\"frequency_hz\":9996.09375,\"magnitude\":0.9999999999988114,\"phase_radians\":-3.129320807285693}],\"version\":1}",
+          "summary": {
+            "id": "target-1",
+            "kind": "capture",
+            "reason": null,
+            "state": "measured"
+          }
+        },
+        "revision": "2",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "target-1"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "2",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "9",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "129120",
+        "reason": null,
+        "result": null,
+        "revision": "2",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "anchor-2",
+          "mic_capture_slot": 16,
+          "options": {
+            "band_hz": [
+              100,
+              10000
+            ],
+            "max_arrival_samples": 2048
+          },
+          "output_index": 0,
+          "position_id": "p2",
+          "reference_input": "input-01",
+          "samples": 32768
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "2",
+        "kind": "capture_start",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "9",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "2",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "9",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "129120",
+        "reason": null,
+        "result": null,
+        "revision": "3",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": null,
+          "owner_result_json": "{\"algorithm\":\"offline-h1-v1\",\"arrival_samples\":0,\"capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"129120\",\"id\":\"anchor-2\",\"map_revision\":\"1\",\"output_index\":0,\"position_id\":\"p2\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"competing_peak_ratio\":0.12099112579630679,\"contract\":\"C-PA-MEASUREMENT-RESULT\",\"options\":{\"band_hz\":[100.0,10000.0],\"max_arrival_samples\":2048},\"proposal_eligible\":true,\"reasons\":[],\"samples\":32768,\"segments\":15,\"signed_correlation\":1.0,\"spectrum\":[{\"coherence\":1.0,\"frequency_hz\":105.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":257.8125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":410.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":574.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":726.5625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":878.90625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1042.96875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1195.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1359.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1511.71875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1664.0625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1828.125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":1980.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2144.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2296.875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2449.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2613.28125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2765.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":2929.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3082.03125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3234.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3398.4375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3550.78125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3714.84375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":3867.1875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4019.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4183.59375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4335.9375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4500.0,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4652.34375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4804.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":4968.75,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5121.09375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5285.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5437.5,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5589.84375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5753.90625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":5906.25,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6070.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6222.65625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6375.0,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6539.0625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6691.40625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":6855.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7007.8125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7160.15625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7324.21875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7476.5625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7640.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7792.96875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":7945.3125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8109.375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8261.71875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8425.78125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8578.125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8730.46875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":8894.53125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9046.875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9210.9375,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9363.28125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9515.625,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9679.6875,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9832.03125,\"magnitude\":1.0,\"phase_radians\":0.0},{\"coherence\":1.0,\"frequency_hz\":9996.09375,\"magnitude\":1.0,\"phase_radians\":0.0}],\"version\":1}",
+          "summary": {
+            "id": "anchor-2",
+            "kind": "capture",
+            "reason": null,
+            "state": "measured"
+          }
+        },
+        "revision": "3",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "anchor-2"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "3",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "13",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "193728",
+        "reason": null,
+        "result": null,
+        "revision": "3",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "target-2",
+          "mic_capture_slot": 16,
+          "options": {
+            "band_hz": [
+              100,
+              10000
+            ],
+            "max_arrival_samples": 2048
+          },
+          "output_index": 1,
+          "position_id": "p2",
+          "reference_input": "input-01",
+          "samples": 32768
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "3",
+        "kind": "capture_start",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "13",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "3",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "13",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "193728",
+        "reason": null,
+        "result": null,
+        "revision": "4",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": null,
+          "owner_result_json": "{\"algorithm\":\"offline-h1-v1\",\"arrival_samples\":24,\"capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"193728\",\"id\":\"target-2\",\"map_revision\":\"1\",\"output_index\":1,\"position_id\":\"p2\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"competing_peak_ratio\":0.11156912603908355,\"contract\":\"C-PA-MEASUREMENT-RESULT\",\"options\":{\"band_hz\":[100.0,10000.0],\"max_arrival_samples\":2048},\"proposal_eligible\":true,\"reasons\":[],\"samples\":32768,\"segments\":14,\"signed_correlation\":-0.9999999987601429,\"spectrum\":[{\"coherence\":1.0,\"frequency_hz\":105.46875,\"magnitude\":1.0000000007900243,\"phase_radians\":2.810252804038203},{\"coherence\":1.0,\"frequency_hz\":257.8125,\"magnitude\":0.9999999999690974,\"phase_radians\":2.3316507973402096},{\"coherence\":1.0,\"frequency_hz\":410.15625,\"magnitude\":1.000000000008857,\"phase_radians\":1.8530487916506568},{\"coherence\":1.0,\"frequency_hz\":574.21875,\"magnitude\":0.9999999999976269,\"phase_radians\":1.3376312471421568},{\"coherence\":0.9999999999999998,\"frequency_hz\":726.5625,\"magnitude\":0.9999999999892875,\"phase_radians\":0.8590292412732208},{\"coherence\":1.0,\"frequency_hz\":878.90625,\"magnitude\":1.0000000000014742,\"phase_radians\":0.3804272354152982},{\"coherence\":1.0,\"frequency_hz\":1042.96875,\"magnitude\":1.000000000015473,\"phase_radians\":-0.13499030933159495},{\"coherence\":1.0,\"frequency_hz\":1195.3125,\"magnitude\":1.0000000000020774,\"phase_radians\":-0.6135923151428615},{\"coherence\":1.0,\"frequency_hz\":1359.375,\"magnitude\":0.9999999999821332,\"phase_radians\":-1.1290098598809661},{\"coherence\":1.0,\"frequency_hz\":1511.71875,\"magnitude\":1.000000000001814,\"phase_radians\":-1.6076118657052918},{\"coherence\":0.9999999999999998,\"frequency_hz\":1664.0625,\"magnitude\":1.0000000000004285,\"phase_radians\":-2.0862138715272036},{\"coherence\":0.9999999999999996,\"frequency_hz\":1828.125,\"magnitude\":1.0000000000105207,\"phase_radians\":-2.601631416249631},{\"coherence\":1.0,\"frequency_hz\":1980.46875,\"magnitude\":1.000000000004216,\"phase_radians\":-3.0802334220756324},{\"coherence\":1.0,\"frequency_hz\":2144.53125,\"magnitude\":1.0000000000053972,\"phase_radians\":2.6875343403801595},{\"coherence\":0.9999999999999998,\"frequency_hz\":2296.875,\"magnitude\":0.9999999999991342,\"phase_radians\":2.2089323345591105},{\"coherence\":1.0,\"frequency_hz\":2449.21875,\"magnitude\":0.9999999999995642,\"phase_radians\":1.7303303287373937},{\"coherence\":1.0,\"frequency_hz\":2613.28125,\"magnitude\":0.999999999999118,\"phase_radians\":1.214912784009965},{\"coherence\":1.0,\"frequency_hz\":2765.625,\"magnitude\":0.9999999999987093,\"phase_radians\":0.7363107781870349},{\"coherence\":1.0,\"frequency_hz\":2929.6875,\"magnitude\":0.9999999999998036,\"phase_radians\":0.22089323345488968},{\"coherence\":1.0,\"frequency_hz\":3082.03125,\"magnitude\":1.000000000000608,\"phase_radians\":-0.2577087723650011},{\"coherence\":0.9999999999999999,\"frequency_hz\":3234.375,\"magnitude\":0.999999999996979,\"phase_radians\":-0.7363107781845701},{\"coherence\":0.9999999999999996,\"frequency_hz\":3398.4375,\"magnitude\":0.9999999999987722,\"phase_radians\":-1.2517283229148128},{\"coherence\":1.0,\"frequency_hz\":3550.78125,\"magnitude\":1.000000000000767,\"phase_radians\":-1.7303303287336784},{\"coherence\":1.0,\"frequency_hz\":3714.84375,\"magnitude\":0.9999999999989098,\"phase_radians\":-2.2457478734639778},{\"coherence\":1.0,\"frequency_hz\":3867.1875,\"magnitude\":0.9999999999992465,\"phase_radians\":-2.7243498792849503},{\"coherence\":1.0,\"frequency_hz\":4019.53125,\"magnitude\":1.0000000000008151,\"phase_radians\":3.0802334220750938},{\"coherence\":1.0,\"frequency_hz\":4183.59375,\"magnitude\":0.9999999999994786,\"phase_radians\":2.56481587734319},{\"coherence\":1.0,\"frequency_hz\":4335.9375,\"magnitude\":0.9999999999994283,\"phase_radians\":2.086213871525694},{\"coherence\":1.0,\"frequency_hz\":4500.0,\"magnitude\":1.0000000000007367,\"phase_radians\":1.5707963267965936},{\"coherence\":0.9999999999999998,\"frequency_hz\":4652.34375,\"magnitude\":1.0000000000010434,\"phase_radians\":1.0921943209740577},{\"coherence\":0.9999999999999996,\"frequency_hz\":4804.6875,\"magnitude\":1.000000000001213,\"phase_radians\":0.6135923151542861},{\"coherence\":1.0,\"frequency_hz\":4968.75,\"magnitude\":0.9999999999991986,\"phase_radians\":0.09817477042467587},{\"coherence\":1.0,\"frequency_hz\":5121.09375,\"magnitude\":0.999999999999692,\"phase_radians\":-0.380427235395085},{\"coherence\":1.0,\"frequency_hz\":5285.15625,\"magnitude\":1.0000000000000768,\"phase_radians\":-0.895844780126184},{\"coherence\":1.0,\"frequency_hz\":5437.5,\"magnitude\":1.000000000000381,\"phase_radians\":-1.3744467859447262},{\"coherence\":0.9999999999999993,\"frequency_hz\":5589.84375,\"magnitude\":1.0000000000001408,\"phase_radians\":-1.8530487917650895},{\"coherence\":0.9999999999999996,\"frequency_hz\":5753.90625,\"magnitude\":1.000000000000096,\"phase_radians\":-2.3684663364951453},{\"coherence\":0.9999999999999994,\"frequency_hz\":5906.25,\"magnitude\":1.0000000000005782,\"phase_radians\":-2.84706834231472},{\"coherence\":1.0,\"frequency_hz\":6070.3125,\"magnitude\":1.0000000000000893,\"phase_radians\":2.920699420134201},{\"coherence\":1.0,\"frequency_hz\":6222.65625,\"magnitude\":0.9999999999996596,\"phase_radians\":2.4420974143140244},{\"coherence\":1.0,\"frequency_hz\":6375.0,\"magnitude\":0.9999999999996397,\"phase_radians\":1.963495408494258},{\"coherence\":1.0,\"frequency_hz\":6539.0625,\"magnitude\":0.9999999999989877,\"phase_radians\":1.4480778637636547},{\"coherence\":1.0,\"frequency_hz\":6691.40625,\"magnitude\":1.0000000000000702,\"phase_radians\":0.9694758579436574},{\"coherence\":1.0,\"frequency_hz\":6855.46875,\"magnitude\":1.0000000000002693,\"phase_radians\":0.45405831321467816},{\"coherence\":1.0,\"frequency_hz\":7007.8125,\"magnitude\":1.0000000000002938,\"phase_radians\":-0.024543692606548692},{\"coherence\":1.0,\"frequency_hz\":7160.15625,\"magnitude\":1.0000000000000628,\"phase_radians\":-0.503145698426848},{\"coherence\":1.0,\"frequency_hz\":7324.21875,\"magnitude\":1.0000000000003253,\"phase_radians\":-1.0185632431556924},{\"coherence\":0.9999999999999999,\"frequency_hz\":7476.5625,\"magnitude\":0.9999999999996865,\"phase_radians\":-1.4971652489762048},{\"coherence\":1.0,\"frequency_hz\":7640.625,\"magnitude\":0.9999999999999938,\"phase_radians\":-2.0125827937058203},{\"coherence\":1.0,\"frequency_hz\":7792.96875,\"magnitude\":1.0000000000001816,\"phase_radians\":-2.4911847995266276},{\"coherence\":1.0,\"frequency_hz\":7945.3125,\"magnitude\":0.9999999999999665,\"phase_radians\":-2.9697868053461596},{\"coherence\":0.9999999999999997,\"frequency_hz\":8109.375,\"magnitude\":0.9999999999997158,\"phase_radians\":2.7979809571033813},{\"coherence\":0.9999999999999998,\"frequency_hz\":8261.71875,\"magnitude\":1.0000000000001648,\"phase_radians\":2.3193789512830714},{\"coherence\":0.9999999999999998,\"frequency_hz\":8425.78125,\"magnitude\":0.9999999999995369,\"phase_radians\":1.8039614065535379},{\"coherence\":0.9999999999999994,\"frequency_hz\":8578.125,\"magnitude\":0.9999999999998799,\"phase_radians\":1.3253594007332672},{\"coherence\":0.9999999999999997,\"frequency_hz\":8730.46875,\"magnitude\":1.0000000000003684,\"phase_radians\":0.8467573949123707},{\"coherence\":1.0,\"frequency_hz\":8894.53125,\"magnitude\":1.0000000000000677,\"phase_radians\":0.3313398501836543},{\"coherence\":1.0,\"frequency_hz\":9046.875,\"magnitude\":0.9999999999999545,\"phase_radians\":-0.14726215563691858},{\"coherence\":1.0,\"frequency_hz\":9210.9375,\"magnitude\":1.000000000000241,\"phase_radians\":-0.6626797003672235},{\"coherence\":1.0,\"frequency_hz\":9363.28125,\"magnitude\":1.0000000000003013,\"phase_radians\":-1.1412817061871499},{\"coherence\":1.0,\"frequency_hz\":9515.625,\"magnitude\":1.000000000000085,\"phase_radians\":-1.619883712007001},{\"coherence\":0.9999999999999997,\"frequency_hz\":9679.6875,\"magnitude\":0.9999999999998388,\"phase_radians\":-2.135301256736794},{\"coherence\":0.9999999999999998,\"frequency_hz\":9832.03125,\"magnitude\":0.999999999999991,\"phase_radians\":-2.6139032625570793},{\"coherence\":1.0,\"frequency_hz\":9996.09375,\"magnitude\":0.9999999999998702,\"phase_radians\":-3.129320807286777}],\"version\":1}",
+          "summary": {
+            "id": "target-2",
+            "kind": "capture",
+            "reason": null,
+            "state": "measured"
+          }
+        },
+        "revision": "4",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "target-2"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "4",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "16",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "257472",
+        "reason": null,
+        "result": null,
+        "revision": "4",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "alignment",
+          "pairs": [
+            [
+              "anchor-1",
+              "target-1"
+            ],
+            [
+              "anchor-2",
+              "target-2"
+            ]
+          ]
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "4",
+        "kind": "measurement_propose",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "16",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "4",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "16",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "257472",
+        "reason": null,
+        "result": null,
+        "revision": "5",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": "{\"version\":2,\"sample_rate\":48000,\"max_block\":256,\"inputs\":[{\"gain_db\":0.0,\"delay_ms\":0.0,\"eq_enabled\":true,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"geq_enabled\":false,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"compressor\":{\"enabled\":false,\"threshold_db\":-18.0,\"ratio\":4.0,\"knee_db\":6.0,\"makeup_db\":0.0,\"attack_ms\":10.0,\"release_ms\":100.0}},{\"gain_db\":0.0,\"delay_ms\":0.0,\"eq_enabled\":true,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"geq_enabled\":false,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"compressor\":{\"enabled\":false,\"threshold_db\":-18.0,\"ratio\":4.0,\"knee_db\":6.0,\"makeup_db\":0.0,\"attack_ms\":10.0,\"release_ms\":100.0}}],\"nodes\":[],\"outputs\":[{\"source\":{\"input\":0},\"splits_hz\":[],\"band\":0,\"processing\":{\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"delay_ms\":0.5,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"limiter_db\":-1.0,\"release_ms\":100.0},\"muted\":false},{\"source\":{\"input\":0},\"splits_hz\":[],\"band\":0,\"processing\":{\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"delay_ms\":0.5,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"limiter_db\":-1.0,\"release_ms\":100.0},\"muted\":false}]}",
+          "owner_result_json": "{\"added_latency_samples\":24,\"basis_capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"432\",\"id\":\"anchor-1\",\"map_revision\":\"1\",\"output_index\":0,\"position_id\":\"p1\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"basis_configuration\":{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2},\"basis_configuration_revision\":\"1\",\"changes\":[{\"after_delay_samples\":24,\"after_inverted\":false,\"before_delay_samples\":0,\"before_inverted\":false,\"output_index\":0},{\"after_delay_samples\":24,\"after_inverted\":false,\"before_delay_samples\":24,\"before_inverted\":true,\"output_index\":1}],\"contract\":\"C-PA-ALIGNMENT-PROPOSAL\",\"measurement_ids\":[\"anchor-1\",\"target-1\",\"anchor-2\",\"target-2\"],\"reason\":\"offline_candidate_requires_combined_and_acoustic_verification\",\"status\":\"proposed\",\"verification_required\":true,\"version\":1}",
+          "summary": {
+            "id": "alignment",
+            "kind": "proposal",
+            "reason": null,
+            "state": "proposed"
+          }
+        },
+        "revision": "5",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "alignment"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "5",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "18",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "262656",
+        "reason": null,
+        "result": null,
+        "revision": "5",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "cancelled",
+          "mic_capture_slot": 16,
+          "options": {
+            "band_hz": [
+              100,
+              10000
+            ],
+            "max_arrival_samples": 2048
+          },
+          "output_index": 0,
+          "position_id": "p3",
+          "reference_input": "input-01",
+          "samples": 32768
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "5",
+        "kind": "capture_start",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "18",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "5",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "18",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "262656",
+        "reason": null,
+        "result": null,
+        "revision": "6",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "19",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "262752",
+        "reason": null,
+        "result": null,
+        "revision": "6",
+        "snapshot": null,
+        "state": "pending",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "cancelled"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": "6",
+        "kind": "capture_cancel",
+        "lease": "1",
+        "module": "audio",
+        "request_id": "19",
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": "desk"
+      }
+    },
+    {
+      "completion": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": "6",
+          "lease": "1",
+          "module": "audio",
+          "request_id": "19",
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": "desk"
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": "262752",
+        "reason": null,
+        "result": null,
+        "revision": "7",
+        "snapshot": null,
+        "state": "final",
+        "version": 1
+      }
+    },
+    {
+      "reply": {
+        "context": {
+          "epoch": "1",
+          "expected_revision": null,
+          "lease": null,
+          "module": "audio",
+          "request_id": null,
+          "show_id": "11111111-1111-4111-8111-111111111111",
+          "writer": null
+        },
+        "contract": "GP20-measurement",
+        "effective_frame": null,
+        "reason": null,
+        "result": {
+          "basis": {
+            "clock_domain": "software-common-source",
+            "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+            "graph_generation": "1",
+            "map_revision": "1",
+            "program_buses": [
+              0,
+              1
+            ],
+            "source_epoch": "1"
+          },
+          "candidate_configuration_json": null,
+          "owner_result_json": null,
+          "summary": {
+            "id": "cancelled",
+            "kind": "capture",
+            "reason": "cancelled",
+            "state": "cancelled"
+          }
+        },
+        "revision": "7",
+        "snapshot": null,
+        "state": "result",
+        "version": 1
+      },
+      "request": {
+        "body": {
+          "id": "cancelled"
+        },
+        "contract": "GP20-measurement",
+        "epoch": "1",
+        "expected_revision": null,
+        "kind": "measurement_result",
+        "lease": null,
+        "module": "audio",
+        "request_id": null,
+        "show_id": "11111111-1111-4111-8111-111111111111",
+        "version": 1,
+        "writer": null
+      }
+    }
+  ],
+  "physical": false,
+  "proposal": {
+    "basis": {
+      "clock_domain": "software-common-source",
+      "configuration_json": "{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2}",
+      "graph_generation": "1",
+      "map_revision": "1",
+      "program_buses": [
+        0,
+        1
+      ],
+      "source_epoch": "1"
+    },
+    "candidate_configuration_json": "{\"version\":2,\"sample_rate\":48000,\"max_block\":256,\"inputs\":[{\"gain_db\":0.0,\"delay_ms\":0.0,\"eq_enabled\":true,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"geq_enabled\":false,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"compressor\":{\"enabled\":false,\"threshold_db\":-18.0,\"ratio\":4.0,\"knee_db\":6.0,\"makeup_db\":0.0,\"attack_ms\":10.0,\"release_ms\":100.0}},{\"gain_db\":0.0,\"delay_ms\":0.0,\"eq_enabled\":true,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"geq_enabled\":false,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"compressor\":{\"enabled\":false,\"threshold_db\":-18.0,\"ratio\":4.0,\"knee_db\":6.0,\"makeup_db\":0.0,\"attack_ms\":10.0,\"release_ms\":100.0}}],\"nodes\":[],\"outputs\":[{\"source\":{\"input\":0},\"splits_hz\":[],\"band\":0,\"processing\":{\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"delay_ms\":0.5,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"limiter_db\":-1.0,\"release_ms\":100.0},\"muted\":false},{\"source\":{\"input\":0},\"splits_hz\":[],\"band\":0,\"processing\":{\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"delay_ms\":0.5,\"eq\":[{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0},{\"kind\":\"bell\",\"slope\":1.0,\"hz\":1000.0,\"q\":0.707,\"db\":0.0}],\"limiter_db\":-1.0,\"release_ms\":100.0},\"muted\":false}]}",
+    "owner_result_json": "{\"added_latency_samples\":24,\"basis_capture\":{\"clipped_mic\":false,\"clipped_reference\":false,\"clock_domain\":\"software-common-source\",\"configuration_revision\":\"1\",\"dropped_frames\":\"0\",\"first_frame\":\"432\",\"id\":\"anchor-1\",\"map_revision\":\"1\",\"output_index\":0,\"position_id\":\"p1\",\"reference_id\":\"input-01\",\"reference_offset_frames\":\"0\",\"reference_tap\":\"raw-pre-fader\",\"sample_rate\":48000,\"source_epoch\":\"1\",\"timing_verified\":true},\"basis_configuration\":{\"inputs\":[{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false},{\"compressor\":{\"attack_ms\":10.0,\"enabled\":false,\"knee_db\":6.0,\"makeup_db\":0.0,\"ratio\":4.0,\"release_ms\":100.0,\"threshold_db\":-18.0},\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"geq_db\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],\"geq_enabled\":false}],\"max_block\":256,\"nodes\":[],\"outputs\":[{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.0,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":false,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]},{\"band\":0,\"muted\":false,\"processing\":{\"delay_ms\":0.5,\"eq\":[{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0},{\"db\":0.0,\"hz\":1000.0,\"kind\":\"bell\",\"q\":0.707,\"slope\":1.0}],\"eq_enabled\":true,\"gain_db\":0.0,\"inverted\":true,\"limiter_db\":-1.0,\"release_ms\":100.0},\"source\":{\"input\":0},\"splits_hz\":[]}],\"sample_rate\":48000,\"version\":2},\"basis_configuration_revision\":\"1\",\"changes\":[{\"after_delay_samples\":24,\"after_inverted\":false,\"before_delay_samples\":0,\"before_inverted\":false,\"output_index\":0},{\"after_delay_samples\":24,\"after_inverted\":false,\"before_delay_samples\":24,\"before_inverted\":true,\"output_index\":1}],\"contract\":\"C-PA-ALIGNMENT-PROPOSAL\",\"measurement_ids\":[\"anchor-1\",\"target-1\",\"anchor-2\",\"target-2\"],\"reason\":\"offline_candidate_requires_combined_and_acoustic_verification\",\"status\":\"proposed\",\"verification_required\":true,\"version\":1}",
+    "summary": {
+      "id": "alignment",
+      "kind": "proposal",
+      "reason": null,
+      "state": "proposed"
+    }
+  },
+  "topology": {
+    "capture_channels": 17,
+    "identity": "software-16-2-2",
+    "inputs": [
+      {
+        "capture_slot": 0,
+        "id": "input-01",
+        "physical_port": "synthetic-capture-1"
+      },
+      {
+        "capture_slot": 1,
+        "id": "input-02",
+        "physical_port": "synthetic-capture-2"
+      },
+      {
+        "capture_slot": 2,
+        "id": "input-03",
+        "physical_port": "synthetic-capture-3"
+      },
+      {
+        "capture_slot": 3,
+        "id": "input-04",
+        "physical_port": "synthetic-capture-4"
+      },
+      {
+        "capture_slot": 4,
+        "id": "input-05",
+        "physical_port": "synthetic-capture-5"
+      },
+      {
+        "capture_slot": 5,
+        "id": "input-06",
+        "physical_port": "synthetic-capture-6"
+      },
+      {
+        "capture_slot": 6,
+        "id": "input-07",
+        "physical_port": "synthetic-capture-7"
+      },
+      {
+        "capture_slot": 7,
+        "id": "input-08",
+        "physical_port": "synthetic-capture-8"
+      },
+      {
+        "capture_slot": 8,
+        "id": "input-09",
+        "physical_port": "synthetic-capture-9"
+      },
+      {
+        "capture_slot": 9,
+        "id": "input-10",
+        "physical_port": "synthetic-capture-10"
+      },
+      {
+        "capture_slot": 10,
+        "id": "input-11",
+        "physical_port": "synthetic-capture-11"
+      },
+      {
+        "capture_slot": 11,
+        "id": "input-12",
+        "physical_port": "synthetic-capture-12"
+      },
+      {
+        "capture_slot": 12,
+        "id": "input-13",
+        "physical_port": "synthetic-capture-13"
+      },
+      {
+        "capture_slot": 13,
+        "id": "input-14",
+        "physical_port": "synthetic-capture-14"
+      },
+      {
+        "capture_slot": 14,
+        "id": "input-15",
+        "physical_port": "synthetic-capture-15"
+      },
+      {
+        "capture_slot": 15,
+        "id": "input-16",
+        "physical_port": "synthetic-capture-16"
+      }
+    ],
+    "map_revision": 1,
+    "mapping_evidence": "synthetic",
+    "max_block_frames": 4096,
+    "measurement_slots": [
+      16
+    ],
+    "monitors": 2,
+    "outputs": [
+      {
+        "id": "output-01",
+        "physical_port": "synthetic-playback-1",
+        "playback_slot": 0,
+        "source": {
+          "channel": 0,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-02",
+        "physical_port": "synthetic-playback-2",
+        "playback_slot": 1,
+        "source": {
+          "channel": 1,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-03",
+        "physical_port": "synthetic-playback-3",
+        "playback_slot": 2,
+        "source": {
+          "index": 0,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-04",
+        "physical_port": "synthetic-playback-4",
+        "playback_slot": 3,
+        "source": {
+          "index": 1,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-05",
+        "physical_port": "synthetic-playback-5",
+        "playback_slot": 4,
+        "source": {
+          "index": 0,
+          "kind": "pa"
+        }
+      },
+      {
+        "id": "output-06",
+        "physical_port": "synthetic-playback-6",
+        "playback_slot": 5,
+        "source": {
+          "index": 1,
+          "kind": "pa"
+        }
+      }
+    ],
+    "pa_outputs": 2,
+    "playback_channels": 6,
+    "sample_rate": 48000
+  },
+  "version": 1
+}
