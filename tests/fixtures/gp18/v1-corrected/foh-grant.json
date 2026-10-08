@@ -1,0 +1,41 @@
+{
+  "capability": "GP03-rendered",
+  "capability_version": 2,
+  "context": {
+    "epoch": "9",
+    "expected_revision": "1",
+    "lease": null,
+    "module": "audio",
+    "request_id": "1",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "writer": "processing-writer"
+  },
+  "effective_frame": null,
+  "outcome": {
+    "body": {
+      "effective_frame": null,
+      "granted_lease": "2",
+      "lease_remaining_ms": 2000,
+      "preview": null,
+      "ramp_frames": null,
+      "reason": null,
+      "revision": "1",
+      "scope": "foh",
+      "snapshot": null
+    },
+    "contract": "C-AUDIO",
+    "epoch": "9",
+    "expected_revision": "1",
+    "kind": "applied",
+    "lease": null,
+    "module": "audio",
+    "request_id": "1",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "version": 2,
+    "writer": "processing-writer"
+  },
+  "ramp_frames": null,
+  "snapshot": null,
+  "state": "final",
+  "ticket": null
+}

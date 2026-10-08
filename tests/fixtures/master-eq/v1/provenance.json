@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "producer_source_commit": "06e0485324590a2ccb29897a180afa8be4eacbc5",
+  "owner_source_commit": "46a03ec3a86333ec596bd19fd97148b077af5955",
+  "owner_provenance_commit": "85ed759499b5223e30a53e2dbea1e6fec03f04f9",
+  "owner_library_sha256": "7bd1cfcb950961d8106dcdcaa21c2ed05abc7afe052d628e81f06fa85b087e91",
+  "old_owner_library_sha256": "de94095bae7956074b117a237292ac57f7dc3bc60c401de74a1f17be84b280f8",
+  "producer_json_sha256": "d919819c78cbfa63ce5f079ce93b6bde67308c2e9acaa1001dc9b64cb181b79c",
+  "source_files": {
+    "src/host/pa_v2.rs": "c91d3ec8e19a23742cdefd63f7f428343ba3dff0ebdba5a34c9083a4dcb7580b",
+    "src/local_audio.rs": "c942837ed6af0d29401f02885b085dc94103299b2add74790898794d32b357d5",
+    "src/module_graph.rs": "b9c5e2aa4b910e3a17f6c3a174a1614e0bece212ccc32f5d317f0053a9ca793e",
+    "src/master_eq_wire.rs": "0c6bcd072610394df40292c83fe63893894b881a9ef753267f9071aed3b51160",
+    "src/structural_control.rs": "818998f5ee2a8e0debb4f92fdb031791743ee237aad80eef6351ae055b93a360",
+    "src/remote/host.rs": "6e8e0d5a5e153491fc4b0995a0f89f50648c2b1cb8f6f54145b691a3797f2a94",
+    "src/remote/policy.rs": "6590c3031103726b7ded4835960e9194e2dba62041c6b340736eb3611c50b9e2",
+    "src/remote/atomic_control_tests.rs": "6c1549810a213ad691ec3b99f8c83373f77c5a5f99709c05333a3cd63ff9dfd7",
+    "src/remote/master_eq_tests.rs": "5592be2e5f0d09e4290a69f79e31f40bd5f1a039d36ead4c0bd81405fa0a6969",
+    "src/remote.rs": "f4985fd75b52375ba4522a728d36e8fa03a6fc47d8a0fc9d6cfc0209db2f357f",
+    "tests/master_eq.rs": "98e1a40b0badb2207fc0f248045d16e12cdbe271c09621677ce03eff717b5379"
+  },
+  "transport_evidence": "actual Unix socket plus policy-authenticated receive codec/endpoint dispatch; no new TLS/QUIC handshake",
+  "review_state": "candidate-not-frozen; full GigPies gates pending",
+  "physical_acceptance": false
+}

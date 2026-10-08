@@ -355,13 +355,18 @@ impl Snapshot {
         self.validate_version(2)
     }
     pub(crate) fn validate_version(&self, version: u8) -> Result<(), String> {
-        if !matches!(version, 2 | 3) {
+        if !matches!(version, 2 | 4) {
             return Err("processing version".into());
         }
         if !provider::uuid(&self.show_id)
             || self.sample_rate != 48000
             || self.foh_tap != "foh-post-eq-dynamics-v2"
-            || self.monitor_tap != "raw-post-mute-v1"
+            || self.monitor_tap
+                != if version == 2 {
+                    "raw-post-mute-v1"
+                } else {
+                    "per-send-gp18-v1"
+                }
             || (version == 2 && self.channels.len() != 8)
             || self.channels.is_empty()
             || self.channels.len() > u16::MAX as usize
@@ -434,7 +439,7 @@ pub(crate) fn validate_body_version(body: &Value, version: u8) -> Result<(), Str
 }
 pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     let v = provider::parse_document(bytes)?;
-    if v["version"] != 3 && bytes.len() > provider::MAX_BYTES {
+    if v["version"] != 4 && bytes.len() > provider::MAX_BYTES {
         return Err("legacy processing capacity".into());
     }
     provider::keys(
@@ -476,7 +481,7 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, String> {
     if r.context.epoch == "0" {
         return Err("processing epoch must be nonzero".into());
     }
-    if r.contract != "GP07-processing" || !matches!(r.version, 2 | 3) {
+    if r.contract != "GP07-processing" || !matches!(r.version, 2 | 4) {
         return Err("processing contract/version".into());
     }
     provider::counter(&r.revision)?;

@@ -94,7 +94,7 @@ pub fn scene(desk: &Desk) -> Scene {
     s.text(
         576,
         12,
-        format!("SIMULATION / {:?}", desk.confirmed.mode).to_uppercase(),
+        format!("HISTORIC SIM / {:?}", desk.confirmed.mode).to_uppercase(),
         AMBER,
     );
     s.text(
@@ -335,7 +335,7 @@ fn channel(s: &mut Scene, d: &Desk) {
     s.text(36, 480, "No timed return to Auto", DIM);
     s.text(36, 528, "Mode change keeps levels", DIM);
     s.text(36, 576, "Release needs Auto mode", DIM);
-    s.text(36, 792, "EQ / dynamics: design only", AMBER);
+    s.text(36, 792, "HISTORIC: DSP not modeled", AMBER);
     s.panel(
         456,
         72,
@@ -361,22 +361,22 @@ fn channel(s: &mut Scene, d: &Desk) {
         "20 Hz          100 Hz          1 kHz          5 kHz          20 kHz / log axis",
         DIM,
     );
-    s.panel(456, 564, 708, 348, "DYNAMICS / CAPABILITY PENDING");
-    s.text(480, 636, "GATE    threshold / attack / hold / release", DIM);
+    s.panel(456, 564, 708, 348, "HISTORICAL SIMULATOR / NO DSP");
+    s.text(480, 636, "Current frontend: four-band EQ + compressor", DIM);
     s.text(480, 684, "COMP    threshold / ratio / knee / timing", DIM);
     s.text(480, 756, "GR -- dB  /  DETECTOR --  /  BYPASS --", DIM);
     s.text(
         480,
         828,
-        "No editable control without engine support",
+        "Use real frontend for supported DSP controls",
         AMBER,
     );
-    s.panel(1176, 564, 732, 348, "SENDS / PERFORMER MONITORS / PLANNED");
+    s.panel(1176, 564, 732, 348, "HISTORICAL SIMULATOR SENDS");
     for (i, t) in [
         "BUS        LEVEL     TAP       OWNER",
         "Vocal IEM  --        PRE       PA",
         "Band wedge --        PRE       PA",
-        "Vocal verb --        POST      SHR FX",
+        "Historic schematic; no FX send control",
     ]
     .iter()
     .enumerate()

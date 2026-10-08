@@ -32,6 +32,11 @@ pub struct Config {
 }
 #[derive(Clone, Debug)]
 pub enum Operation {
+    SwitchScope(String),
+    EnableLiveEq,
+    ReviewLiveEq(Value),
+    EnableSends,
+    ReviewTap(Value),
     EnableBrain,
     ReviewDevice(Box<crate::brain_device::Config>, (u64, u64)),
     BrainPress(u64),
@@ -79,6 +84,7 @@ struct Request {
 #[derive(Clone, Debug)]
 pub struct Update {
     pub generation: u64,
+    pub attachment_generation: u64,
     pub snapshot: Option<RenderedSnapshot>,
     pub device: Option<crate::brain_device::Snapshot>,
     pub device_final: Option<crate::brain_device::Reply>,
@@ -92,6 +98,12 @@ pub struct Update {
     pub held_baseline_ready: bool,
     pub held_transport_authenticated: bool,
     pub brain_status: String,
+    pub live_eq: Option<crate::live_eq::Snapshot>,
+    pub live_eq_age_ms: Option<u64>,
+    pub live_eq_final: Option<crate::live_eq::Reply>,
+    pub sends: Option<crate::sends::Snapshot>,
+    pub sends_age_ms: Option<u64>,
+    pub sends_final: Option<crate::sends::Reply>,
     pub processing: Option<crate::processing::Snapshot>,
     pub processing_age_ms: Option<u64>,
     pub processing_status: String,
@@ -304,7 +316,7 @@ pub(crate) fn exercise_held_worker(
 }
 
 fn worker(
-    config: Config,
+    mut config: Config,
     rx: Receiver<Request>,
     latest: Arc<Latest>,
     generation: Arc<AtomicU64>,
@@ -330,8 +342,13 @@ fn worker(
     let mut processing_enabled = false;
     let mut processing_status = "unavailable; GP07 probe not enabled".to_string();
     let mut processing_poll = Instant::now();
+    let mut sends_enabled = false;
+    let mut sends_poll = Instant::now();
+    let mut live_enabled = false;
+    let mut live_poll = Instant::now();
     let mut connect = true;
     let mut reconnects = 0u64;
+    let mut attachment_generation = g;
     #[cfg(test)]
     HELD_WORKER_SEED.with_borrow_mut(|seed| {
         if let Some(operator) = seed.take() {
@@ -432,6 +449,7 @@ fn worker(
         let received = Instant::now();
         let update = Update {
             generation: g,
+            attachment_generation,
             last_operation: last_operation.clone(),
             writer_lease_remaining_ms: op.as_ref().and_then(confirmed_lease_remaining),
             snapshot: op.as_ref().and_then(|o| o.session.snapshot.clone()),
@@ -449,6 +467,12 @@ fn worker(
                 .as_ref()
                 .is_some_and(|o| o.held_transport_authenticated()),
             brain_status: brain_status.clone(),
+            live_eq: op.as_ref().and_then(|o| o.session.live_eq.clone()),
+            live_eq_age_ms: op.as_ref().and_then(|o| o.session.live_eq_age(o.now())),
+            live_eq_final: op.as_ref().and_then(|o| o.session.live_eq_final.clone()),
+            sends: op.as_ref().and_then(|o| o.session.sends.clone()),
+            sends_age_ms: op.as_ref().and_then(|o| o.session.sends_age(o.now())),
+            sends_final: op.as_ref().and_then(|o| o.session.sends_final.clone()),
             processing: op.as_ref().and_then(|o| o.session.processing.clone()),
             processing_age_ms: op.as_ref().and_then(|o| o.session.processing_age(o.now())),
             processing_status: processing_status.clone(),
@@ -514,6 +538,9 @@ fn worker(
                         | Operation::Cancel
                         | Operation::Reconnect
                         | Operation::LegacyReconnect
+                        | Operation::EnableLiveEq
+                        | Operation::EnableSends
+                        | Operation::SwitchScope(_)
                         | Operation::EnableProcessing
                         | Operation::EnableBrain
                 )
@@ -554,13 +581,17 @@ fn worker(
             if matches!(r.operation, Operation::EnableBrain) {
                 brain_enabled = true;
                 brain_status = "awaiting actual Brain readback".into();
+            } else if matches!(r.operation, Operation::EnableLiveEq) {
+                live_enabled = config.wire_version == 2;
+            } else if matches!(r.operation, Operation::EnableSends) {
+                sends_enabled = config.wire_version == 2;
             } else if matches!(r.operation, Operation::EnableProcessing) {
                 processing_requested = true;
                 processing_enabled = true;
                 processing_status = "awaiting capability snapshot".into();
             } else if matches!(
                 r.operation,
-                Operation::Reconnect | Operation::LegacyReconnect
+                Operation::Reconnect | Operation::LegacyReconnect | Operation::SwitchScope(_)
             ) {
                 if matches!(r.operation, Operation::LegacyReconnect) {
                     processing_requested = false;
@@ -571,12 +602,27 @@ fn worker(
                 if let Some(o) = &mut op {
                     let _ = o.close_brain();
                 }
+                let mut release_error = None;
+                if let Operation::SwitchScope(ref scope) = r.operation {
+                    if let Some(o) = &mut op {
+                        o.cancel();
+                        if o.session.pending.is_none()
+                            && confirmed_lease_remaining(o).is_some()
+                            && let Err(error) = o.mutate_inner("release", json!({}))
+                        {
+                            release_error = Some(error);
+                        }
+                        o.session.disconnect();
+                    }
+                    config.scope = scope.clone();
+                }
                 op = None;
                 review = None;
                 reconnects += 1;
+                attachment_generation = g;
                 processing_enabled = processing_requested;
                 connect = true;
-                status = "reconnect discards intents; fresh writer/read-only".into();
+                status=release_error.map_or_else(||"reconnect discards intents; fresh writer/read-only".into(),|e|format!("old lease release failed: {e}; attachment discarded; fresh read-only writer"));
             } else if let Some(o) = &mut op {
                 let affects_status = !matches!(r.operation, Operation::InputReleased);
                 o.guard(generation.clone(), g);
@@ -585,6 +631,7 @@ fn worker(
                     let received = Instant::now();
                     *latest.update.lock().unwrap() = Some(Update {
                         generation: g,
+                        attachment_generation,
                         last_operation: last_operation.clone(),
                         writer_lease_remaining_ms: confirmed_lease_remaining(o),
                         snapshot: o.session.snapshot.clone(),
@@ -600,6 +647,12 @@ fn worker(
                         held_baseline_ready: o.held_baseline_ready(),
                         held_transport_authenticated: o.held_transport_authenticated(),
                         brain_status: brain_status.clone(),
+                        live_eq: o.session.live_eq.clone(),
+                        live_eq_age_ms: o.session.live_eq_age(o.now()),
+                        live_eq_final: o.session.live_eq_final.clone(),
+                        sends: o.session.sends.clone(),
+                        sends_age_ms: o.session.sends_age(o.now()),
+                        sends_final: o.session.sends_final.clone(),
                         processing: o.session.processing.clone(),
                         processing_age_ms: o.session.processing_age(o.now()),
                         processing_status: processing_status.clone(),
@@ -613,6 +666,11 @@ fn worker(
                         status: format!(
                             "PENDING {}; awaiting provider confirmation",
                             match &r.operation {
+                                Operation::EnableLiveEq => "live EQ probe",
+                                Operation::ReviewLiveEq(_) => "live EQ review",
+                                Operation::EnableSends => "sends capability query",
+                                Operation::ReviewTap(_) => "separate tap review",
+                                Operation::SwitchScope(_) => "scope reattachment",
                                 Operation::EnableProcessing => "capability query",
                                 Operation::ReviewDevice(..) => "device configuration review",
                                 Operation::EnableBrain => "Brain capability probe",
@@ -640,6 +698,8 @@ fn worker(
                     Operation::ReviewDevice(..)
                     | Operation::ReviewBrain { .. }
                     | Operation::ReviewStructure { .. }
+                    | Operation::ReviewLiveEq(_)
+                    | Operation::ReviewTap(_)
                     | Operation::ReviewProcessing { .. }
                     | Operation::ReviewSet { .. }
                     | Operation::Preview(_)
@@ -668,7 +728,10 @@ fn worker(
                         return Err("input context changed; intent discarded".into());
                     }
                     match r.operation {
-                        Operation::EnableProcessing | Operation::EnableBrain => unreachable!(),
+                        Operation::EnableLiveEq
+                        | Operation::EnableSends
+                        | Operation::EnableProcessing
+                        | Operation::EnableBrain => unreachable!(),
                         Operation::ReviewDevice(config, identity) => {
                             if !brain_enabled {
                                 return Err("Brain opt-in required".into());
@@ -706,6 +769,18 @@ fn worker(
                                 )?;
                             }
                             o.stage(&kind, body)?;
+                            serial = serial.checked_add(1).ok_or("review counter exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
+                        Operation::ReviewLiveEq(body) => {
+                            o.stage("master_eq_set", body)?;
+                            serial = serial.checked_add(1).ok_or("review exhausted")?;
+                            review = Some((serial, o.reviewed().unwrap_or_default()));
+                            Ok(())
+                        }
+                        Operation::ReviewTap(body) => {
+                            o.stage("send_tap_set", body)?;
                             serial = serial.checked_add(1).ok_or("review counter exhausted")?;
                             review = Some((serial, o.reviewed().unwrap_or_default()));
                             Ok(())
@@ -790,7 +865,9 @@ fn worker(
                             o.session.input_released();
                             Ok(())
                         }
-                        Operation::Reconnect | Operation::LegacyReconnect => unreachable!(),
+                        Operation::SwitchScope(_)
+                        | Operation::Reconnect
+                        | Operation::LegacyReconnect => unreachable!(),
                     }
                 })();
                 match result {
@@ -822,6 +899,7 @@ fn worker(
                 let received = Instant::now();
                 *latest.update.lock().unwrap() = Some(Update {
                     generation: g,
+                    attachment_generation,
                     last_operation: last_operation.clone(),
                     writer_lease_remaining_ms: confirmed_lease_remaining(o),
                     snapshot: o.session.snapshot.clone(),
@@ -837,6 +915,12 @@ fn worker(
                     held_baseline_ready: o.held_baseline_ready(),
                     held_transport_authenticated: o.held_transport_authenticated(),
                     brain_status: brain_status.clone(),
+                    live_eq: o.session.live_eq.clone(),
+                    live_eq_age_ms: o.session.live_eq_age(o.now()),
+                    live_eq_final: o.session.live_eq_final.clone(),
+                    sends: o.session.sends.clone(),
+                    sends_age_ms: o.session.sends_age(o.now()),
+                    sends_final: o.session.sends_final.clone(),
                     processing: o.session.processing.clone(),
                     processing_age_ms: o.session.processing_age(o.now()),
                     processing_status: processing_status.clone(),
@@ -884,6 +968,18 @@ fn worker(
                     && let Err(error) = o.refresh_structural()
                 {
                     status = format!("Structural state unavailable: {error}");
+                }
+                if live_enabled && live_poll.elapsed() >= Duration::from_millis(80) {
+                    if let Err(error) = o.refresh_live_eq() {
+                        status = format!("Live EQ unavailable: {error}");
+                    }
+                    live_poll = Instant::now();
+                }
+                if sends_enabled && sends_poll.elapsed() >= Duration::from_millis(80) {
+                    if let Err(error) = o.refresh_sends() {
+                        status = format!("Sends unavailable: {error}");
+                    }
+                    sends_poll = Instant::now();
                 }
                 if processing_enabled && processing_poll.elapsed() >= Duration::from_millis(80) {
                     match o.refresh_processing() {
@@ -1049,6 +1145,19 @@ pub struct ProcessingDraft {
     revision: String,
     generation: u64,
 }
+#[derive(Clone, Debug)]
+pub enum SendDraftValue {
+    Tap(crate::sends::Tap),
+    Level(i32),
+}
+#[derive(Clone, Debug)]
+pub struct SendDraft {
+    pub input: String,
+    pub monitor: String,
+    pub value: SendDraftValue,
+    revision: String,
+    generation: u64,
+}
 pub struct Frontend {
     pub provider: Provider,
     pub state: Option<Update>,
@@ -1063,6 +1172,12 @@ pub struct Frontend {
     device_draft_context: Option<(String, u64, (u64, u64))>,
     device_entry: Option<String>,
     hold_midi: Option<crate::brain::HoldMidi>,
+    pub live_page: bool,
+    pub sends_page: bool,
+    pub sends_channel: bool,
+    pub selected_monitor: usize,
+    pub send_draft: Option<SendDraft>,
+    send_entry: Option<String>,
     pub selected: usize,
     topology_page: Option<usize>,
     pub processing_draft: Option<ProcessingDraft>,
@@ -1090,6 +1205,7 @@ pub struct Frontend {
     role_client: Option<crate::roles::Client>,
     pub role_status: Option<crate::roles::Status>,
     observed_generation: u64,
+    attachment_fence: Option<u64>,
 }
 impl Frontend {
     pub fn new(config: Config) -> Self {
@@ -1108,6 +1224,12 @@ impl Frontend {
             device_draft_context: None,
             device_entry: None,
             hold_midi: None,
+            live_page: false,
+            sends_page: false,
+            sends_channel: false,
+            selected_monitor: 0,
+            send_draft: None,
+            send_entry: None,
             selected: 0,
             topology_page: None,
             processing_draft: None,
@@ -1134,6 +1256,7 @@ impl Frontend {
             role_client: None,
             role_status: None,
             observed_generation: 1,
+            attachment_fence: None,
         }
     }
     pub fn enable_brain_audio(&mut self) -> Result<(), String> {
@@ -1169,6 +1292,7 @@ impl Frontend {
     /// Explicit GP03-only fresh attachment; drops drafts, authority and queued intents.
     pub fn reconnect_legacy(&mut self) -> Result<(), String> {
         self.fence();
+        self.attachment_fence = Some(self.provider.generation());
         self.provider.send(None, Operation::LegacyReconnect)
     }
     /// Explicit capability probe; legacy providers are never probed by default.
@@ -1377,7 +1501,10 @@ impl Frontend {
                 {
                     let opens_editor = matches!(
                         action,
-                        Action::ProcessingEdit
+                        Action::SendTapEdit
+                            | Action::SendLevelEdit
+                            | Action::LiveEqEdit
+                            | Action::ProcessingEdit
                             | Action::StructureEdit
                             | Action::MasterEqEdit
                             | Action::DeviceEdit
@@ -1389,7 +1516,8 @@ impl Frontend {
                     // must not fill the provider queue or delay paired observations.
                     if (self.processing_draft.is_none()
                         && self.structural_draft.is_none()
-                        && self.device_draft.is_none())
+                        && self.device_draft.is_none()
+                        && self.send_draft.is_none())
                         || opens_editor
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
@@ -1407,8 +1535,9 @@ impl Frontend {
                     if self.focused
                         && ((self.processing_draft.is_none()
                             && self.structural_draft.is_none()
-                            && self.device_draft.is_none())
-                            || matches!(key.as_str(), "E" | "F9" | "F11"))
+                            && self.device_draft.is_none()
+                            && self.send_draft.is_none())
+                            || matches!(key.as_str(), "E" | "S" | "L" | "F9" | "F11"))
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }
@@ -1446,9 +1575,15 @@ impl Frontend {
         };
     }
     pub fn fresh(&self) -> bool {
-        self.state.as_ref().is_some_and(|s| s.raw_fresh())
+        self.attachment_fence.is_none() && self.state.as_ref().is_some_and(|s| s.raw_fresh())
     }
     fn accept_update(&mut self, update: Update) {
+        if let Some(required) = self.attachment_fence {
+            if update.attachment_generation != required {
+                return;
+            }
+            self.attachment_fence = None;
+        }
         if let (Some(old), Some(new)) = (
             self.state.as_ref().and_then(|s| s.snapshot.as_ref()),
             update.snapshot.as_ref(),
@@ -1545,7 +1680,37 @@ impl Frontend {
         }
         if key == "F5" {
             self.fence();
+            self.attachment_fence = Some(self.provider.generation());
             return self.provider.send(None, Operation::Reconnect);
+        }
+        if let Some(entry) = &mut self.send_entry {
+            match key {
+                "Esc" => self.send_entry = None,
+                "Backspace" => {
+                    entry.pop();
+                }
+                "Enter" => {
+                    let text = entry.clone();
+                    self.action(Action::SendLevelText(text))?;
+                    self.send_entry = None;
+                }
+                _ if key.chars().count() == 1
+                    && key
+                        .chars()
+                        .all(|c| c.is_ascii_digit() || c == '.' || c == '-') =>
+                {
+                    if entry.len() >= 16 {
+                        return Err("send entry capacity".into());
+                    }
+                    entry.push_str(key);
+                }
+                _ => {
+                    return Err(
+                        "send level entry: decimal dB; Enter accepts; Esc cancels entry".into(),
+                    );
+                }
+            }
+            return Ok(());
         }
         if let Some(entry) = &mut self.device_entry {
             match key {
@@ -1727,6 +1892,13 @@ impl Frontend {
                 }
             }
         }
+        if self.scope == "pa_configuration"
+            && self.structural_draft.is_none()
+            && self.review_id.is_none()
+            && (key == "L" || (self.live_page && key == "E"))
+        {
+            return self.action(Action::LiveEqEdit);
+        }
         if key == "G" {
             return self.send(Operation::Grant);
         }
@@ -1741,6 +1913,41 @@ impl Frontend {
                 self.review_page = self.review_page.saturating_sub(1);
             }
             return Ok(());
+        }
+        if self.sends_page && self.review_id.is_none() {
+            match key {
+                "F1" => {
+                    self.send_cancel();
+                    self.sends_channel = false;
+                    return Ok(());
+                }
+                "F2" => {
+                    self.send_cancel();
+                    self.sends_channel = true;
+                    return Ok(());
+                }
+                "F" => return self.action(Action::SwitchScope("foh".into())),
+                "V" => return self.action(Action::SwitchScope("pa_configuration".into())),
+                "U" => return self.action(Action::BrowseMonitor(-1)),
+                "I" => return self.action(Action::BrowseMonitor(1)),
+                "O" => {
+                    return self.action(Action::SwitchScope(format!(
+                        "monitor{}",
+                        self.selected_monitor + 1
+                    )));
+                }
+                "E" => return self.action(Action::SendTapEdit),
+                "S" => {
+                    self.action(Action::SendLevelEdit)?;
+                    self.send_entry = Some(String::new());
+                    return Ok(());
+                }
+                "F4" => return self.action(Action::SendApply),
+                "1" => return self.action(Action::SendTap(crate::sends::Tap::RawPostMute)),
+                "2" => return self.action(Action::SendTap(crate::sends::Tap::ProcessedPreFader)),
+                "3" => return self.action(Action::SendTap(crate::sends::Tap::ProcessedPostFader)),
+                _ => (),
+            }
         }
         if self.structural_draft.is_some() {
             match key {
@@ -1818,6 +2025,219 @@ impl Frontend {
     }
     fn action(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::LiveEqEdit => {
+                if self.scope != "pa_configuration" || self.module_config.wire_version != 2 {
+                    return Err("live EQ requires explicit dynamic PA attachment".into());
+                }
+                if !self.live_page {
+                    self.send_cancel();
+                    self.live_page = true;
+                    self.sends_page = false;
+                    self.brain_page = false;
+                    self.processing_draft = None;
+                    self.structural_draft = None;
+                    return self.provider.send(None, Operation::EnableLiveEq);
+                }
+                if self.structural_draft.is_some() || self.review_id.is_some() {
+                    return Err("Apply or Cancel existing draft/review first".into());
+                }
+                if !self.live_eq_ready() || !self.state.as_ref().is_some_and(Update::writer_granted)
+                {
+                    return Err("fresh settled compatible live EQ readback and NEW explicit PA grant required".into());
+                }
+                let u = self
+                    .state
+                    .as_ref()
+                    .filter(|u| u.structure_is_fresh())
+                    .ok_or("fresh full PA readback required")?;
+                self.structural_draft = Some(crate::structure::Draft::new_live_eq(
+                    u.structural.as_ref().ok_or("PA unavailable")?,
+                    u.live_eq.as_ref().ok_or("live EQ unavailable")?,
+                    self.provider.generation(),
+                )?);
+                self.processing_entry.clear();
+                Ok(())
+            }
+            Action::SendsPage => {
+                if self.module_config.wire_version != 2 {
+                    return Err("sends overview requires explicit dynamic attachment".into());
+                }
+                self.send_cancel();
+                self.live_page = false;
+                self.sends_page = true;
+                self.brain_page = false;
+                self.topology_page = None;
+                self.processing_draft = None;
+                self.structural_draft = None;
+                self.provider.send(None, Operation::EnableSends)
+            }
+            Action::BrowseMonitor(delta) => {
+                let count = self
+                    .state
+                    .as_ref()
+                    .and_then(|u| u.snapshot.as_ref())
+                    .ok_or("snapshot")?
+                    .authority
+                    .monitors
+                    .len();
+                if count == 0 {
+                    return Err("no monitor inventory".into());
+                }
+                self.send_cancel();
+                self.send_draft = None;
+                self.send_entry = None;
+                self.selected_monitor = (self.selected_monitor as i64 + i64::from(delta))
+                    .rem_euclid(count as i64) as usize;
+                Ok(())
+            }
+            Action::SwitchScope(scope) => {
+                crate::scopes::value(&scope)?;
+                let raw = self
+                    .state
+                    .as_ref()
+                    .and_then(|u| u.snapshot.as_ref())
+                    .ok_or("actual inventory required for reattachment")?;
+                if !raw.authority.modes.iter().any(|(s, _)| s == &scope)
+                    && !matches!(scope.as_str(), "pa_configuration" | "output_routes")
+                {
+                    return Err("scope not advertised".into());
+                }
+                self.fence();
+                self.send_draft = None;
+                self.send_entry = None;
+                self.processing_draft = None;
+                self.structural_draft = None;
+                self.scope = scope.clone();
+                self.module_config.scope = scope.clone();
+                self.attachment_fence = Some(self.provider.generation());
+                self.provider.send(None, Operation::SwitchScope(scope))?;
+                self.message="Reattach read-only / new writer / fresh read and NEW explicit G grant required".into();
+                Ok(())
+            }
+            Action::SendTapEdit | Action::SendLevelEdit => {
+                if self.send_draft.is_some() || self.review_id.is_some() {
+                    return Err("Apply or Cancel existing edit first".into());
+                }
+                let (input, monitor) = self.send_pair()?;
+                if self.scope != format!("monitor{}", self.selected_monitor + 1)
+                    || !self.state.as_ref().is_some_and(Update::writer_granted)
+                {
+                    return Err(
+                        "O switches attachment; NEW G grant required for selected monitor".into(),
+                    );
+                }
+                let raw = self.state.as_ref().unwrap().snapshot.as_ref().unwrap();
+                let value = if matches!(action, Action::SendTapEdit) {
+                    if !self.sends_ready() {
+                        return Err("fresh settled raw/GP18 pair required".into());
+                    }
+                    SendDraftValue::Tap(
+                        self.state
+                            .as_ref()
+                            .unwrap()
+                            .sends
+                            .as_ref()
+                            .unwrap()
+                            .send(&input, &monitor)
+                            .ok_or("send absent")?
+                            .target,
+                    )
+                } else {
+                    let p = raw
+                        .authority
+                        .parameters
+                        .iter()
+                        .find(|p| {
+                            p.target.input == input
+                                && p.target.parameter == "send"
+                                && p.target.monitor.as_deref() == Some(&monitor)
+                        })
+                        .ok_or("send level absent")?;
+                    SendDraftValue::Level(
+                        p.target_value.as_i64().ok_or("send level numeric")? as i32
+                    )
+                };
+                self.send_draft = Some(SendDraft {
+                    input,
+                    monitor,
+                    value,
+                    revision: raw.authority.revision.clone(),
+                    generation: self.provider.generation(),
+                });
+                Ok(())
+            }
+            Action::SendTap(tap) => {
+                let d = self
+                    .send_draft
+                    .as_mut()
+                    .ok_or("E opens separate tap draft")?;
+                if !matches!(d.value, SendDraftValue::Tap(_)) {
+                    return Err("level and tap reviews are separate".into());
+                }
+                d.value = SendDraftValue::Tap(tap);
+                Ok(())
+            }
+            Action::SendLevelText(text) => {
+                let d = self
+                    .send_draft
+                    .as_mut()
+                    .ok_or("S opens exact level draft")?;
+                if !matches!(d.value, SendDraftValue::Level(_)) {
+                    return Err("level and tap reviews are separate".into());
+                }
+                if text.is_empty()
+                    || text.len() > 16
+                    || text
+                        .chars()
+                        .any(|c| !c.is_ascii_digit() && c != '.' && c != '-')
+                {
+                    return Err("decimal send dB required".into());
+                }
+                let value: f64 = text.parse().map_err(|_| "decimal send dB required")?;
+                let scaled = value * 1000.;
+                if !value.is_finite()
+                    || !(-60000. ..=12000.).contains(&scaled)
+                    || (scaled / 100. - (scaled / 100.).round()).abs() > 1e-8
+                {
+                    return Err("send level -60..+12dB in0.1dB steps".into());
+                }
+                let n = scaled.round() as i32;
+                d.value = SendDraftValue::Level(n);
+                Ok(())
+            }
+            Action::SendApply => {
+                let d = self.send_draft.clone().ok_or("no send draft")?;
+                let (input, monitor) = self.send_pair()?;
+                if d.generation != self.provider.generation()
+                    || d.input != input
+                    || d.monitor != monitor
+                    || self.scope != format!("monitor{}", self.selected_monitor + 1)
+                    || !self.state.as_ref().is_some_and(Update::writer_granted)
+                    || self
+                        .state
+                        .as_ref()
+                        .and_then(|u| u.snapshot.as_ref())
+                        .is_none_or(|s| s.authority.revision != d.revision)
+                {
+                    return Err("send draft context changed; cancel and reopen".into());
+                }
+                let operation = match d.value {
+                    SendDraftValue::Tap(tap) => {
+                        if !self.sends_ready() {
+                            return Err("fresh settled paired sends required".into());
+                        }
+                        Operation::ReviewTap(json!({"input":input,"monitor":monitor,"tap":tap}))
+                    }
+                    SendDraftValue::Level(value) => Operation::ReviewSet {
+                        target: json!({"input":input,"parameter":"send","monitor":monitor}),
+                        value: json!(value),
+                    },
+                };
+                self.send(operation)?;
+                self.send_draft = None;
+                self.send_entry = None;
+                Ok(())
+            }
             Action::DeviceEdit => {
                 if !self.brain_enabled
                     || !self.fresh()
@@ -1997,6 +2417,8 @@ impl Frontend {
                 } else {
                     crate::structure::Draft::new(snapshot, &self.scope, self.provider.generation())?
                 });
+                self.sends_page = false;
+                self.live_page = false;
                 self.brain_page = false;
                 self.topology_page = None;
                 self.processing_entry.clear();
@@ -2060,6 +2482,25 @@ impl Frontend {
                     .structural_draft
                     .as_ref()
                     .ok_or("no structural draft")?;
+                if let Some(context) = &draft.live_context {
+                    if self.scope != "pa_configuration"
+                        || !self.live_eq_ready()
+                        || !self.state.as_ref().is_some_and(Update::writer_granted)
+                        || draft.generation != self.provider.generation()
+                        || self
+                            .state
+                            .as_ref()
+                            .and_then(|u| u.live_eq.as_ref())
+                            .is_none_or(|s| !s.same_context(context))
+                    {
+                        return Err("live EQ review context changed; cancel and reopen".into());
+                    }
+                    let operation = Operation::ReviewLiveEq(draft.body()?);
+                    self.send(operation)?;
+                    self.structural_draft = None;
+                    self.structure_text_entry = false;
+                    return Ok(());
+                }
                 if let Some(view) = &draft.master_eq {
                     if self.scope != "pa_configuration"
                         || !self.state.as_ref().is_some_and(Update::writer_granted)
@@ -2231,6 +2672,10 @@ impl Frontend {
                 Ok(())
             }
             Action::Page(page) => {
+                self.live_page = false;
+                self.sends_page = false;
+                self.send_draft = None;
+                self.send_entry = None;
                 self.send_cancel();
                 self.page = page;
                 self.topology_page = None;
@@ -2254,6 +2699,8 @@ impl Frontend {
                     (self.selected as i64 + i64::from(delta)).rem_euclid(n as i64) as usize
                 };
                 self.send_cancel();
+                self.send_draft = None;
+                self.send_entry = None;
                 self.selected = selected;
                 Ok(())
             }
@@ -2313,6 +2760,8 @@ impl Frontend {
                 self.send(Operation::Confirm(id))
             }
             Action::Cancel | Action::Back => {
+                self.send_draft = None;
+                self.send_entry = None;
                 self.processing_draft = None;
                 self.device_draft = None;
                 self.device_draft_context = None;
@@ -2389,6 +2838,14 @@ impl Frontend {
             .ok_or_else(|| "monitor scope unavailable".into())
     }
     fn target(&self, parameter: &str) -> Result<Value, String> {
+        if self.sends_page
+            && (self.scope != format!("monitor{}", self.selected_monitor + 1)
+                || self.send_draft.is_some())
+        {
+            return Err(
+                "browsing another monitor is read-only; O reattaches; G explicitly grants".into(),
+            );
+        }
         if self.scope != "foh" && parameter == "pan" {
             return Err("pan unavailable in monitor scope; send gain unchanged".into());
         }
@@ -2606,6 +3063,12 @@ impl Frontend {
             line(972, self.message.clone(), "#f47c85");
             return scene;
         }
+        if self.sends_page {
+            return self.sends_scene();
+        }
+        if self.live_page && self.structural_draft.is_none() {
+            return self.live_scene();
+        }
         if let Some(d) = &self.device_draft {
             line(
                 12,
@@ -2734,7 +3197,7 @@ impl Frontend {
                         ),
                         "#66dfd3",
                     );
-                    line(552,"Performer monitor tap remains raw post-mute sends. Source selection never implicitly sums.".into(),"#e4e8e9");
+                    line(552,"Performer taps follow separately confirmed GP18 sends; source selection never implicitly sums.".into(),"#e4e8e9");
                 }
                 if let Some(d) = &u.device {
                     if let Some(o) = &d.observation {
@@ -2837,56 +3300,21 @@ impl Frontend {
         }
         if let Some(draft) = &self.structural_draft {
             if let Some(view) = &draft.master_eq {
-                line(
-                    12,
-                    format!(
-                        "MASTER EQ / {} / {} / LOCAL DRAFT",
-                        view.channel_label(),
-                        if view.graphic {
-                            "31-band graphic"
-                        } else {
-                            "8-band parametric"
+                let mut scene = view.scene(
+                    &draft.document,
+                    draft.selected,
+                    &self.processing_entry,
+                    &self.message,
+                );
+                if draft.live_context.is_some() {
+                    for p in &mut scene.primitives {
+                        if let Primitive::Text { value, .. } = p
+                            && value.starts_with("MUTED SETUP")
+                        {
+                            *value="LIVE EQ ONLY / current readback + unsent draft / full review; never rearms outputs".into();
                         }
-                    ),
-                    "#66dfd3",
-                );
-                line(60, "Main L/R -> PA program EQ -> PA graph/protection. Direct main/monitor routes bypass this EQ.".into(), "#9caebc");
-                line(108, "MUTED SETUP ONLY / no change sent / applying requires quiesced outputs and complete review".into(), "#f1bd6b");
-                line(156, "Linked edits change only the selected parameter on L+R; different existing values stay visible.".into(), "#9caebc");
-                let start = draft.selected / 24 * 24;
-                for (row, path) in draft.fields.iter().skip(start).take(24).enumerate() {
-                    line(
-                        216 + row as u32 * 24,
-                        format!(
-                            "{} {:<48} {}",
-                            if start + row == draft.selected {
-                                ">"
-                            } else {
-                                " "
-                            },
-                            view.label(path),
-                            view.display(&draft.document, path)
-                        ),
-                        if start + row == draft.selected {
-                            "#66dfd3"
-                        } else {
-                            "#e4e8e9"
-                        },
-                    );
+                    }
                 }
-                line(
-                    816,
-                    format!(
-                        "FIELD {}/{} | Entry: {}",
-                        draft.selected + 1,
-                        draft.fields.len(),
-                        self.processing_entry.chars().take(80).collect::<String>()
-                    ),
-                    "#66dfd3",
-                );
-                line(864, "B PEQ/GEQ | C linked/left/right | U/I field | J/K adjust | F3 type value, Enter accepts".into(), "#9caebc");
-                line(900, "F4 Apply/review | Esc cancel | rearm is a separate reviewed action after application".into(), "#f1bd6b");
-                line(948, self.message.chars().take(150).collect(), "#f47c85");
                 return scene;
             }
             line(
@@ -3150,7 +3578,7 @@ impl Frontend {
                             line(
                                 204,
                                 format!(
-                                    "GP07 FOH: raw -> EQ -> compressor -> mute/fader/pan | Monitors: raw -> mute -> sends | {}",
+                                    "GP07 FOH: EQ -> compressor -> shared mute/fader/pan | Monitors: separately selected GP18 taps | {}",
                                     if self.processing_fresh() {
                                         "FRESH"
                                     } else {
@@ -3262,6 +3690,8 @@ impl Frontend {
                                     "#66dfd3",
                                 );
                             }
+                            let tap_label = u.sends.as_ref().and_then(|ss| ss.channels.iter().find(|c| c.input == channel.input)).and_then(|c| c.sends.get(self.selected_monitor)).map(|send| format!("Monitor{} tap {} -> {} / {} frames / shared mute; post-fader before pan", self.selected_monitor+1, send.current.name(), send.target.name(),send.transition_remaining_frames)).unwrap_or_else(|| if self.module_config.wire_version == 1 {"Legacy monitor taps: raw_post_mute".into()} else {"Monitor tap unavailable: F12 queries GP18; no processing authority from monitor browsing".into()});
+                            line(672, tap_label, "#9caebc");
                             line(708, "During transition output blends settled and target branches; GR is detector feedback, not a level meter".into(), "#9caebc");
                             line(
                                 744,
@@ -3305,7 +3735,7 @@ impl Frontend {
                             line(888, "E Edit (FOH only) | U/I previous/next field | J/K -/+ one step (bypass toggles) | N/P -/+ 100 steps".into(), "#66dfd3");
                             line(924, "F4 Apply -> displayed review -> Enter Confirm | Esc Cancel | arrows select channel | F1/F2/F6 pages".into(), "#66dfd3");
                             line(960, "G grant configured scope | Q release writer | +/- fader | [ ] pan | M mute | H hold | R release | A mode".into(), "#9caebc");
-                            line(996, "F5 reconnect | F8 explicit legacy GP03 reconnect | fresh writer/read-only, no replay".into(), "#9caebc");
+                            line(996, "F5 reconnect | F8 legacy | F12 sends / explicit scope switch | fresh writer/read-only, no replay".into(), "#9caebc");
                             return scene;
                         }
                     } else {
@@ -3501,7 +3931,7 @@ impl Frontend {
         );
         line(
             1008,
-            "F5 reconnect | F8 legacy reconnect | F7 patch | F9 PA/routes editor | F11 Master EQ (PA scope)"
+            "F5 reconnect | F8 legacy reconnect | F7 patch | F9 PA/routes editor | F11 muted EQ | F12 sends | PA: L live EQ"
                 .into(),
             "#9caebc",
         );
@@ -3541,12 +3971,19 @@ mod tests {
             held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
+            attachment_generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
             snapshot: Some(
                 crate::audio::decode_snapshot(&serde_json::to_vec(&corpus["initial"]).unwrap())
                     .unwrap(),
             ),
+            live_eq: None,
+            live_eq_age_ms: None,
+            live_eq_final: None,
+            sends: None,
+            sends_age_ms: None,
+            sends_final: None,
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
@@ -3617,9 +4054,16 @@ mod tests {
             held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
+            attachment_generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
             snapshot: Some(snapshot),
+            live_eq: None,
+            live_eq_age_ms: None,
+            live_eq_final: None,
+            sends: None,
+            sends_age_ms: None,
+            sends_final: None,
             processing: None,
             processing_age_ms: None,
             processing_status: "disabled".into(),
@@ -3667,7 +4111,7 @@ mod tests {
 #[cfg(test)]
 mod processing_tests {
     use super::*;
-    fn master_surface() -> (Frontend, Receiver<Request>) {
+    pub(super) fn master_surface() -> (Frontend, Receiver<Request>) {
         let (mut f, rx) = brain_surface();
         f.scope = "pa_configuration".into();
         let mut snapshot = crate::structure::decode_snapshot(include_bytes!(
@@ -3839,7 +4283,9 @@ mod processing_tests {
                 .all(|r| matches!(r.operation, Operation::Cancel))
         );
         after_cancel.received = Instant::now();
-        f.state = Some(after_cancel);
+        after_cancel.generation = f.provider.generation();
+        after_cancel.attachment_generation = f.provider.generation();
+        f.accept_update(after_cancel);
         f.key("F11").unwrap();
         f.key("F4").unwrap();
         assert!(
@@ -3890,7 +4336,7 @@ mod processing_tests {
         ));
         assert!(rx.try_recv().is_err());
     }
-    fn brain_surface() -> (Frontend, Receiver<Request>) {
+    pub(super) fn brain_surface() -> (Frontend, Receiver<Request>) {
         let mut f = surface();
         let (tx, rx) = mpsc::sync_channel(8);
         f.provider = Provider {
@@ -4215,9 +4661,16 @@ mod processing_tests {
             held_transport_authenticated: false,
             brain_status: "disabled".into(),
             generation: 1,
+            attachment_generation: 1,
             last_operation: None,
             writer_lease_remaining_ms: None,
             snapshot: Some(raw),
+            live_eq: None,
+            live_eq_age_ms: None,
+            live_eq_final: None,
+            sends: None,
+            sends_age_ms: None,
+            sends_final: None,
             processing,
             processing_age_ms: Some(0),
             processing_status: "fixture layout only".into(),
@@ -4284,6 +4737,7 @@ mod processing_tests {
         assert!(rx.try_recv().is_err());
         let mut update = surface().state.unwrap();
         update.generation = f.provider.generation();
+        update.attachment_generation = f.provider.generation();
         update.snapshot.as_mut().unwrap().authority.revision = "5".into();
         update.processing.as_mut().unwrap().revision = "5".into();
         f.accept_update(update);
@@ -4894,5 +5348,623 @@ mod processing_tests {
             Operation::InputReleased
         ));
         assert!(rx.try_recv().is_err());
+    }
+}
+
+impl Frontend {
+    fn send_pair(&self) -> Result<(String, String), String> {
+        if !self.fresh() {
+            return Err("fresh actual raw inventory required".into());
+        }
+        let raw = self.state.as_ref().unwrap().snapshot.as_ref().unwrap();
+        Ok((
+            raw.authority
+                .inputs
+                .get(self.selected)
+                .ok_or("selected input unavailable")?
+                .clone(),
+            raw.authority
+                .monitors
+                .get(self.selected_monitor)
+                .ok_or("selected monitor unavailable")?
+                .clone(),
+        ))
+    }
+    pub fn sends_ready(&self) -> bool {
+        self.fresh()
+            && self.state.as_ref().is_some_and(|u| {
+                u.sends_age_ms.is_some_and(|age| {
+                    age.saturating_add(u.received.elapsed().as_millis() as u64) <= 250
+                }) && u.sends.as_ref().is_some_and(|s| {
+                    !s.faulted
+                        && s.channels.iter().flat_map(|c| &c.sends).all(|s| s.ready)
+                        && u.snapshot.as_ref().is_some_and(|r| {
+                            r.authority.revision == s.revision && r.authority.monitors == s.monitors
+                        })
+                })
+            })
+    }
+}
+
+impl Frontend {
+    fn sends_scene(&self) -> Scene {
+        let mut s = Scene::default();
+        s.primitives.push(Primitive::Rect {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+            fill: "#10151d",
+        });
+        let mut line = |y: u32, v: String, color: &'static str| {
+            s.primitives.push(Primitive::Text {
+                x: 24,
+                y,
+                value: v.chars().take(156).collect(),
+                color,
+            });
+        };
+        let cyan = "#66dfd3";
+        let dim = "#9caebc";
+        let white = "#e4e8e9";
+        let amber = "#f1bd6b";
+        line(
+            12,
+            format!(
+                "SENDS / {} / attachment scope {}",
+                if self.sends_channel {
+                    "PER CHANNEL"
+                } else {
+                    "OVERVIEW"
+                },
+                self.scope
+            ),
+            cyan,
+        );
+        line(
+            48,
+            format!(
+                "{} / selected monitor{} / {} / no connected audio device in Desk",
+                if self.fresh() {
+                    "FRESH CONTROL READBACK"
+                } else {
+                    "STALE / EDITS DISABLED"
+                },
+                self.selected_monitor + 1,
+                if self.state.as_ref().is_some_and(Update::writer_granted) {
+                    "EXPLICIT WRITER GRANTED"
+                } else {
+                    "READ ONLY / G GRANT REQUIRED"
+                }
+            ),
+            amber,
+        );
+        line(96,"Every tap obeys shared INPUT mute. Processed taps follow EQ+compression. Post-fader remains before pan.".into(),dim);
+        line(132,"Send level and tap have SEPARATE reviews; no combined atomic operation; no trim or FX send here.".into(),dim);
+        if let Some(raw) = self.state.as_ref().and_then(|u| u.snapshot.as_ref()) {
+            line(
+                180,
+                format!(
+                    "{} inputs / {} monitors / {} independent channel banks / selected {}",
+                    raw.authority.inputs.len(),
+                    raw.authority.monitors.len(),
+                    raw.authority.inputs.len().div_ceil(12),
+                    self.selected_input().unwrap_or("unavailable")
+                ),
+                cyan,
+            );
+            line(216,"PAIR                       CURRENT LEVEL / TARGET       HOLD / MODE       CURRENT TAP -> COMMITTED TARGET / TRANSITION".into(),dim);
+            let rows: Vec<_> = if self.sends_channel {
+                raw.authority
+                    .monitors
+                    .iter()
+                    .skip(self.selected_monitor / 12 * 12)
+                    .take(12)
+                    .filter_map(|m| self.selected_input().map(|i| (i, m.as_str())))
+                    .collect()
+            } else {
+                raw.authority
+                    .inputs
+                    .iter()
+                    .skip(self.selected / 12 * 12)
+                    .take(12)
+                    .filter_map(|i| {
+                        raw.authority
+                            .monitors
+                            .get(self.selected_monitor)
+                            .map(|m| (i.as_str(), m.as_str()))
+                    })
+                    .collect()
+            };
+            for (n, (input, monitor)) in rows.into_iter().enumerate() {
+                let p = raw.authority.parameters.iter().find(|p| {
+                    p.target.input == input
+                        && p.target.parameter == "send"
+                        && p.target.monitor.as_deref() == Some(monitor)
+                });
+                let target = raw
+                    .coefficients
+                    .iter()
+                    .find(|c| c.input == input)
+                    .and_then(|c| {
+                        raw.authority
+                            .monitors
+                            .iter()
+                            .position(|m| m == monitor)
+                            .and_then(|i| c.current_nanogain.get(i + 4))
+                    });
+                let tap = self
+                    .state
+                    .as_ref()
+                    .and_then(|u| u.sends.as_ref())
+                    .and_then(|s| s.send(input, monitor));
+                let scope = format!("monitor{}", monitor.strip_prefix("monitor-").unwrap_or("?"));
+                let mode = raw
+                    .authority
+                    .modes
+                    .iter()
+                    .find(|(s, _)| s == &scope)
+                    .map(|(_, m)| m.as_str())
+                    .unwrap_or("?");
+                line(
+                    264 + n as u32 * 36,
+                    format!(
+                        "{} {input} / {monitor}   {} / {}   hold {} / {mode}   {}",
+                        if Some(input) == self.selected_input()
+                            && monitor == format!("monitor-{}", self.selected_monitor + 1)
+                        {
+                            ">"
+                        } else {
+                            " "
+                        },
+                        target.map_or_else(|| "--".into(), |n| linear_display(*n)),
+                        p.map_or_else(
+                            || "--".into(),
+                            |p| parameter_display("send", &p.target_value)
+                        ),
+                        p.and_then(|p| p.hold.as_ref())
+                            .map_or_else(|| "none".into(), |h| h.to_string()),
+                        tap.map_or_else(
+                            || "GP18 unavailable / no tap invented".into(),
+                            |t| format!(
+                                "{} -> {} / {}f{}",
+                                t.current.name(),
+                                t.target.name(),
+                                t.transition_remaining_frames,
+                                if t.ready { " settled" } else { " fading" }
+                            )
+                        )
+                    ),
+                    white,
+                );
+            }
+        } else {
+            line(
+                264,
+                "Inventory unavailable; no fixture-derived capacity or authority".into(),
+                amber,
+            );
+        }
+        if let Some(u) = &self.state {
+            line(
+                732,
+                format!(
+                    "GP18 paired {} / observation age {:?} ms / latest operation {}",
+                    if self.sends_ready() {
+                        "settled"
+                    } else {
+                        "unavailable/stale/fading"
+                    },
+                    u.sends_age_ms,
+                    u.last_operation.as_deref().unwrap_or("none")
+                ),
+                amber,
+            );
+            if let Some(final_reply) = &u.sends_final {
+                line(
+                    768,
+                    format!(
+                        "Committed tap ticket {} / revision {} / effective frame {} / fade {}f",
+                        final_reply.ticket.as_deref().unwrap_or("--"),
+                        final_reply.revision,
+                        final_reply.effective_frame.as_deref().unwrap_or("--"),
+                        final_reply.ramp_frames.unwrap_or(0)
+                    ),
+                    amber,
+                );
+            }
+        }
+        line(
+            816,
+            self.send_draft.as_ref().map_or_else(
+                || "LOCAL DRAFT: none".into(),
+                |d| {
+                    format!(
+                        "LOCAL UNSENT {} / {} / {:?} / pinned revision {}",
+                        d.input, d.monitor, d.value, d.revision
+                    )
+                },
+            ),
+            cyan,
+        );
+        if let Some(entry) = &self.send_entry {
+            line(
+                852,
+                format!("Exact send LEVEL dB: {entry} / Enter accepts field; Esc cancels entry"),
+                cyan,
+            );
+        }
+        line(900,"F1 overview / F2 channel | arrows channel / PageUp/Down bank | U/I monitor browse (read only)".into(),dim);
+        line(936,"O reattach selected monitor / F reattach FOH / V reattach PA | NEW G grant | Q release writer only".into(),dim);
+        line(972,"E tap draft:1 raw /2 processed pre /3 processed post | S exact level | F4 Apply/review | Esc cancel".into(),dim);
+        line(1032, self.message.clone(), "#f47c85");
+        s
+    }
+}
+impl Frontend {
+    pub fn live_eq_ready(&self) -> bool {
+        self.fresh()
+            && self.state.as_ref().is_some_and(|u| {
+                u.live_eq_age_ms.is_some_and(|age| {
+                    age.saturating_add(u.received.elapsed().as_millis() as u64) <= 250
+                }) && u.live_eq.as_ref().is_some_and(|s| {
+                    s.editable()
+                        && u.snapshot.as_ref().is_some_and(|raw| {
+                            raw.authority.revision == s.revision
+                                && raw.topology.as_ref().is_some_and(|t| {
+                                    s.map_revision.parse::<u64>().ok() == Some(t.map_revision)
+                                })
+                        })
+                })
+            })
+    }
+    fn live_scene(&self) -> Scene {
+        let mut s = Scene::default();
+        s.primitives.push(Primitive::Rect {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+            fill: "#10151d",
+        });
+        let mut line = |y: u32, v: String, color: &'static str| {
+            s.primitives.push(Primitive::Text {
+                x: 24,
+                y,
+                value: v.chars().take(156).collect(),
+                color,
+            })
+        };
+        line(
+            12,
+            "LIVE MASTER EQ / optional owner extension / no rearm or full graph replacement".into(),
+            "#66dfd3",
+        );
+        line(
+            60,
+            format!(
+                "PA scope {} / {}",
+                self.scope,
+                if self.state.as_ref().is_some_and(Update::writer_granted) {
+                    "explicit grant"
+                } else {
+                    "READ ONLY / G grant required"
+                }
+            ),
+            "#f1bd6b",
+        );
+        if let Some(live) = self.state.as_ref().and_then(|u| u.live_eq.as_ref()) {
+            line(
+                108,
+                format!(
+                    "Supported {} / available {} / settled {} / outer source+PA fault {} / recovery required {}",
+                    live.live_supported,
+                    live.live_available,
+                    live.settled,
+                    live.fault_latched,
+                    live.source_recovery_required
+                ),
+                "#e4e8e9",
+            );
+            line(
+                156,
+                format!(
+                    "Owner {} / graph {} / EQ {} / map {} / remaining {} frames / retirement storage {}",
+                    live.owner_instance,
+                    live.graph_generation,
+                    live.eq_generation,
+                    live.map_revision,
+                    live.transition_remaining_frames,
+                    live.retirement_occupied
+                ),
+                "#e4e8e9",
+            );
+            line(
+                204,
+                format!(
+                    "Program buses {:?} / main L/R indices {:?} / reason {}",
+                    live.program_buses,
+                    live.master_input_indices,
+                    live.unavailable_reason.as_deref().unwrap_or("none")
+                ),
+                "#e4e8e9",
+            );
+            if let Ok(owner) = live.owner() {
+                line(252,"CALCULATED EQ RESPONSE / CURRENT cyan, COMMITTED TARGET amber / static endpoint curves".into(),"#9caebc");
+                line(288,"During a fade these curves are NOT the exact time-varying transfer. No spectrum/protection/room measurement.".into(),"#9caebc");
+                for (row, state) in ["current", "target"].into_iter().enumerate() {
+                    let summary = owner[state]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|input| {
+                            format!(
+                                "input {} / PEQ {} / GEQ {} / band1 {} Hz {:+.3} dB",
+                                input["input_index"],
+                                input["eq_enabled"],
+                                input["geq_enabled"],
+                                input["eq"][0]["hz"],
+                                input["eq"][0]["db"].as_f64().unwrap()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    line(
+                        336 + row as u32 * 36,
+                        format!("{state}: {summary}"),
+                        if row == 0 { "#66dfd3" } else { "#f1bd6b" },
+                    );
+                }
+                // Separate L/R panels; endpoint settings only, no sample histories.
+                let mut curves = Vec::new();
+                for state in ["current", "target"] {
+                    for side in 0..2 {
+                        let bank =
+                            crate::eq_response::coefficients(&owner[state][side], 48000).unwrap();
+                        let x = 24 + side as u32 * 960;
+                        let y = 480;
+                        let w = 840;
+                        let h = 288;
+                        let color = if state == "current" {
+                            "#66dfd3"
+                        } else {
+                            "#f1bd6b"
+                        };
+                        let mut prev = None;
+                        for n in 0..=240 {
+                            let hz = 20. * 1000_f64.powf(f64::from(n) / 240.);
+                            let (db, _) = crate::eq_response::response(&bank, 48000, hz).unwrap();
+                            let p = (
+                                x + n as u32 * w / 240,
+                                y + ((48. - db.clamp(-48., 48.)) / 96. * f64::from(h)) as u32,
+                            );
+                            if let Some((px, py)) = prev {
+                                curves.push(Primitive::Line {
+                                    x1: px,
+                                    y1: py,
+                                    x2: p.0,
+                                    y2: p.1,
+                                    color,
+                                });
+                            }
+                            prev = Some(p);
+                        }
+                    }
+                }
+                line(420,"Owner bank order displayed by input_index; exact program bus map above identifies L/R.".into(),"#9caebc");
+                line(804,"20 Hz                     100 Hz                1 kHz                 20 kHz / log frequency".into(),"#9caebc");
+                line(852,"Curves clipped at +/-48dB; current/target are normalized owner settings calculations only.".into(),"#9caebc");
+                line(936,"E edit only when fresh, compatible and settled | G explicit PA grant | F11 separate MUTED setup".into(),"#66dfd3");
+                line(984, self.message.clone(), "#f47c85");
+                s.primitives.extend(curves);
+                return s;
+            }
+        } else {
+            line(252,"Live EQ readback unavailable; optional-library absence leaves F11 muted setup working.".into(),"#f1bd6b");
+        }
+        line(936,"E edit requires fresh settled owner readback | F11 muted setup | F12 sends / explicit scope navigation".into(),"#66dfd3");
+        line(984, self.message.clone(), "#f47c85");
+        s
+    }
+}
+#[cfg(test)]
+mod gp18_ui_tests {
+    use super::*;
+    fn sends_surface() -> (Frontend, Receiver<Request>) {
+        let (mut f, rx) = super::processing_tests::brain_surface();
+        f.brain_page = false;
+        f.brain_enabled = false;
+        f.sends_page = true;
+        f.selected_monitor = 2;
+        f.scope = "monitor3".into();
+        let u = f.state.as_mut().unwrap();
+        u.snapshot = Some(
+            crate::audio::decode_snapshot(include_bytes!(
+                "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+            ))
+            .unwrap(),
+        );
+        u.sends = crate::sends::decode_reply(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/baseline.json"
+        ))
+        .unwrap()
+        .snapshot;
+        u.sends_age_ms = Some(0);
+        u.processing = None;
+        u.received = Instant::now();
+        (f, rx)
+    }
+    #[test]
+    fn independent_inventories_separate_level_tap_reviews_and_scope_switch_do_not_mutate_holds() {
+        let (mut f, rx) = sends_surface();
+        let original = f.state.as_ref().unwrap().snapshot.clone();
+        assert!(f.scene().in_bounds());
+        f.key("E").unwrap();
+        f.key("2").unwrap();
+        assert!(rx.try_recv().is_err());
+        f.key("F4").unwrap();
+        assert!(
+            matches!(rx.try_recv().unwrap().operation,Operation::ReviewTap(ref b) if b["input"]=="input-01"&&b["monitor"]=="monitor-3"&&b["tap"]=="processed_pre_fader")
+        );
+        assert_eq!(f.state.as_ref().unwrap().snapshot, original);
+        f.key("S").unwrap();
+        for key in ["-", "6", ".", "1", "Enter"] {
+            f.key(key).unwrap();
+        }
+        assert!(matches!(
+            f.send_draft.as_ref().unwrap().value,
+            SendDraftValue::Level(-6100)
+        ));
+        f.key("F4").unwrap();
+        assert!(
+            matches!(rx.try_recv().unwrap().operation,Operation::ReviewSet{ref target,ref value} if target["monitor"]=="monitor-3"&&*value==json!(-6100))
+        );
+        f.state.as_mut().unwrap().review = Some((99, "queued tap / monitor3".into()));
+        f.synchronize_review();
+        f.action(Action::SwitchScope("foh".into())).unwrap();
+        assert!(f.state.is_none());
+        assert!(f.review_seen.is_empty());
+        assert!(
+            matches!(rx.try_recv().unwrap().operation,Operation::SwitchScope(ref s) if s=="foh")
+        );
+        assert!(rx.try_iter().all(|r| !matches!(
+            r.operation,
+            Operation::Grant
+                | Operation::Set { .. }
+                | Operation::Mode { .. }
+                | Operation::Preview(_)
+        )));
+    }
+    #[test]
+    fn reattachment_ignores_old_attachment_even_after_input_generation_advances() {
+        let (mut f, _rx) = sends_surface();
+        let mut old = f.state.clone().unwrap();
+        f.action(Action::SwitchScope("foh".into())).unwrap();
+        old.generation = f.provider.generation();
+        f.accept_update(old.clone());
+        assert!(f.state.is_none());
+        assert!(!f.fresh());
+        assert!(f.key("G").is_err());
+        old.attachment_generation = f.provider.generation();
+        old.writer_lease_remaining_ms = None;
+        f.accept_update(old);
+        assert!(f.fresh());
+        assert!(!f.state.as_ref().unwrap().writer_granted());
+    }
+    #[test]
+    fn monitor_browse_is_read_only_text_precedes_shortcuts_and_focus_revokes_apply() {
+        let (mut f, _rx) = sends_surface();
+        f.selected_monitor = 1;
+        assert!(f.action(Action::SendTapEdit).is_err());
+        assert!(f.action(Action::Adjust(1000)).is_err());
+        f.selected_monitor = 2;
+        f.key("S").unwrap();
+        assert!(f.key("O").is_err());
+        assert_eq!(f.scope, "monitor3");
+        f.key("Esc").unwrap();
+        f.action(Action::SendLevelText("-6.125".into()))
+            .unwrap_err();
+        f.action(Action::SendLevelText("12.0".into())).unwrap();
+        f.enqueue(Event::Focus(false)).unwrap();
+        assert!(f.send_draft.is_some());
+        assert!(f.action(Action::SendApply).is_err());
+    }
+    #[test]
+    fn all_master_fields_and_all_graphic_positions_fit_native_scene() {
+        let (mut f, _rx) = super::processing_tests::master_surface();
+        f.key("F11").unwrap();
+        for _ in 0..41 {
+            assert!(f.scene().in_bounds());
+            f.key("I").unwrap();
+        }
+        f.key("B").unwrap();
+        for _ in 0..32 {
+            assert!(f.scene().in_bounds());
+            f.key("I").unwrap();
+        }
+    }
+    #[test]
+    #[ignore = "explicit current frontend offline preview gallery; no connected engine or display"]
+    fn current_frontend_offline_gallery() {
+        let output = std::path::PathBuf::from(
+            std::env::var_os("SHR_DESK_OFFLINE_GALLERY").expect("explicit output directory"),
+        );
+        std::fs::create_dir_all(&output).unwrap();
+        let save = |name: &str, f: &Frontend| {
+            let mut scene = f.scene();
+            scene.primitives.push(Primitive::Rect {
+                x: 0,
+                y: 1032,
+                w: 1920,
+                h: 48,
+                fill: "#10151d",
+            });
+            scene.primitives.push(Primitive::Text{x:24,y:1044,value:"OFFLINE / SIMULATED fixture-driven current Frontend scene / NO CONNECTED ENGINE".into(),color:"#f47c85"});
+            assert!(scene.in_bounds(), "{name}");
+            #[cfg(feature = "native")]
+            for (w, h) in [(1920, 1080), (960, 540), (728, 1024)] {
+                println!(
+                    "{name}: {}",
+                    crate::native::offscreen_at(&scene, w, h).unwrap()
+                );
+            }
+            std::fs::write(
+                output.join(format!("{name}.svg")),
+                crate::render::svg(&scene),
+            )
+            .unwrap();
+            crate::raster::ppm(&scene, &output.join(format!("{name}.ppm"))).unwrap();
+        };
+        let (mut f, _rx) = sends_surface();
+        f.selected = 16;
+        save("sends-overview-monitor3", &f);
+        f.sends_channel = true;
+        f.action(Action::SendTapEdit).unwrap();
+        f.action(Action::SendTap(crate::sends::Tap::ProcessedPreFader))
+            .unwrap();
+        save("channel-sends", &f);
+        f.sends_page = false;
+        f.send_draft = None;
+        f.scope = "foh".into();
+        f.page = Page::Channel;
+        let u = f.state.as_mut().unwrap();
+        u.processing = crate::processing::decode_reply(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/gp07v4-ready.json"
+        ))
+        .unwrap()
+        .snapshot;
+        u.snapshot.as_mut().unwrap().authority.revision =
+            u.processing.as_ref().unwrap().revision.clone();
+        u.processing_age_ms = Some(0);
+        u.received = Instant::now();
+        save("channel-eq-compressor", &f);
+        let (mut f, _rx) = super::processing_tests::master_surface();
+        f.key("F11").unwrap();
+        f.action(Action::StructureField(3)).unwrap();
+        f.action(Action::StructureText("6.125".into())).unwrap();
+        save("master-parametric", &f);
+        f.key("B").unwrap();
+        f.action(Action::StructureField(-3)).unwrap();
+        f.action(Action::StructureText("true".into())).unwrap();
+        f.action(Action::StructureField(1)).unwrap();
+        f.action(Action::StructureText("-4.5".into())).unwrap();
+        save("master-graphic", &f);
+        let corpus: Vec<Value> = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/master-eq/v1/producer.json"
+        ))
+        .unwrap();
+        let live = crate::live_eq::Snapshot::decode(
+            corpus
+                .into_iter()
+                .find(|r| r["label"] == "transition")
+                .unwrap()["snapshot"]
+                .clone(),
+        )
+        .unwrap();
+        f.structural_draft = None;
+        f.live_page = true;
+        f.state.as_mut().unwrap().live_eq = Some(live);
+        f.state.as_mut().unwrap().live_eq_age_ms = Some(0);
+        save("live-current-target", &f);
     }
 }

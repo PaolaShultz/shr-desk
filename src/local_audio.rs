@@ -600,6 +600,8 @@ impl Operator {
                 && d.monitor_device
                     .as_ref()
                     .is_none_or(|pin| self.session.validate_monitor_device(pin).is_ok())
+                && (d.kind != "master_eq_set" || self.session.live_eq_fresh(self.now()))
+                && (d.kind != "send_tap_set" || self.session.sends_fresh(self.now()))
                 && (d.kind != "processing_set" || self.session.processing_fresh(self.now()))
                 && (!crate::structure::is_kind(&d.kind)
                     || self.session.structural_fresh(self.now()))
@@ -626,7 +628,7 @@ impl Operator {
             if d.kind=="device_configure" {return format!("DEVICE CONFIGURATION / revision {} / separate rearm required\n{}",d.revision,serde_json::to_string_pretty(&d.body["config"]).unwrap_or_default());}
             if d.kind == "processing_set" {
                 let config = crate::processing::decode_config(&d.body["config"]).expect("validated draft");
-                return format!("APPLY channel {} / FOH EQ then compressor / monitors raw-post-mute unchanged / revision {} / show {} / epoch {}\n{}\n240-frame output crossfade; Enter confirms complete replacement; Esc cancels",
+                return format!("APPLY channel {} / FOH EQ then compressor / processed sends also follow this DSP / revision {} / show {} / epoch {}\n{}\n240-frame output crossfade; Enter confirms complete replacement; Esc cancels",
                     d.body["input"], d.revision, self.session.snapshot_request().context.show_id, self.session.snapshot_request().context.epoch,
                     crate::processing::FIELDS.iter().map(|f| config.display(*f)).collect::<Vec<_>>().join("\n"));
             }
@@ -669,7 +671,7 @@ impl Operator {
             _ => return Err("contract discriminator type".into()),
         };
         if contract == Some("GP07-processing")
-            && document.value()["version"] != 3
+            && document.value()["version"] != 4
             && document.admitted_bytes() > crate::provider::MAX_BYTES
         {
             return Err("legacy processing capacity".into());
@@ -683,6 +685,8 @@ impl Operator {
                     | "GP15-lease-maintenance"
                     | "GP14-structure"
                     | "GP07-processing"
+                    | "GP18-sends"
+                    | "GP18-master-eq"
             )
         ) {
             self.processing_frame(&document.into_bytes()?)?;
@@ -699,6 +703,16 @@ impl Operator {
             contract: Option<String>,
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if tag.contract.as_deref() == Some(crate::live_eq::CONTRACT) {
+            let reply = crate::live_eq::decode_reply(bytes)?;
+            self.session.dispatch_live_eq(reply, self.now())?;
+            return Ok(true);
+        }
+        if tag.contract.as_deref() == Some(crate::sends::CONTRACT) {
+            let reply = crate::sends::decode_reply(bytes)?;
+            self.session.dispatch_sends(reply, self.now())?;
+            return Ok(true);
+        }
         if tag.contract.as_deref() == Some(crate::lease_maintenance::CONTRACT) {
             let reply = crate::lease_maintenance::Reply::decode(bytes)?;
             if self.maintenance_replies.contains(&reply) {
@@ -804,7 +818,7 @@ impl Operator {
             return Ok(false);
         }
         let r = crate::processing::decode_reply(bytes)?;
-        if r.version != self.session.snapshot_request().version + 1 {
+        if r.version != audio::processing_version(self.session.snapshot_request().version) {
             return Err("processing version differs from selected session".into());
         }
         if r.context == self.session.processing_request().context {
@@ -2433,6 +2447,7 @@ impl Operator {
         // Pin the queued review's context before any refresh can observe a newer
         // revision. The frontend already checked its original queued revision.
         let processing_context = if kind == "processing_set"
+            || matches!(kind, "send_tap_set" | "master_eq_set")
             || crate::structure::is_kind(kind)
             || crate::brain::is_kind(kind)
             || kind == "device_configure"
@@ -2460,6 +2475,12 @@ impl Operator {
                     self.session.snapshot_request().version,
                 )?;
                 self.refresh_processing()?;
+            } else if matches!(kind, "send_tap_set" | "master_eq_set") {
+                if kind == "master_eq_set" {
+                    self.refresh_live_eq()?;
+                } else {
+                    self.refresh_sends()?;
+                }
             } else if kind == "device_configure" {
                 self.refresh_device()?;
                 self.session.validate_device_intent(&body, self.now())?;
@@ -2490,7 +2511,9 @@ impl Operator {
             {
                 return Err("processing review context changed during paired refresh".into());
             }
-            if (kind == "processing_set" && !self.session.processing_fresh(self.now()))
+            if (kind == "master_eq_set" && !self.session.live_eq_fresh(self.now()))
+                || (kind == "send_tap_set" && !self.session.sends_fresh(self.now()))
+                || (kind == "processing_set" && !self.session.processing_fresh(self.now()))
                 || (crate::structure::is_kind(kind) && !self.session.structural_fresh(self.now()))
             {
                 return Err("fresh paired module state required".into());
@@ -2551,12 +2574,19 @@ impl Operator {
             }
         }
         if d.kind == "processing_set"
+            || matches!(d.kind.as_str(), "send_tap_set" | "master_eq_set")
             || crate::structure::is_kind(&d.kind)
             || crate::brain::is_kind(&d.kind)
             || d.kind == "device_configure"
         {
             if d.kind == "processing_set" {
                 self.refresh_processing()?;
+            } else if matches!(d.kind.as_str(), "send_tap_set" | "master_eq_set") {
+                if d.kind == "master_eq_set" {
+                    self.refresh_live_eq()?;
+                } else {
+                    self.refresh_sends()?;
+                }
             } else if d.kind == "device_configure" {
                 self.refresh_device()?;
                 self.session.validate_device_intent(&d.body, self.now())?;
@@ -3041,6 +3071,38 @@ mod remote_document_tests {
         fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
             Ok(self.0.take())
         }
+    }
+    #[test]
+    fn actual_gp07_v4_48_paged_document_reaches_central_dispatch() {
+        use sha2::{Digest, Sha256};
+        let bytes = include_bytes!("../tests/fixtures/gp18/v1-corrected/gp07v4-48.json");
+        assert!(bytes.len() > crate::provider::MAX_BYTES);
+        let hash = format!("{:x}", Sha256::digest(bytes));
+        let chunks: Vec<_> = bytes.chunks(8192).collect();
+        let mut assembly = crate::pages::Assembly::default();
+        let mut operator = Operator::from_document_connection(
+            Box::new(CompleteDocument(None)),
+            "11111111-1111-4111-8111-111111111111",
+            9,
+            "v4-transport",
+            "foh",
+            2,
+        )
+        .unwrap();
+        for (index, chunk) in chunks.iter().enumerate() {
+            let page=serde_json::to_vec(&json!({"contract":"GP14-snapshot-pages","version":1,"identity":hash,"index":index,"count":chunks.len(),"total_bytes":bytes.len(),"payload":std::str::from_utf8(chunk).unwrap()})).unwrap();
+            if let Some(document) = assembly.offer_document(page, Instant::now()).unwrap() {
+                assert!(operator.processing_document(document).unwrap().is_none());
+            }
+        }
+        assert_eq!(
+            operator.session.processing.as_ref().unwrap().channels.len(),
+            48
+        );
+        let old = operator.session.processing_age(operator.now()).unwrap();
+        let duplicate = crate::provider::StrictDocument::parse(bytes).unwrap();
+        operator.processing_document(duplicate).unwrap();
+        assert!(operator.session.processing_age(operator.now()).unwrap() >= old);
     }
     #[test]
     fn remote_complete_payload_does_not_pass_through_unix_frame_size_gate_again() {
@@ -6702,5 +6764,340 @@ mod monitor_refresh_tests {
         assert!(!op.review_valid());
         assert!(op.confirm().unwrap_err().contains("epoch/map/config"));
         assert!(op.draft.is_none());
+    }
+}
+
+impl Operator {
+    /// GP18 has no nonce: drain old documents before issuing both queries,
+    /// require advancing independent sequences and matching global revision.
+    /// Install the complete pair together, anchored to the original send time.
+    pub(crate) fn refresh_sends(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        let deadline = Instant::now() + Duration::from_millis(250);
+        let mut budget = 64usize;
+        while let Some(document) = self
+            .transport
+            .receive_available_until(deadline)?
+            .map(|b| crate::provider::StrictDocument::parse(&b))
+            .transpose()?
+        {
+            if budget == 0 || Instant::now() >= deadline {
+                return Err("sends backlog bound".into());
+            }
+            budget -= 1;
+            if let Some(raw) = self.processing_document(document)? {
+                let r = audio::decode_reply_document(raw)?;
+                // Validate/drain unsolicited traffic without admitting its age.
+                if r.context != self.session.snapshot_request().context
+                    && self
+                        .session
+                        .pending
+                        .as_ref()
+                        .is_some_and(|p| p.request.context == r.context)
+                {
+                    self.session.accept(r, self.now())?;
+                }
+            }
+        }
+        let sent = self.now();
+        self.transport
+            .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        self.transport
+            .send_frame_until(&self.session.sends_request().encode()?, deadline)?;
+        let mut raw = None;
+        let mut sends = None;
+        while budget > 0 && Instant::now() < deadline {
+            self.check_guard()?;
+            let Some(document) = self.transport.receive_document_until(deadline)? else {
+                continue;
+            };
+            budget -= 1;
+            if document.value()["contract"] == crate::sends::CONTRACT {
+                let r = crate::sends::decode_reply(&document.into_bytes()?)?;
+                if r.context == self.session.sends_request().context {
+                    let s = r
+                        .snapshot
+                        .ok_or_else(|| format!("sends unavailable: {:?}", r.reason))?;
+                    if self.session.sends.as_ref().is_none_or(|old| {
+                        crate::provider::counter(&s.sequence).unwrap()
+                            > crate::provider::counter(&old.sequence).unwrap()
+                            && crate::provider::counter(&s.frame).unwrap()
+                                >= crate::provider::counter(&old.frame).unwrap()
+                    }) {
+                        sends = Some(s);
+                    }
+                } else {
+                    self.session.dispatch_sends(r, self.now())?;
+                }
+            } else if let Some(document) = self.processing_document(document)? {
+                let r = audio::decode_reply_document(document)?;
+                if r.context == self.session.snapshot_request().context {
+                    if r.state != "final" || r.outcome.as_ref().is_none_or(|o| o.kind != "applied")
+                    {
+                        return Err("raw sends query outcome".into());
+                    }
+                    let snapshot = r.snapshot.ok_or("raw sends query missing snapshot")?;
+                    let mut candidate = self.session.clone();
+                    let progress = self.session.snapshot.as_ref().is_none_or(|old| {
+                        crate::provider::counter(&snapshot.authority.sequence).unwrap()
+                            > crate::provider::counter(&old.authority.sequence).unwrap()
+                            && crate::provider::counter(&snapshot.frame).unwrap()
+                                >= crate::provider::counter(&old.frame).unwrap()
+                    });
+                    if progress && candidate.ingest_snapshot(snapshot.clone(), sent)? {
+                        raw = Some(snapshot);
+                    }
+                } else if self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|p| p.request.context == r.context)
+                {
+                    self.session.accept(r, self.now())?;
+                }
+            }
+            if let (Some(r), Some(s)) = (&raw, &sends)
+                && r.authority.revision == s.revision
+            {
+                let mut candidate = self.session.clone();
+                if !candidate.ingest_snapshot(r.clone(), sent)?
+                    || !candidate.ingest_sends(s.clone(), sent)?
+                {
+                    return Err("duplicate sends pair".into());
+                }
+                if Instant::now() >= deadline {
+                    return Err("sends decode deadline".into());
+                }
+                self.check_guard()?;
+                self.session = candidate;
+                return Ok(());
+            }
+        }
+        Err("sends paired read deadline/queue bound".into())
+    }
+}
+
+impl Operator {
+    pub(crate) fn refresh_live_eq(&mut self) -> Result<(), String> {
+        self.check_guard()?;
+        let deadline = Instant::now() + Duration::from_millis(250);
+        let mut budget = 64usize;
+        while let Some(document) = self
+            .transport
+            .receive_available_until(deadline)?
+            .map(|b| crate::provider::StrictDocument::parse(&b))
+            .transpose()?
+        {
+            if budget == 0 || Instant::now() >= deadline {
+                return Err("live EQ backlog bound".into());
+            }
+            budget -= 1;
+            if let Some(raw) = self.processing_document(document)? {
+                let r = audio::decode_reply_document(raw)?;
+                // Validate/drain unsolicited traffic without admitting its age.
+                if r.context != self.session.snapshot_request().context
+                    && self
+                        .session
+                        .pending
+                        .as_ref()
+                        .is_some_and(|p| p.request.context == r.context)
+                {
+                    self.session.accept(r, self.now())?;
+                }
+            }
+        }
+        let sent = self.now();
+        self.transport
+            .send_frame_until(&self.session.snapshot_request().encode()?, deadline)?;
+        self.transport
+            .send_frame_until(&self.session.live_eq_request().encode()?, deadline)?;
+        let mut raw = None;
+        let mut sends = None;
+        while budget > 0 && Instant::now() < deadline {
+            self.check_guard()?;
+            let Some(document) = self.transport.receive_document_until(deadline)? else {
+                continue;
+            };
+            budget -= 1;
+            if document.value()["contract"] == crate::live_eq::CONTRACT {
+                let r = crate::live_eq::decode_reply(&document.into_bytes()?)?;
+                if r.context == self.session.live_eq_request().context {
+                    let s = r
+                        .master_eq
+                        .ok_or_else(|| format!("live EQ unavailable: {:?}", r.reason))?;
+                    if self.session.live_eq.as_ref().is_none_or(|old| {
+                        crate::provider::counter(&s.frame).unwrap()
+                            > crate::provider::counter(&old.frame).unwrap()
+                            && crate::provider::counter(&s.frame).unwrap()
+                                >= crate::provider::counter(&old.frame).unwrap()
+                    }) {
+                        sends = Some(s);
+                    }
+                } else {
+                    self.session.dispatch_live_eq(r, self.now())?;
+                }
+            } else if let Some(document) = self.processing_document(document)? {
+                let r = audio::decode_reply_document(document)?;
+                if r.context == self.session.snapshot_request().context {
+                    if r.state != "final" || r.outcome.as_ref().is_none_or(|o| o.kind != "applied")
+                    {
+                        return Err("raw sends query outcome".into());
+                    }
+                    let snapshot = r.snapshot.ok_or("raw sends query missing snapshot")?;
+                    let mut candidate = self.session.clone();
+                    let progress = self.session.snapshot.as_ref().is_none_or(|old| {
+                        crate::provider::counter(&snapshot.authority.sequence).unwrap()
+                            > crate::provider::counter(&old.authority.sequence).unwrap()
+                            && crate::provider::counter(&snapshot.frame).unwrap()
+                                >= crate::provider::counter(&old.frame).unwrap()
+                    });
+                    if progress && candidate.ingest_snapshot(snapshot.clone(), sent)? {
+                        raw = Some(snapshot);
+                    }
+                } else if self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|p| p.request.context == r.context)
+                {
+                    self.session.accept(r, self.now())?;
+                }
+            }
+            if let (Some(r), Some(s)) = (&raw, &sends)
+                && r.authority.revision == s.revision
+            {
+                let mut candidate = self.session.clone();
+                if !candidate.ingest_snapshot(r.clone(), sent)?
+                    || !candidate.ingest_live_eq(s.clone(), sent)?
+                {
+                    return Err("duplicate sends pair".into());
+                }
+                if Instant::now() >= deadline {
+                    return Err("live EQ decode deadline".into());
+                }
+                self.check_guard()?;
+                self.session = candidate;
+                return Ok(());
+            }
+        }
+        Err("live EQ paired read deadline/queue bound".into())
+    }
+}
+#[cfg(test)]
+mod gp18_pair_tests {
+    use super::*;
+    use std::collections::VecDeque;
+    struct Replies {
+        raw: Vec<u8>,
+        extension: Vec<u8>,
+        queue: VecDeque<Vec<u8>>,
+        deadlines: std::sync::Arc<std::sync::Mutex<Vec<Instant>>>,
+    }
+    impl AuthorityConnection for Replies {
+        fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+            self.deadlines.lock().unwrap().push(deadline);
+            let v: Value = serde_json::from_slice(bytes).unwrap();
+            self.queue.push_back(if v["kind"] == "snapshot" {
+                self.raw.clone()
+            } else {
+                self.extension.clone()
+            });
+            Ok(())
+        }
+        fn receive_available(&mut self) -> Result<Option<Vec<u8>>, String> {
+            Ok(None)
+        }
+        fn receive_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+            self.deadlines.lock().unwrap().push(deadline);
+            if self.queue.is_empty() {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            Ok(self.queue.pop_front())
+        }
+    }
+    fn raw_reply(snapshot: &audio::RenderedSnapshot) -> Vec<u8> {
+        let corpus: Value =
+            serde_json::from_slice(include_bytes!("../tests/fixtures/gp14/v1/profile-17.json"))
+                .unwrap();
+        let mut r = corpus["snapshot"].clone();
+        let mut body: Value = serde_json::from_slice(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+        ))
+        .unwrap();
+        body["frame"] = json!(snapshot.frame);
+        body["clock"]["next_frame"] = json!(snapshot.clock.as_ref().unwrap().next_frame);
+        body["authority"]["sequence"] = json!(snapshot.authority.sequence);
+        r["snapshot"] = body.clone();
+        r["context"]["epoch"] = json!(snapshot.authority.epoch);
+        r["context"]["show_id"] = json!(snapshot.authority.show_id);
+        r["outcome"]["body"]["revision"] = json!(snapshot.authority.revision);
+        r["outcome"]["body"]["snapshot"] = body["authority"].clone();
+        serde_json::to_vec(&r).unwrap()
+    }
+    #[test]
+    fn sends_pair_requires_both_source_progress_and_one_original_deadline() {
+        let baseline = audio::decode_snapshot(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/raw-baseline.json"
+        ))
+        .unwrap();
+        let old = crate::sends::decode_reply(include_bytes!(
+            "../tests/fixtures/gp18/v1-corrected/baseline.json"
+        ))
+        .unwrap();
+        for (raw_new, ext_new) in [(false, true), (true, false), (true, true)] {
+            let mut raw = baseline.clone();
+            if raw_new {
+                raw.frame = "48".into();
+                raw.clock.as_mut().unwrap().next_frame = 48;
+                raw.authority.sequence =
+                    (crate::provider::counter(&raw.authority.sequence).unwrap() + 1).to_string();
+            }
+            let mut ext = old.clone();
+            if ext_new {
+                ext.snapshot.as_mut().unwrap().sequence = "99".into();
+            }
+            let deadlines = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let mut o = Operator::from_document_connection(
+                Box::new(Replies {
+                    raw: raw_reply(&raw),
+                    extension: {
+                        let mut v: Value = serde_json::from_slice(include_bytes!(
+                            "../tests/fixtures/gp18/v1-corrected/baseline.json"
+                        ))
+                        .unwrap();
+                        v["snapshot"] =
+                            serde_json::to_value(ext.snapshot.as_ref().unwrap()).unwrap();
+                        serde_json::to_vec(&v).unwrap()
+                    },
+                    queue: VecDeque::new(),
+                    deadlines: deadlines.clone(),
+                }),
+                &baseline.authority.show_id,
+                9,
+                "paired-sends",
+                "monitor3",
+                2,
+            )
+            .unwrap();
+            o.session.ingest_snapshot(baseline.clone(), 0).unwrap();
+            o.session
+                .ingest_sends(old.snapshot.clone().unwrap(), 0)
+                .unwrap();
+            o.start = Instant::now() - Duration::from_millis(300);
+            let result = o.refresh_sends();
+            assert_eq!(
+                result.is_ok(),
+                raw_new && ext_new,
+                "{raw_new}/{ext_new}: {result:?}"
+            );
+            if !result.is_ok() {
+                assert!(o.session.sends_age(o.now()).unwrap() >= 300);
+                assert!(o.session.snapshot_age(o.now()).unwrap() >= 300);
+                assert!(!o.session.sends_fresh(o.now()));
+            }
+            let times = deadlines.lock().unwrap();
+            assert!(!times.is_empty());
+            assert!(times.iter().all(|d| *d == times[0]));
+        }
     }
 }

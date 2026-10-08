@@ -1,0 +1,1448 @@
+{
+  "parameters": [
+    {
+      "target": {
+        "input": "input-01",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-01",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-01",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-01",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-01",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-01",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-02",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-03",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-04",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-05",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-06",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-07",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-08",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-09",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-10",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-11",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-12",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-13",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-14",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-15",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-16",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "parameter": "fader"
+      },
+      "value": -6000
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "parameter": "pan"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "parameter": "mute"
+      },
+      "value": false
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "monitor": "monitor-1",
+        "parameter": "send"
+      },
+      "value": 0
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "monitor": "monitor-2",
+        "parameter": "send"
+      },
+      "value": -60000
+    },
+    {
+      "target": {
+        "input": "input-17",
+        "monitor": "monitor-3",
+        "parameter": "send"
+      },
+      "value": -60000
+    }
+  ],
+  "processing": [
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 0,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": true,
+      "eq_bypass": true,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 1000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    },
+    {
+      "attack_us": 10000,
+      "band1_bypass": false,
+      "band1_gain_mdb": 0,
+      "band1_hz": 120,
+      "band1_q_milli": 1000,
+      "band2_bypass": false,
+      "band2_gain_mdb": 0,
+      "band2_hz": 500,
+      "band2_q_milli": 1000,
+      "band3_bypass": false,
+      "band3_gain_mdb": 6000,
+      "band3_hz": 2000,
+      "band3_q_milli": 1000,
+      "band4_bypass": false,
+      "band4_gain_mdb": 0,
+      "band4_hz": 8000,
+      "band4_q_milli": 1000,
+      "compressor_bypass": false,
+      "eq_bypass": false,
+      "knee_mdb": 6000,
+      "makeup_mdb": 0,
+      "ratio_milli": 4000,
+      "release_ms": 100,
+      "threshold_mdb": -18000
+    }
+  ],
+  "send_taps": [
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "raw_post_mute"
+    ],
+    [
+      "raw_post_mute",
+      "raw_post_mute",
+      "processed_post_fader"
+    ]
+  ],
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "topology": {
+    "capture_channels": 17,
+    "identity": "software-17-3-0",
+    "inputs": [
+      {
+        "capture_slot": 0,
+        "id": "input-01",
+        "physical_port": "synthetic-capture-1"
+      },
+      {
+        "capture_slot": 1,
+        "id": "input-02",
+        "physical_port": "synthetic-capture-2"
+      },
+      {
+        "capture_slot": 2,
+        "id": "input-03",
+        "physical_port": "synthetic-capture-3"
+      },
+      {
+        "capture_slot": 3,
+        "id": "input-04",
+        "physical_port": "synthetic-capture-4"
+      },
+      {
+        "capture_slot": 4,
+        "id": "input-05",
+        "physical_port": "synthetic-capture-5"
+      },
+      {
+        "capture_slot": 5,
+        "id": "input-06",
+        "physical_port": "synthetic-capture-6"
+      },
+      {
+        "capture_slot": 6,
+        "id": "input-07",
+        "physical_port": "synthetic-capture-7"
+      },
+      {
+        "capture_slot": 7,
+        "id": "input-08",
+        "physical_port": "synthetic-capture-8"
+      },
+      {
+        "capture_slot": 8,
+        "id": "input-09",
+        "physical_port": "synthetic-capture-9"
+      },
+      {
+        "capture_slot": 9,
+        "id": "input-10",
+        "physical_port": "synthetic-capture-10"
+      },
+      {
+        "capture_slot": 10,
+        "id": "input-11",
+        "physical_port": "synthetic-capture-11"
+      },
+      {
+        "capture_slot": 11,
+        "id": "input-12",
+        "physical_port": "synthetic-capture-12"
+      },
+      {
+        "capture_slot": 12,
+        "id": "input-13",
+        "physical_port": "synthetic-capture-13"
+      },
+      {
+        "capture_slot": 13,
+        "id": "input-14",
+        "physical_port": "synthetic-capture-14"
+      },
+      {
+        "capture_slot": 14,
+        "id": "input-15",
+        "physical_port": "synthetic-capture-15"
+      },
+      {
+        "capture_slot": 15,
+        "id": "input-16",
+        "physical_port": "synthetic-capture-16"
+      },
+      {
+        "capture_slot": 16,
+        "id": "input-17",
+        "physical_port": "synthetic-capture-17"
+      }
+    ],
+    "map_revision": 1,
+    "mapping_evidence": "synthetic",
+    "max_block_frames": 4096,
+    "measurement_slots": [],
+    "monitors": 3,
+    "outputs": [
+      {
+        "id": "output-01",
+        "physical_port": "synthetic-playback-1",
+        "playback_slot": 0,
+        "source": {
+          "channel": 0,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-02",
+        "physical_port": "synthetic-playback-2",
+        "playback_slot": 1,
+        "source": {
+          "channel": 1,
+          "kind": "main"
+        }
+      },
+      {
+        "id": "output-03",
+        "physical_port": "synthetic-playback-3",
+        "playback_slot": 2,
+        "source": {
+          "index": 0,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-04",
+        "physical_port": "synthetic-playback-4",
+        "playback_slot": 3,
+        "source": {
+          "index": 1,
+          "kind": "monitor"
+        }
+      },
+      {
+        "id": "output-05",
+        "physical_port": "synthetic-playback-5",
+        "playback_slot": 4,
+        "source": {
+          "index": 2,
+          "kind": "monitor"
+        }
+      }
+    ],
+    "pa_outputs": 0,
+    "playback_channels": 5,
+    "sample_rate": 48000
+  },
+  "version": 2
+}

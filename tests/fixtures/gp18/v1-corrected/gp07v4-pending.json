@@ -1,0 +1,20 @@
+{
+  "context": {
+    "epoch": "9",
+    "expected_revision": "1",
+    "lease": "2",
+    "module": "audio",
+    "request_id": "2",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "writer": "processing-writer"
+  },
+  "contract": "GP07-processing",
+  "effective_frame": "336",
+  "ramp_frames": 240,
+  "reason": null,
+  "revision": "1",
+  "snapshot": null,
+  "state": "pending",
+  "ticket": "2",
+  "version": 4
+}

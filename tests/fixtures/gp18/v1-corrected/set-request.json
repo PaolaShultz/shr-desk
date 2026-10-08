@@ -1,0 +1,17 @@
+{
+  "body": {
+    "input": "input-17",
+    "monitor": "monitor-3",
+    "tap": "processed_post_fader"
+  },
+  "contract": "GP18-sends",
+  "epoch": "9",
+  "expected_revision": "0",
+  "kind": "send_tap_set",
+  "lease": "1",
+  "module": "audio",
+  "request_id": "2",
+  "show_id": "11111111-1111-4111-8111-111111111111",
+  "version": 1,
+  "writer": "sends-writer"
+}

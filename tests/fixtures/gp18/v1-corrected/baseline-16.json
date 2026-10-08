@@ -1,0 +1,687 @@
+{
+  "context": {
+    "epoch": "9",
+    "expected_revision": null,
+    "lease": null,
+    "module": "audio",
+    "request_id": null,
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "writer": null
+  },
+  "contract": "GP18-sends",
+  "effective_frame": null,
+  "ramp_frames": null,
+  "reason": null,
+  "revision": "0",
+  "snapshot": {
+    "channels": [
+      {
+        "input": "input-01",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-02",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-03",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-04",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-05",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-06",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-07",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-08",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-09",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-10",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-11",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-12",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-13",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-14",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-15",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      },
+      {
+        "input": "input-16",
+        "sends": [
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-1",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-2",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-3",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-4",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          },
+          {
+            "current": "raw_post_mute",
+            "monitor": "monitor-5",
+            "ready": true,
+            "target": "raw_post_mute",
+            "transition_remaining_frames": 0
+          }
+        ]
+      }
+    ],
+    "epoch": "9",
+    "faulted": false,
+    "frame": "0",
+    "monitors": [
+      "monitor-1",
+      "monitor-2",
+      "monitor-3",
+      "monitor-4",
+      "monitor-5"
+    ],
+    "revision": "0",
+    "sample_rate": 48000,
+    "sequence": "2",
+    "show_id": "11111111-1111-4111-8111-111111111111",
+    "supported_modes": [
+      "raw_post_mute",
+      "processed_pre_fader",
+      "processed_post_fader"
+    ],
+    "tap_positions": [
+      "raw-shared-mute-mono",
+      "eq-compressor-shared-mute-mono",
+      "eq-compressor-shared-mute-fader-mono"
+    ]
+  },
+  "state": "final",
+  "ticket": null,
+  "version": 1
+}

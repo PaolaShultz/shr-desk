@@ -559,6 +559,38 @@ impl Request {
             return fail("request version");
         }
         let c = &self.context;
+        if matches!(self.kind.as_str(), "master_eq_snapshot" | "master_eq_set") {
+            if self.version != 2 || c.epoch == "0" {
+                return fail("live EQ dynamic identity");
+            }
+            if self.kind == "master_eq_snapshot" {
+                provider::keys(&self.body, &[])?;
+                if c.writer.is_some() {
+                    return fail("live EQ read-only query");
+                }
+            } else {
+                crate::live_eq::validate_body(&self.body, None)?;
+                if c.writer.is_none() || c.lease.is_none() {
+                    return fail("live EQ authority");
+                }
+            }
+        }
+        if matches!(self.kind.as_str(), "sends_snapshot" | "send_tap_set") {
+            if self.version != 2 || c.epoch == "0" {
+                return fail("sends require dynamic identity");
+            }
+            if self.kind == "sends_snapshot" {
+                provider::keys(&self.body, &[])?;
+                if c.writer.is_some() {
+                    return fail("sends snapshot read-only");
+                }
+            } else {
+                crate::sends::validate_body(&self.body)?;
+                if c.writer.is_none() || c.lease.is_none() {
+                    return fail("sends mutation authority");
+                }
+            }
+        }
         if self.kind.starts_with("processing_") && c.epoch == "0" {
             return fail("processing epoch must be nonzero");
         }
@@ -617,7 +649,11 @@ impl Request {
             let config = crate::brain_device::Config::decode(self.body["config"].clone())?;
             return serde_json::to_vec(&json!({"contract":"GP15-device","version":1,"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":"device_configure","body":{},"config":config})).map_err(|e|e.to_string());
         }
-        let contract = if crate::brain::is_kind(&self.kind) {
+        let contract = if matches!(self.kind.as_str(), "master_eq_snapshot" | "master_eq_set") {
+            crate::live_eq::CONTRACT
+        } else if matches!(self.kind.as_str(), "sends_snapshot" | "send_tap_set") {
+            crate::sends::CONTRACT
+        } else if crate::brain::is_kind(&self.kind) {
             "GP15-brain"
         } else if crate::structure::is_kind(&self.kind) {
             "GP14-structure"
@@ -626,7 +662,7 @@ impl Request {
         } else {
             "C-AUDIO"
         };
-        let v = json!({"contract":contract,"version":if matches!(contract,"GP14-structure"|"GP15-brain") {1} else if contract == "GP07-processing" {self.version + 1} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
+        let v = json!({"contract":contract,"version":if matches!(contract,"GP14-structure"|"GP15-brain"|"GP18-sends"|"GP18-master-eq") {1} else if contract == "GP07-processing" {processing_version(self.version)} else {self.version},"show_id":c.show_id,"module":c.module,"epoch":c.epoch,"writer":c.writer,"lease":c.lease,"request_id":c.request_id,"expected_revision":c.expected_revision,"kind":if contract=="GP15-brain" {crate::brain::wire_kind(&self.kind)} else {&self.kind},"body":self.body});
         let b = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         if b.len() > provider::MAX_BYTES {
             return fail("request capacity");
@@ -707,6 +743,12 @@ pub struct Session {
     brain_receipt: Option<u64>,
     brain_closing: Option<Request>,
     brain_replies: std::collections::VecDeque<[u8; 32]>,
+    pub live_eq: Option<crate::live_eq::Snapshot>,
+    live_eq_receipt: Option<u64>,
+    pub live_eq_final: Option<crate::live_eq::Reply>,
+    pub sends: Option<crate::sends::Snapshot>,
+    sends_receipt: Option<u64>,
+    pub sends_final: Option<crate::sends::Reply>,
     pub processing: Option<crate::processing::Snapshot>,
     processing_receipt: Option<u64>,
     pub structural: Option<crate::structure::Snapshot>,
@@ -765,6 +807,12 @@ impl Session {
             brain_receipt: None,
             brain_closing: None,
             brain_replies: std::collections::VecDeque::new(),
+            live_eq: None,
+            live_eq_receipt: None,
+            live_eq_final: None,
+            sends: None,
+            sends_receipt: None,
+            sends_final: None,
             processing: None,
             processing_receipt: None,
             structural: None,
@@ -869,6 +917,10 @@ impl Session {
         self.brain_closing = None;
         self.brain_replies.clear();
         self.brain_final = None;
+        self.live_eq_receipt = None;
+        self.live_eq_final = None;
+        self.sends_receipt = None;
+        self.sends_final = None;
         self.processing_receipt = None;
         self.structural_receipt = None;
         self.structural_replies.clear();
@@ -884,6 +936,7 @@ impl Session {
         self.disconnect();
         if self.epoch != epoch {
             self.snapshot = None;
+            self.sends = None;
             self.processing = None;
         }
         self.epoch = epoch;
@@ -1526,6 +1579,139 @@ impl Session {
         self.preview = None;
         Ok(())
     }
+    pub fn sends_request(&self) -> Request {
+        let mut request = self.snapshot_request();
+        request.kind = "sends_snapshot".into();
+        request
+    }
+    pub fn ingest_sends(&mut self, s: crate::sends::Snapshot, now: u64) -> Result<bool, String> {
+        s.validate()?;
+        if s.show_id != self.show || provider::counter(&s.epoch)? != self.epoch {
+            return fail("wrong sends session");
+        }
+        if let Some(old) = &self.sends
+            && (provider::counter(&s.revision)? < provider::counter(&old.revision)?
+                || provider::counter(&s.sequence)? <= provider::counter(&old.sequence)?
+                || provider::counter(&s.frame)? < provider::counter(&old.frame)?)
+        {
+            return Ok(false);
+        }
+        if let Some(raw) = &self.snapshot
+            && provider::counter(&s.revision)? < provider::counter(&raw.authority.revision)?
+        {
+            return Ok(false);
+        }
+        if let Some(raw) = &self.snapshot {
+            let ids: BTreeSet<_> = s.channels.iter().map(|c| &c.input).collect();
+            if ids != raw.authority.inputs.iter().collect() || s.monitors != raw.authority.monitors
+            {
+                return fail("sends inventory differs from authority");
+            }
+        }
+        self.sends = Some(s);
+        self.sends_receipt = Some(now);
+        Ok(true)
+    }
+    pub fn sends_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .sends_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self.sends.as_ref().is_some_and(|p| {
+                !p.faulted
+                    && p.channels.iter().flat_map(|c| &c.sends).all(|s| s.ready)
+                    && self
+                        .snapshot
+                        .as_ref()
+                        .is_some_and(|s| s.authority.revision == p.revision)
+            })
+    }
+    pub fn sends_age(&self, now: u64) -> Option<u64> {
+        self.sends_receipt.map(|t| now.saturating_sub(t))
+    }
+    pub fn accept_sends(&mut self, reply: crate::sends::Reply, now: u64) -> Result<(), String> {
+        let r =
+            crate::sends::decode_reply(&serde_json::to_vec(&reply).map_err(|e| e.to_string())?)?;
+        let mut candidate = self.clone();
+        candidate.accept_sends_validated(r, now)?;
+        *self = candidate;
+        Ok(())
+    }
+    fn accept_sends_validated(&mut self, r: crate::sends::Reply, now: u64) -> Result<(), String> {
+        let p = self.pending.as_ref().ok_or("no pending sends request")?;
+        if p.request.kind != "send_tap_set" || p.request.context != r.context {
+            return fail("uncorrelated sends reply");
+        }
+        if r.effective_frame
+            .as_deref()
+            .is_some_and(|f| provider::counter(f).unwrap() <= p.observed_frame)
+        {
+            return fail("sends boundary not after observation");
+        }
+        if let Some(snapshot) = &r.snapshot {
+            let input = p.request.body["input"]
+                .as_str()
+                .ok_or("sends pending input")?;
+            let monitor = p.request.body["monitor"].as_str().ok_or("send monitor")?;
+            let expected: crate::sends::Tap =
+                serde_json::from_value(p.request.body["tap"].clone()).map_err(|e| e.to_string())?;
+            if snapshot
+                .send(input, monitor)
+                .is_none_or(|s| s.target != expected)
+            {
+                return fail("sends applied target differs from reviewed request");
+            }
+        }
+        if let Some(ticket) = &p.ticket
+            && r.reason.is_none()
+            && (r.ticket.as_ref() != Some(ticket)
+                || p.timing.as_ref()
+                    != r.effective_frame
+                        .as_ref()
+                        .map(|f| (f.clone(), 240))
+                        .as_ref())
+        {
+            return fail("sends pending/final timing mismatch");
+        }
+        if r.state == "backpressure" {
+            if p.ticket.is_some() {
+                return fail("pressure after admission");
+            }
+            // Nonadmission consumes no ID. Do not replay an edit automatically.
+            self.next_id = provider::counter(p.request.context.request_id.as_deref().unwrap())?;
+            self.pending = None;
+            self.last_result =
+                "sends backpressure; wait for fresh ready state and Apply again".into();
+            return Ok(());
+        }
+        if r.state == "pending" {
+            let p = self.pending.as_mut().unwrap();
+            p.ticket = r.ticket;
+            p.timing = r.effective_frame.map(|f| (f, 240));
+            p.state = PendingState::Accepted;
+            return Ok(());
+        }
+        if r.reason.is_none() {
+            self.sends_final = Some(r.clone());
+        }
+        // Mutation readback describes committed state, but never grants fresh
+        // edit authority until an independently solicited raw/sends pair arrives.
+        if let Some(snapshot) = r.snapshot {
+            self.ingest_sends(snapshot, now)?;
+        }
+        self.sends_receipt = None;
+        self.last_result = match r.reason {
+            Some(reason) => format!("sends REFUSED {reason}; confirmed settings unchanged"),
+            None => format!(
+                "sends_set applied revision {}; crossfade may still be active",
+                r.revision
+            ),
+        };
+        self.pending = None;
+        self.needs_snapshot = true;
+        self.preview = None;
+        Ok(())
+    }
     pub fn processing_request(&self) -> Request {
         let mut request = self.snapshot_request();
         request.kind = "processing_snapshot".into();
@@ -1536,7 +1722,7 @@ impl Session {
         s: crate::processing::Snapshot,
         now: u64,
     ) -> Result<bool, String> {
-        s.validate_version(self.version + 1)?;
+        s.validate_version(processing_version(self.version))?;
         if s.show_id != self.show || provider::counter(&s.epoch)? != self.epoch {
             return fail("wrong processing session");
         }
@@ -1587,7 +1773,7 @@ impl Session {
         let r = crate::processing::decode_reply(
             &serde_json::to_vec(&reply).map_err(|e| e.to_string())?,
         )?;
-        if r.version != self.version + 1 {
+        if r.version != processing_version(self.version) {
             return fail("processing reply version differs from session");
         }
         let mut candidate = self.clone();
@@ -1920,6 +2106,40 @@ impl Session {
                 }
                 crate::structure::validate_body(kind, body, Some(snapshot))
             }
+            "master_eq_set" => {
+                if self.scope != "pa_configuration" || !self.live_eq_fresh(now) {
+                    return fail("fresh settled live EQ and PA grant required");
+                }
+                crate::live_eq::validate_body(body, self.live_eq.as_ref())
+            }
+            "send_tap_set" => {
+                crate::sends::validate_body(body)?;
+                if self.version != 2
+                    || !self.sends_fresh(now)
+                    || body["monitor"]
+                        != format!(
+                            "monitor-{}",
+                            self.scope
+                                .strip_prefix("monitor")
+                                .ok_or("monitor scope required")?
+                        )
+                {
+                    return fail("fresh settled sends and selected monitor authority required");
+                }
+                if self
+                    .sends
+                    .as_ref()
+                    .unwrap()
+                    .send(
+                        body["input"].as_str().unwrap(),
+                        body["monitor"].as_str().unwrap(),
+                    )
+                    .is_none()
+                {
+                    return fail("send pair absent");
+                }
+                Ok(())
+            }
             "processing_set" => {
                 if self.scope != "foh" || !self.processing_fresh(now) {
                     return fail("fresh ready GP07 processing and FOH lease required");
@@ -2115,7 +2335,9 @@ impl Session {
     }
     fn accept_validated(&mut self, r: Reply, now: u64) -> Result<(), String> {
         let p = self.pending.as_ref().ok_or("no pending request")?;
-        if p.request.kind.starts_with("processing_") {
+        if p.request.kind.starts_with("processing_")
+            || matches!(p.request.kind.as_str(), "send_tap_set" | "master_eq_set")
+        {
             return fail("cross-contract reply");
         }
         if r.context != p.request.context {
@@ -2912,5 +3134,149 @@ mod canonical_wire_regressions {
             }
             assert!(decode_reply(&serde_json::to_vec(&bad).unwrap()).is_err());
         }
+    }
+}
+
+/// Explicit configured successor; v3 remains historical and unsupported.
+pub(crate) fn processing_version(audio_version: u8) -> u8 {
+    match audio_version {
+        1 => 2,
+        2 => 4,
+        _ => 0,
+    }
+}
+
+impl Session {
+    pub(crate) fn dispatch_sends(
+        &mut self,
+        r: crate::sends::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        if r.context.show_id != self.show || provider::counter(&r.context.epoch)? != self.epoch {
+            return fail("unrelated sends session");
+        }
+        if r.context == self.sends_request().context {
+            return Ok(());
+        }
+        if self
+            .pending
+            .as_ref()
+            .is_some_and(|p| p.request.kind == "send_tap_set" && p.request.context == r.context)
+        {
+            return self.accept_sends(r, now);
+        }
+        if self.sends_final.as_ref() == Some(&r) {
+            return Ok(());
+        }
+        Err("unknown or changed sends reply".into())
+    }
+}
+
+impl Session {
+    pub fn live_eq_request(&self) -> Request {
+        let mut r = self.snapshot_request();
+        r.kind = "master_eq_snapshot".into();
+        r
+    }
+    pub fn ingest_live_eq(
+        &mut self,
+        s: crate::live_eq::Snapshot,
+        now: u64,
+    ) -> Result<bool, String> {
+        s.validate()?;
+        if self.version != 2 || s.show_id != self.show || provider::counter(&s.epoch)? != self.epoch
+        {
+            return fail("live EQ session");
+        }
+        if self.live_eq.as_ref().is_some_and(|old| {
+            provider::counter(&s.revision).unwrap() < provider::counter(&old.revision).unwrap()
+                || provider::counter(&s.frame).unwrap() <= provider::counter(&old.frame).unwrap()
+        }) {
+            return Ok(false);
+        }
+        if self.snapshot.as_ref().is_some_and(|r| {
+            r.authority.revision != s.revision
+                || r.topology
+                    .as_ref()
+                    .is_none_or(|t| t.map_revision != provider::counter(&s.map_revision).unwrap())
+                || s.program_buses
+                    .iter()
+                    .any(|b| *b >= r.authority.monitors.len() + 2)
+        }) {
+            return fail("live EQ raw binding");
+        }
+        self.live_eq = Some(s);
+        self.live_eq_receipt = Some(now);
+        Ok(true)
+    }
+    pub fn live_eq_fresh(&self, now: u64) -> bool {
+        self.fresh(now)
+            && self
+                .live_eq_receipt
+                .is_some_and(|t| now >= t && now - t <= 250)
+            && self.live_eq.as_ref().is_some_and(|s| {
+                s.editable()
+                    && self.snapshot.as_ref().is_some_and(|r| {
+                        r.authority.revision == s.revision
+                            && r.topology.as_ref().is_some_and(|t| {
+                                t.map_revision == provider::counter(&s.map_revision).unwrap()
+                            })
+                    })
+            })
+    }
+    pub fn live_eq_age(&self, now: u64) -> Option<u64> {
+        self.live_eq_receipt.map(|t| now.saturating_sub(t))
+    }
+    pub(crate) fn dispatch_live_eq(
+        &mut self,
+        r: crate::live_eq::Reply,
+        now: u64,
+    ) -> Result<(), String> {
+        if r.context == self.live_eq_request().context {
+            return Ok(());
+        }
+        if self.live_eq_final.as_ref().is_some_and(|old| {
+            serde_json::to_value(old).unwrap() == serde_json::to_value(&r).unwrap()
+        }) {
+            return Ok(());
+        }
+        let p = self
+            .pending
+            .as_ref()
+            .filter(|p| p.request.kind == "master_eq_set" && p.request.context == r.context)
+            .ok_or("live EQ correlation")?;
+        if r.effective_frame
+            .as_deref()
+            .is_some_and(|f| provider::counter(f).unwrap() <= p.observed_frame)
+        {
+            return fail("live EQ boundary before observation");
+        }
+        if p.timing
+            .as_ref()
+            .is_some_and(|(f, _)| r.reason.is_none() && r.effective_frame.as_ref() != Some(f))
+        {
+            return fail("live EQ pending/final boundary mismatch");
+        }
+        if r.state == "pending" {
+            let p = self.pending.as_mut().unwrap();
+            p.state = PendingState::Accepted;
+            p.timing = r.effective_frame.map(|f| (f, 240));
+            return Ok(());
+        }
+        self.last_result = if let Some(reason) = &r.reason {
+            format!("master_eq_set REFUSED {reason}")
+        } else {
+            format!(
+                "master_eq_set applied revision {}; awaiting settled actual readback; no output rearm",
+                r.revision
+            )
+        };
+        self.live_eq_final = Some(r);
+        self.live_eq_receipt = None;
+        self.pending = None;
+        self.needs_snapshot = true;
+        self.preview = None;
+        let _ = now;
+        Ok(())
     }
 }

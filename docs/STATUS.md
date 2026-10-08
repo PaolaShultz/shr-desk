@@ -1,5 +1,24 @@
 # Status and next steps
 
+## Task0018 D consumer implementation — validation in progress
+
+Dynamic GP07 now explicitly selects4; legacy2 and historical v3 bytes remain
+separate. GP18 sends has a capability-driven overview/channel editor, separate
+level/tap drafts and complete reviews, explicit scope reattachment/new grants,
+paired source-progress freshness and reconnect/no-replay fences. The optional
+GP18 master EQ consumer provides narrow EQ-only PA reviews without rearm; the
+existing muted full-configuration editor remains separate. Master EQ now displays
+8/31-band settings and owner-golden-checked static response curves. Current
+fixture-driven previews use actual frontend scenes and explicit offline labels.
+
+This checkpoint reports implementation, not final acceptance. Focused, full normal,
+actual frontend/provider PCM, native CPU rendering and publication gates are
+recorded with exact final revisions and failed trials in the private D handoff.
+Coordinator owns architectural acceptance, independent sample/diff review,
+integration/synchronization and requested TV visual review. No physical devices,
+listening, clock-lock or whole-host hard-real-time qualification is claimed.
+
+
 ## Master EQ setup surface — 2026-10-07
 
 Implemented and owner-reviewed a focused native/frontend editor over the existing

@@ -333,3 +333,298 @@ impl View {
         self.set(document, path, value)
     }
 }
+
+impl View {
+    /// Same native scene and bundled-font renderer as the connected frontend.
+    /// Both curves are static settings calculations; neither is a spectrum.
+    pub fn scene(
+        &self,
+        document: &Value,
+        selected: usize,
+        entry: &str,
+        message: &str,
+    ) -> crate::render::Scene {
+        use crate::render::{Primitive, Scene};
+        let mut s = Scene::default();
+        s.primitives.push(Primitive::Rect {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+            fill: "#10151d",
+        });
+        fn text(s: &mut Scene, x: u32, y: u32, v: impl Into<String>, color: &'static str) {
+            let max = (1920 - x) / 12;
+            s.primitives.push(Primitive::Text {
+                x,
+                y,
+                value: v.into().chars().take(max as usize).collect(),
+                color,
+            });
+        }
+        fn line(s: &mut Scene, x1: u32, y1: u32, x2: u32, y2: u32, color: &'static str) {
+            s.primitives.push(Primitive::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                color,
+            });
+        }
+        let cyan = "#66dfd3";
+        let dim = "#9caebc";
+        let white = "#e4e8e9";
+        let amber = "#f1bd6b";
+        text(
+            &mut s,
+            24,
+            12,
+            format!("MASTER EQ / {} / LOCAL DRAFT", self.channel_label()),
+            cyan,
+        );
+        text(
+            &mut s,
+            24,
+            60,
+            "MUTED SETUP / current readback + unsent draft / full review; separate rearm",
+            amber,
+        );
+        text(
+            &mut s,
+            24,
+            108,
+            "Main L/R -> PA program EQ -> graph/protection. Direct main/monitor routes bypass this EQ.",
+            dim,
+        );
+        let fields = self.fields();
+        let selected = selected.min(fields.len() - 1);
+        let path = &fields[selected];
+        let band = if selected == 0 {
+            None
+        } else {
+            Some(if self.graphic {
+                selected - 1
+            } else {
+                (selected - 1) / 5
+            })
+        };
+        let prefix = format!("/configuration/inputs/{}", self.selected_input());
+        let enabled = format!(
+            "{prefix}/{}_enabled",
+            if self.graphic { "geq" } else { "eq" }
+        );
+        text(
+            &mut s,
+            24,
+            168,
+            format!(
+                "{} ENABLE {}{}",
+                if self.graphic {
+                    "GRAPHIC"
+                } else {
+                    "PARAMETRIC"
+                },
+                self.display(document, &enabled),
+                if selected == 0 { " < selected" } else { "" }
+            ),
+            cyan,
+        );
+        if !self.graphic {
+            for n in 0..8 {
+                let y = 216 + n as u32 * 64;
+                let color = if band == Some(n) { cyan } else { white };
+                text(
+                    &mut s,
+                    24,
+                    y,
+                    format!(
+                        "{} B{} {:<12} {:>8} Hz / {:>6} dB",
+                        if band == Some(n) { ">" } else { " " },
+                        n + 1,
+                        self.display(document, &format!("{prefix}/eq/{n}/kind")),
+                        self.display(document, &format!("{prefix}/eq/{n}/hz")),
+                        self.display(document, &format!("{prefix}/eq/{n}/db"))
+                    ),
+                    color,
+                );
+                text(
+                    &mut s,
+                    72,
+                    y + 24,
+                    format!(
+                        "Q {} / shelf slope {}",
+                        self.display(document, &format!("{prefix}/eq/{n}/q")),
+                        self.display(document, &format!("{prefix}/eq/{n}/slope"))
+                    ),
+                    dim,
+                );
+            }
+        } else {
+            // All31 centres and both stored L/R gains remain visible, regardless
+            // of rate or enable. Above-rate bands are explicit identity filters.
+            for (n, hz) in GEQ_HZ.iter().enumerate() {
+                let x = 24 + n as u32 * 60;
+                let gain = document["configuration"]["inputs"][self.selected_input()]["geq_db"][n]
+                    .as_f64()
+                    .unwrap_or(0.);
+                let active = *hz <= self.max_hz
+                    && document.pointer(&enabled).and_then(Value::as_bool) == Some(true);
+                let color = if band == Some(n) {
+                    cyan
+                } else if active {
+                    white
+                } else {
+                    dim
+                };
+                line(&mut s, x + 20, 240, x + 20, 456, "#3c4f63");
+                line(&mut s, x + 4, 348, x + 40, 348, dim);
+                let y = (348. - gain * 9.).round().clamp(240., 456.) as u32;
+                s.primitives.push(Primitive::Rect {
+                    x: x + 4,
+                    y: y.saturating_sub(3),
+                    w: 36,
+                    h: 6,
+                    fill: color,
+                });
+                text(
+                    &mut s,
+                    x,
+                    480 + (n as u32 % 2) * 24,
+                    if *hz >= 1000. {
+                        format!("{}k", hz / 1000.)
+                    } else {
+                        format!("{hz}")
+                    },
+                    color,
+                );
+                text(&mut s, x, 552, format!("{gain:+.1}"), color);
+                if !active {
+                    text(&mut s, x, 600, "ID", dim);
+                }
+            }
+            text(
+                &mut s,
+                24,
+                648,
+                "ID: disabled section or centre above0.45 x rate; stored gain retained, filter response is unity.",
+                dim,
+            );
+        }
+        let plot = if self.graphic {
+            (24u32, 720u32, 1800u32, 108u32)
+        } else {
+            (1008u32, 252u32, 840u32, 408u32)
+        };
+        let (x, y, w, h) = plot;
+        text(
+            &mut s,
+            x,
+            y - 48,
+            "CALCULATED EQ RESPONSE / current L/R grey; draft L cyan / R amber",
+            dim,
+        );
+        let rate = document["configuration"]["sample_rate"]
+            .as_u64()
+            .unwrap_or(0) as u32;
+        let max_hz = (f64::from(rate) * 0.45).min(20000.);
+        for db in [-48., -24., 0., 24., 48.] {
+            let yy = y + ((48. - db) / 96. * f64::from(h)) as u32;
+            line(&mut s, x, yy, x + w, yy, "#3c4f63");
+            text(
+                &mut s,
+                x,
+                yy.saturating_sub(24),
+                format!("{db:+.0} dB"),
+                dim,
+            );
+        }
+        for hz in [20., 100., 1000., 10000., 20000.] {
+            if hz <= max_hz {
+                let xx = x + ((hz / 20_f64).ln() / (max_hz / 20.).ln() * f64::from(w)) as u32;
+                line(&mut s, xx, y, xx, y + h, "#3c4f63");
+                text(&mut s, xx.min(1800), y + h + 24, format!("{hz:.0}Hz"), dim);
+            }
+        }
+        for (settings, color) in [(&self.baseline, dim), (document, cyan)] {
+            for side in 0..2 {
+                let color = if std::ptr::eq(settings, document) && side == 1 {
+                    amber
+                } else {
+                    color
+                };
+                let input = &settings["configuration"]["inputs"][self.inputs[side]];
+                if let Ok(bank) = crate::eq_response::coefficients(input, rate) {
+                    let mut previous = None;
+                    for n in 0..=240 {
+                        let hz = 20. * (max_hz / 20.).powf(f64::from(n) / 240.);
+                        if let Ok((db, _)) = crate::eq_response::response(&bank, rate, hz) {
+                            let p = (
+                                x + n as u32 * w / 240,
+                                y + ((48. - db.clamp(-48., 48.)) / 96. * f64::from(h)) as u32,
+                            );
+                            if let Some((px, py)) = previous {
+                                line(&mut s, px, py, p.0, p.1, color);
+                            }
+                            previous = Some(p);
+                        }
+                    }
+                } else {
+                    text(
+                        &mut s,
+                        x,
+                        y,
+                        "Response unavailable: invalid owner settings",
+                        amber,
+                    );
+                }
+            }
+        }
+        let detail_y = if self.graphic { 888 } else { 756 };
+        text(
+            &mut s,
+            24,
+            detail_y,
+            format!("Selected: {}", self.label(path)),
+            cyan,
+        );
+        text(
+            &mut s,
+            24,
+            detail_y + 24,
+            format!(
+                "Current {} | Draft {} | Entry {}",
+                self.display(&self.baseline, path),
+                self.display(document, path),
+                entry
+            ),
+            white,
+        );
+        text(
+            &mut s,
+            24,
+            960,
+            "B PEQ/GEQ | C linked/left/right | U/I field | J/K adjust | F3 exact entry, Enter accepts",
+            dim,
+        );
+        text(
+            &mut s,
+            24,
+            996,
+            "F4 complete Apply/review | Esc cancel | EQ response excludes dynamics, room and protection",
+            amber,
+        );
+        text(&mut s, 24, 1032, message, "#f47c85");
+        s
+    }
+}
+impl View {
+    pub(crate) fn patch(&self, document: &Value) -> Result<Value, String> {
+        self.validate_document(document)?;
+        let indices = self.inputs;
+        let settings:Vec<_>=indices.into_iter().map(|index| {
+            let i=&document["configuration"]["inputs"][index];
+            serde_json::json!({"input_index":index,"eq_enabled":i["eq_enabled"],"eq":i["eq"],"geq_enabled":i["geq_enabled"],"geq_db":i["geq_db"]})
+        }).collect();
+        Ok(serde_json::json!({"version":1,"inputs":settings}))
+    }
+}

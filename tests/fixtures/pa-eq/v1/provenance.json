@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "owner_source_commit": "46a03ec3a86333ec596bd19fd97148b077af5955",
+  "owner_library_sha256": "7bd1cfcb950961d8106dcdcaa21c2ed05abc7afe052d628e81f06fa85b087e91",
+  "guarded_owner_library_sha256": "bd5ae76b3d0892f31de8d7d6c8b094b860a169f1d55ea2c4ad078f0c0fd7f7ec",
+  "source_files": {
+    "src/graph.rs": "211ba25d1be37de964c065fa65cd38f7a99681f8899c4ab545e4d02b1e2107aa",
+    "src/live_eq.rs": "7ae845f22087c9cafc812f0f0b45a710fbaf90644a7d22c965a1f2e2aa35a059",
+    "src/ffi_eq.rs": "b37d6fa6175c76b229c80b032494890134377173b222c00f5bd7780a7387913c",
+    "src/ffi_v2.rs": "46856b3d32c6f4c39d4b4846e8f826e66008f4cb759e3be1e9db1894583eabcb",
+    "src/dsp.rs": "164e98fa40c85f2427782e76be70fadf15137761b8abdb460dd950e1f3896206",
+    "src/lib.rs": "1d38b7015650f383220df7990fd039436d0ef88d667ab71081fe7a74a72d5a74",
+    "src/shr_pa.h": "72d2bd69a0a5ae1f74800d3fc8deb407f2cfde3e496eab4bc4d5d9be34cea009",
+    "src/shr_pa_v2.h": "c01f909fbe591b4d17e58c878788b3b5276f00169cab82a8e9ff5fbcdff3de79",
+    "src/shr_pa_eq_v1.h": "d7985ba7625a09f28da8942a28b289da32208c3fb0d53dd721c783e2bd5dd5e5",
+    "Cargo.toml": "8419c8cc541592c4fe805a87a7cb568347433a9c69dc6d9e8fbb9e54fd96508b",
+    "Cargo.lock": "408110bc24c9ef00125fd7bac5f09f6ad580813cd5ac6004ece6c32db0213f0b"
+  },
+  "fixture_sha256sums_sha256": "28de42314a4d0284390568e1b99c6d7b57666367d21b59bcbd9cbd750a076ce8",
+  "generator": "actual shr_pa_eq_v1_readback; Python complex evaluation of exact normalized banks; normal independent Rust real/imaginary replay",
+  "toolchain": "Rust1.97.1 --locked CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 canonical target on rpi4",
+  "normal_tests": 91,
+  "physical_acceptance": false,
+  "review_state": "candidate-awaiting-coordinator"
+}

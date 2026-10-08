@@ -39,3 +39,9 @@ pub mod held_proof;
 
 pub mod lease_maintenance;
 pub mod paired_readback;
+
+pub mod eq_response;
+
+pub mod sends;
+
+pub mod live_eq;

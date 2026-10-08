@@ -5,6 +5,15 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    SendsPage,
+    BrowseMonitor(i32),
+    SwitchScope(String),
+    SendTapEdit,
+    SendTap(crate::sends::Tap),
+    SendLevelEdit,
+    SendLevelText(String),
+    SendApply,
+    LiveEqEdit,
     MasterEqEdit,
     MasterEqChannel,
     MasterEqSection,
@@ -164,6 +173,7 @@ pub fn key_action(key: &str) -> Option<Action> {
         "F7" => Action::Topology,
         "F9" => Action::StructureEdit,
         "F11" => Action::MasterEqEdit,
+        "F12" => Action::SendsPage,
         "F1" => Action::Page(Page::Mix),
         "F2" => Action::Page(Page::Channel),
         "F6" => Action::Page(Page::Analysis),
@@ -190,7 +200,15 @@ pub fn key_action(key: &str) -> Option<Action> {
 }
 pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
     match action {
-        Action::DeviceEdit
+        Action::SendsPage
+        | Action::BrowseMonitor(_)
+        | Action::SwitchScope(_)
+        | Action::SendTapEdit
+        | Action::SendTap(_)
+        | Action::SendLevelEdit
+        | Action::SendLevelText(_)
+        | Action::SendApply
+        | Action::DeviceEdit
         | Action::DeviceText(_)
         | Action::DeviceApply
         | Action::BrainPage
@@ -205,6 +223,7 @@ pub fn apply(d: &mut Desk, action: Action) -> Result<Option<Command>, String> {
         | Action::TalkbackRelease
         | Action::Topology
         | Action::StructureEdit
+        | Action::LiveEqEdit
         | Action::MasterEqEdit
         | Action::MasterEqChannel
         | Action::MasterEqSection

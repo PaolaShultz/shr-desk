@@ -65,6 +65,18 @@ enum Permission {
     Analysis,
     Fx,
 }
+fn scope_permitted(permissions: &[Permission], scope: &str) -> bool {
+    permissions.iter().any(|p| match p {
+        Permission::Foh => scope == "foh",
+        Permission::Monitor(n) => scope == format!("monitor{n}"),
+        Permission::PaConfiguration => scope == "pa_configuration",
+        Permission::OutputRoutes => scope == "output_routes",
+        Permission::LocalOperatorMonitor => scope == "local_operator_monitor",
+        Permission::TalkbackDestinations => scope == "talkback_destinations",
+        Permission::TalkbackFoh => scope == "talkback_foh",
+        _ => false,
+    })
+}
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Response {
@@ -236,16 +248,7 @@ impl Connection {
             {
                 return Err("remote hello identity/binding".into());
             }
-            let permitted = permissions.iter().any(|p| match p {
-                Permission::Foh => scope == "foh",
-                Permission::Monitor(n) => scope == format!("monitor{n}"),
-                Permission::PaConfiguration => scope == "pa_configuration",
-                Permission::OutputRoutes => scope == "output_routes",
-                Permission::LocalOperatorMonitor => scope == "local_operator_monitor",
-                Permission::TalkbackDestinations => scope == "talkback_destinations",
-                Permission::TalkbackFoh => scope == "talkback_foh",
-                _ => false,
-            });
+            let permitted = scope_permitted(&permissions, scope);
             if !permitted {
                 return Err("remote peer lacks requested scope permission".into());
             }
@@ -1031,5 +1034,23 @@ mod envelope_tests {
             format!("{:x}", Sha256::digest(expected)),
             manifest["whole_sha256"].as_str().unwrap()
         );
+    }
+}
+
+#[cfg(test)]
+mod scope_permission_tests {
+    use super::*;
+    #[test]
+    fn explicit_remote_reattachment_never_inherits_other_scope_permission() {
+        assert!(!scope_permitted(
+            &[Permission::Foh, Permission::Monitor(1)],
+            "monitor3"
+        ));
+        assert!(scope_permitted(&[Permission::Monitor(3)], "monitor3"));
+        assert!(!scope_permitted(&[Permission::Monitor(3)], "foh"));
+        assert!(!scope_permitted(
+            &[Permission::Monitor(3)],
+            "pa_configuration"
+        ));
     }
 }

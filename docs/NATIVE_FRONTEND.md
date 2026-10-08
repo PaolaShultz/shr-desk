@@ -366,7 +366,7 @@ so enlarged targets are not incorrectly capped at the 2048-pixel fallback limit.
 ## Task0014 dynamic provider work (acceptance pending)
 
 Add `--dynamic` to explicitly select C-AUDIO:2, GP03-rendered:2 and
-GP07-processing:3. Default legacy1/1/2 remains supported; a selected session
+GP07-processing:4. Configured v3 remains historical and unsupported. Default legacy1/1/2 remains supported; a selected session
 refuses a different version. Standalone GP02 file mode stays legacy-only.
 The producer supplies topology, common-clock observations and resource admission.
 Logical input IDs, physical socket labels and USB stream slots stay separate.
@@ -742,3 +742,22 @@ discards matched authority, baseline and held status; a new gesture needs accept
 full readback. Snapshot copying is unchanged; no coalescing or new queue was added.
 Focused offline tests cover operation order, reuse refusal and actual worker
 publication boundaries. They do not establish network timing or hardware acceptance.
+
+
+## Task0018 sends and live master EQ consumer
+
+See [sends](SENDS.md) and [Master EQ](MASTER_EQ.md). F12 exposes sends overview
+and channel sends; O/F/V explicitly reattach selected monitor/FOH/PA and require a
+new G grant. Channel processing keeps FOH authority. PA scope L probes optional
+live EQ; E opens an editor only with fresh settled compatible readback. F11 keeps
+the distinct muted full-configuration workflow. B/C switch section/channel;
+U/I, J/K, F3 exact entry and F4 complete review are shared. All native named keys
+and character shortcuts use the tested native translation path.
+
+Current offline previews use actual Frontend scenes and the bundled renderer,
+with a visible simulated/offline/no-connected-engine label. Historical simulator
+screens are marked historical and do not describe production capability absence.
+The driver test `gp18_actual_frontend` is explicit opt-in with trusted executable,
+manifest and evidence-path environment variables. It drives Frontend semantic/key
+input, worker reviews, actual rendering/presentation and independent same-provider
+PCM observations. No window, device, host audio, MIDI or service activation occurs.

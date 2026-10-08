@@ -50,11 +50,10 @@ fn gp14_supplied_producer_documents() {
         )
         .unwrap();
         assert!(legacy.ingest_snapshot(snapshot, 0).is_err());
-        let final_reply =
-            processing::decode_reply(&serde_json::to_vec(&document["final"]).unwrap()).unwrap();
-        let processing = final_reply.snapshot.unwrap();
-        assert_eq!(processing.channels.len(), count);
-        session.ingest_processing(processing, 1).unwrap();
+        // Historic configured v3 bytes are evidence, never a v4 substitute.
+        assert!(
+            processing::decode_reply(&serde_json::to_vec(&document["final"]).unwrap()).is_err()
+        );
         let rendered =
             audio::decode_snapshot(&serde_json::to_vec(&document["rendered_after"]).unwrap())
                 .unwrap();

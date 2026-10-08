@@ -19,7 +19,7 @@ scoped PA configuration and output-route controls, with task0014 acceptance trac
 in [status](docs/STATUS.md). Attaching is read-only, grants are explicit,
 and reconnect discards local intents without recalling a mix.
 
-The task0013 four-band channel-processing extension uses `GP07-processing:2`,
+The four-band channel-processing extension uses legacy `GP07-processing:2` or explicitly configured `GP07-processing:4`,
 four independent bell frequency/gain/Q/bypass controls and the unchanged compressor.
 It adds explicit `--processing` capability
 probing and a complete Channel EQ/compressor draft, Apply/review/confirm/Cancel
@@ -33,8 +33,7 @@ No default invocation opens devices, sockets or windows.
 
 The dedicated [Master EQ setup editor](docs/MASTER_EQ.md) exposes SHR PA's existing
 eight parametric and 31 graphic bands for mapped main L/R inputs. F11 opens it in
-a dynamic PA-configuration session. Linked or independent edits use the existing
-mute/review/apply/separate-rearm workflow; this is not live EQ automation.
+a dynamic PA-configuration session. Linked or independent muted setup edits retain the existing mute/review/apply/separate-rearm workflow. The separately probed optional `GP18-master-eq:1` path offers narrow live EQ-only review without rearming outputs. F12 opens the [monitor sends surface](docs/SENDS.md).
 
 Build with the parent-held procedure in [development](docs/DEVELOPMENT.md), then:
 

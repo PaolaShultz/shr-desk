@@ -236,6 +236,7 @@ pub fn read_import(path: &std::path::Path) -> Result<String, String> {
 /// physical routing selects explicit advertised sources for existing output sockets.
 #[derive(Clone, Debug)]
 pub struct Draft {
+    pub live_context: Option<crate::live_eq::Snapshot>,
     pub master_eq: Option<crate::master_eq::View>,
     pub master_context: Option<(String, String)>,
     pub kind: String,
@@ -270,6 +271,7 @@ impl Draft {
             return Err("no advertised editable fields".into());
         }
         Ok(Self {
+            live_context: None,
             master_eq: None,
             master_context: None,
             kind: kind.into(),
@@ -422,6 +424,14 @@ impl Draft {
         Ok(())
     }
     pub fn body(&self) -> Result<Value, String> {
+        if let Some(context) = &self.live_context {
+            let view = self.master_eq.as_ref().ok_or("live EQ view")?;
+            view.validate_document(&self.document)?;
+            let patch = view.patch(&self.document)?;
+            let body = serde_json::json!({"patch_json":serde_json::to_string(&patch).map_err(|e|e.to_string())?,"program_buses":context.program_buses,"owner_instance":context.owner_instance,"graph_generation":context.graph_generation,"eq_generation":context.eq_generation,"map_revision":context.map_revision});
+            crate::live_eq::validate_body(&body, Some(context))?;
+            return Ok(body);
+        }
         if let Some(view) = &self.master_eq {
             view.validate_document(&self.document)?;
         }
@@ -481,4 +491,30 @@ pub fn decode_snapshot(bytes: &[u8]) -> Result<Snapshot, String> {
     let snapshot: Snapshot = serde_json::from_value(value).map_err(|e| e.to_string())?;
     snapshot.validate()?;
     Ok(snapshot)
+}
+impl Draft {
+    pub fn new_live_eq(
+        snapshot: &Snapshot,
+        live: &crate::live_eq::Snapshot,
+        generation: u64,
+    ) -> Result<Self, String> {
+        live.validate()?;
+        if !live.editable()
+            || snapshot.show_id != live.show_id
+            || snapshot.epoch != live.epoch
+            || snapshot.revision != live.revision
+            || snapshot.pa_program_buses != live.program_buses
+        {
+            return Err("fresh compatible settled PA/live owner state required".into());
+        }
+        let mut draft = Self::new_master_eq(snapshot, generation)?;
+        let patch = draft.master_eq.as_ref().unwrap().patch(&draft.document)?;
+        let owner = live.owner()?;
+        if patch["inputs"] != owner["target"] {
+            return Err("live owner and full configuration disagree".into());
+        }
+        draft.kind = "master_eq_set".into();
+        draft.live_context = Some(live.clone());
+        Ok(draft)
+    }
 }

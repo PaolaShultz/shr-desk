@@ -426,6 +426,7 @@ fn key_name(key: &Key) -> Option<String> {
             NamedKey::F7 => "F7",
             NamedKey::F9 => "F9",
             NamedKey::F11 => "F11",
+            NamedKey::F12 => "F12",
             NamedKey::F10 => "F10",
             _ => return None,
         }
@@ -602,4 +603,31 @@ pub fn offscreen_at(scene: &Scene, width: u32, height: u32) -> Result<String, St
             info.name, info.backend, width, height
         ))
     })
+}
+#[cfg(test)]
+mod operator_key_tests {
+    use super::*;
+    #[test]
+    fn all_advertised_named_and_character_operator_keys_reach_frontend() {
+        for (key, name) in [
+            (NamedKey::F1, "F1"),
+            (NamedKey::F2, "F2"),
+            (NamedKey::F3, "F3"),
+            (NamedKey::F4, "F4"),
+            (NamedKey::F5, "F5"),
+            (NamedKey::F7, "F7"),
+            (NamedKey::F11, "F11"),
+            (NamedKey::F12, "F12"),
+            (NamedKey::Enter, "Enter"),
+            (NamedKey::PageDown, "PageDown"),
+            (NamedKey::Escape, "Esc"),
+        ] {
+            assert_eq!(key_name(&Key::Named(key)).as_deref(), Some(name));
+        }
+        for key in [
+            "E", "S", "O", "F", "V", "L", "U", "I", "1", "2", "3", "-", ".", "0",
+        ] {
+            assert_eq!(key_name(&Key::Character(key.into())).as_deref(), Some(key));
+        }
+    }
 }

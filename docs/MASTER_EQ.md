@@ -1,4 +1,4 @@
-# Master EQ setup editor
+# Master EQ operator surface
 
 The real frontend has a dedicated **8-band parametric + 31-band graphic EQ**
 editor over SHR PA's version-2 program-input processing. Open it with **F11** in
@@ -6,10 +6,42 @@ a dynamic `pa_configuration` session. It requires fresh, matching raw and PA
 readback. Other scopes, unsupported owner versions, incomplete EQ data and
 ambiguous main-bus mappings are refused.
 
-This is a **muted setup workflow**, not a live EQ transition. Grant PA authority,
+F11 is the **muted setup workflow**. The separate live editor is described below. Grant PA authority,
 review/confirm output mute, wait for quiescence, then open the editor. Apply enters
 the existing complete PA configuration review. Confirming does not rearm outputs;
-rearm remains a separate reviewed action. No new DSP or wire contract is introduced.
+rearm remains a separate reviewed action. The muted editor retains GP14; the optional live editor uses the independently versioned GP18 contract.
+
+## Optional live EQ and calculated response
+
+In dynamic PA scope, L probes `GP18-master-eq:1` and displays availability,
+owner/graph/EQ/map identities, current/target and source recovery state. E opens
+an editor only from fresh compatible settled GP03/GP18/full-PA readback with an
+explicit PA grant. Applying pins the complete bus vector, map revision, owner
+instance and graph/EQ generations and submits only two mapped inputs' PEQ/GEQ
+settings. Gain, compressor, delay, routing, crossover and protection cannot enter
+this patch. The existing full graph replacement still requires quiescence and
+separate explicit rearm. Live EQ never rearms outputs. Completed retirement
+storage does not permanently prevent another settled edit; provider prepare owns
+its retirement. Optional-library absence preserves the working F11 muted editor.
+
+All eight PEQ bands and all31 GEQ centres/gains are visible, with focused exact
+controls and linked/independent L/R edits. The response is **calculated EQ
+response**, using settings-only normalized coefficients checked against all12
+accepted PA goldens at8/48/192kHz, including bypass and above-rate GEQ identity.
+It is never a spectrum, room/protection response or audio DSP in Desk. During a
+live fade, current and target static curves are separate; neither is the exact
+running time-varying transfer. Disabled/above-rate graphic sections are explicitly
+marked identity and stored gains stay visible. Exact values stay in the editor
+and complete paged review.
+
+The owner corpus retains producing PA revision
+`46a03ec3a86333ec596bd19fd97148b077af5955` and GP revision
+`06e0485324590a2ccb29897a180afa8be4eacbc5`. Their byte/hash tests are consumer
+admission evidence. Actual-provider/sample acceptance and final suite counts are
+reported in the private D handoff; physical/listening/clock-lock acceptance remains
+separate. Guarded PA/narrow commit is allocation-free as producer-qualified;
+surrounding provider control/source orchestration allocates and performs control
+I/O. No whole-host hard-real-time or physical deadline claim follows.
 
 ## Controls
 
@@ -51,9 +83,7 @@ inputs, routing, sums, crossovers, protection and every unedited owner field are
 preserved. EQ acts before the PA graph and output protection. Physical outputs
 patched directly to raw main or monitor buses bypass this PA EQ.
 
-Channel four-band EQ/compression is separate and unchanged. Existing independent
-monitor sends use raw input after shared mute; selectable pre/post aux taps and
-a dedicated sends overview are separate follow-up work.
+Channel four-band EQ/compression is separate and unchanged. Monitor sends independently select confirmed GP18 raw/post-mute or processed pre/post-fader taps; see [sends](SENDS.md).
 
 Focus/reconnect retains detached content but invalidates its context. This editor
 refuses Apply after show, epoch, revision or generation changes: cancel and reopen
@@ -63,10 +93,9 @@ and serializing, the complete stereo EQ is validated and all non-EQ owner settin
 are compared with the original readback. A failed edit never partially changes one
 stereo side.
 Presentation and unit tests use explicit altered fixtures, not claims of physical
-audio or of a live producer transaction. Hardware listening and hot EQ updates
-remain unverified/unimplemented respectively.
+audio or of a live producer transaction. Hardware listening remains unverified. The separate live consumer requires the accepted optional producer extension.
 
-## Package A owner review
+## Historical Package A owner review
 
 Reviewed against SHR PA `401510bbe1d256883a29c74c494aadc28ba53f33`
 (`graph::GraphConfig`, `config::Config::validate`) and GigPies
