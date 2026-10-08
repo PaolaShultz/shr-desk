@@ -123,6 +123,7 @@ mod linux {
                 .set_write_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
             let mut changed = false;
+            let mut sequence = 0u64;
             let mut ids = Vec::new();
             fn send(s: &mut std::os::unix::net::UnixStream, v: &Value) {
                 let b = serde_json::to_vec(v).unwrap();
@@ -146,6 +147,16 @@ mod linux {
                             r["snapshot"] = c["final"].clone();
                             r["outcome"]["body"]["revision"] = json!("13");
                         }
+                        // Each solicited observation is new, including the read
+                        // after release. Repeating a fixture is not new telemetry.
+                        sequence = sequence.max(
+                            r["snapshot"]["authority"]["sequence"]
+                                .as_str()
+                                .unwrap()
+                                .parse()
+                                .unwrap(),
+                        ) + 1;
+                        r["snapshot"]["authority"]["sequence"] = json!(sequence.to_string());
                         send(&mut stream, &r);
                     }
                     "grant" => {
