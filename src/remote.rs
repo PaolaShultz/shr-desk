@@ -102,7 +102,48 @@ enum Response {
         reason: String,
     },
 }
+#[derive(Default)]
+struct FrameState {
+    failure: Option<String>,
+}
+impl FrameState {
+    fn check(&self) -> Result<(), String> {
+        self.failure.as_ref().map_or(Ok(()), |e| Err(e.clone()))
+    }
+    fn retain<T>(&mut self, result: Result<T, String>) -> Result<T, String> {
+        match result {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                let first = self.failure.get_or_insert(e).clone();
+                Err(first)
+            }
+        }
+    }
+    async fn read<R: tokio::io::AsyncRead + Unpin>(
+        &mut self,
+        receive: &mut R,
+        deadline: Instant,
+        available: bool,
+        timing: &mut Option<TransportTiming>,
+    ) -> Result<Option<provider::StrictDocument>, String> {
+        self.check()?;
+        let result = read_document_timed(receive, deadline, available, timing).await;
+        self.retain(result)
+    }
+    async fn write<W: tokio::io::AsyncWrite + Unpin>(
+        &mut self,
+        send: &mut W,
+        value: &Value,
+        deadline: Instant,
+        timing: &mut Option<TransportTiming>,
+    ) -> Result<(), String> {
+        self.check()?;
+        let result = write_timed(send, value, deadline, timing).await;
+        self.retain(result)
+    }
+}
 pub struct Connection {
+    framing: FrameState,
     runtime: tokio::runtime::Runtime,
     endpoint: quinn::Endpoint,
     connection: quinn::Connection,
@@ -279,6 +320,7 @@ impl Connection {
             None
         };
         Ok(Self {
+            framing: FrameState::default(),
             runtime,
             endpoint,
             connection,
@@ -292,52 +334,47 @@ impl Connection {
             timing,
         })
     }
+    fn close_failed_framing(&self) {
+        if self.framing.failure.is_some() {
+            self.connection.close(
+                0u8.into(),
+                b"Desk framing failed; explicit new attachment required",
+            );
+        }
+    }
     fn receive_document_inner(
         &mut self,
         deadline: Instant,
         available: bool,
     ) -> Result<Option<provider::StrictDocument>, String> {
-        let Some(document) = self.runtime.block_on(read_document_timed(
+        let result = self.runtime.block_on(self.framing.read(
             &mut self.receive,
             deadline,
             available,
             &mut self.timing,
-        ))?
-        else {
+        ));
+        self.close_failed_framing();
+        let Some(document) = result? else {
             return Ok(None);
         };
-        accept_reply_document(document, &self.session, &mut self.timing).map(Some)
+        let result = accept_reply_document(document, &self.session, &mut self.timing).map(Some);
+        let result = self.framing.retain(result);
+        self.close_failed_framing();
+        result
     }
     fn receive_inner(
         &mut self,
         deadline: Instant,
         available: bool,
     ) -> Result<Option<Vec<u8>>, String> {
-        match self.runtime.block_on(read_timed(
-            &mut self.receive,
-            deadline,
-            available,
-            &mut self.timing,
-        ))? {
-            None => Ok(None),
-            Some(Response::Reply { session, payload }) if session == self.session => {
-                let started = self.timing.as_ref().map(|_| Instant::now());
-                let result = serde_json::to_vec(&payload)
-                    .map(Some)
-                    .map_err(|e| e.to_string());
-                add_stage(&mut self.timing, 5, started);
-                if result.is_ok()
-                    && let Some(t) = &mut self.timing
-                {
-                    trace_add(&mut t.completed_reply_documents, 1, &mut t.overflow);
-                }
-                result
-            }
-            Some(Response::Refused { session, reason }) if session == self.session => {
-                Err(format!("remote refused: {reason}"))
-            }
-            _ => Err("remote session/response mismatch".into()),
-        }
+        let result = self.receive_document_inner(deadline, available);
+        let Some(document) = result? else {
+            return Ok(None);
+        };
+        let started = self.timing.as_ref().map(|_| Instant::now());
+        let result = document.into_bytes().map(Some);
+        add_stage(&mut self.timing, 5, started);
+        result
     }
 }
 impl Drop for Connection {
@@ -381,6 +418,7 @@ impl AuthorityConnection for Connection {
         Some(timing)
     }
     fn send_frame_until(&mut self, bytes: &[u8], deadline: Instant) -> Result<(), String> {
+        self.framing.check()?;
         let started = self.timing.as_ref().map(|_| Instant::now());
         let payload = provider::parse(bytes)?;
         if !payload["writer"].is_null() && payload["writer"] != self.writer {
@@ -391,12 +429,13 @@ impl AuthorityConnection for Connection {
         if let Some(t) = &mut self.timing {
             trace_add(&mut t.send_attempts, 1, &mut t.overflow);
         }
-        let result = self.runtime.block_on(write_timed(
+        let result = self.runtime.block_on(self.framing.write(
             &mut self.send,
             &envelope,
             deadline,
             &mut self.timing,
         ));
+        self.close_failed_framing();
         add_stage(&mut self.timing, 0, started);
         if result.is_ok()
             && let Some(t) = &mut self.timing
@@ -422,12 +461,13 @@ async fn write(
 ) -> Result<(), String> {
     write_timed(send, value, deadline, &mut None).await
 }
-async fn write_timed(
-    send: &mut quinn::SendStream,
+async fn write_timed<W: tokio::io::AsyncWrite + Unpin>(
+    send: &mut W,
     value: &Value,
     deadline: Instant,
     timing: &mut Option<TransportTiming>,
 ) -> Result<(), String> {
+    use tokio::io::AsyncWriteExt;
     let started = timing.as_ref().map(|_| Instant::now());
     let encoded = serde_json::to_vec(value).map_err(|e| e.to_string());
     add_stage(timing, 6, started);
@@ -1061,5 +1101,106 @@ mod scope_permission_tests {
             &[Permission::Monitor(3)],
             "pa_configuration"
         ));
+    }
+}
+#[cfg(test)]
+mod poisoned_frames {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    #[tokio::test(flavor = "current_thread")]
+    async fn partial_body_timeout_retains_first_error_and_never_consumes_following_frame() {
+        let bytes = br#"{"kind":"reply","session":"x","payload":{"n":7}}"#;
+        let (mut writer, mut receiver) = tokio::io::duplex(1024);
+        writer
+            .write_all(&(bytes.len() as u32).to_be_bytes())
+            .await
+            .unwrap();
+        writer.write_all(&bytes[..5]).await.unwrap();
+        let mut state = FrameState::default();
+        let first = state
+            .read(
+                &mut receiver,
+                Instant::now() + Duration::from_millis(5),
+                false,
+                &mut None,
+            )
+            .await
+            .err()
+            .unwrap();
+        assert!(first.contains("partial frame deadline"));
+        writer.write_all(&bytes[5..]).await.unwrap();
+        writer
+            .write_all(&(bytes.len() as u32).to_be_bytes())
+            .await
+            .unwrap();
+        writer.write_all(bytes).await.unwrap();
+        for _ in 0..2 {
+            assert_eq!(
+                state
+                    .read(
+                        &mut receiver,
+                        Instant::now() + Duration::from_millis(50),
+                        false,
+                        &mut None
+                    )
+                    .await
+                    .err()
+                    .unwrap(),
+                first
+            );
+        }
+        let mut remaining = vec![0; bytes.len() - 5];
+        receiver.read_exact(&mut remaining).await.unwrap();
+        assert_eq!(remaining, &bytes[5..]);
+        let mut prefix = [0; 4];
+        receiver.read_exact(&mut prefix).await.unwrap();
+        assert_eq!(u32::from_be_bytes(prefix) as usize, bytes.len());
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn partial_write_timeout_poison_blocks_later_write_and_read() {
+        let (mut sender, mut peer) = tokio::io::duplex(8);
+        let mut state = FrameState::default();
+        let first = state
+            .write(
+                &mut sender,
+                &json!({"payload":"0123456789"}),
+                Instant::now() + Duration::from_millis(5),
+                &mut None,
+            )
+            .await
+            .unwrap_err();
+        assert!(first.contains("write deadline"));
+        let mut sent = [0; 8];
+        peer.read_exact(&mut sent).await.unwrap();
+        assert_eq!(
+            state
+                .write(
+                    &mut sender,
+                    &json!({}),
+                    Instant::now() + Duration::from_millis(50),
+                    &mut None
+                )
+                .await
+                .unwrap_err(),
+            first
+        );
+        assert_eq!(
+            state
+                .read(
+                    &mut sender,
+                    Instant::now() + Duration::from_millis(50),
+                    false,
+                    &mut None
+                )
+                .await
+                .err()
+                .unwrap(),
+            first
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(5), peer.read_u8())
+                .await
+                .is_err()
+        );
     }
 }

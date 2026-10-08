@@ -655,6 +655,7 @@ impl Frontend {
                             | Action::ProcessingEdit
                             | Action::StructureEdit
                             | Action::MasterEqEdit
+                            | Action::Fx(crate::fx::Action::Edit)
                             | Action::DeviceEdit
                     );
                     if let Err(e) = self.action(action) {
@@ -666,7 +667,9 @@ impl Frontend {
                         && self.structural_draft.is_none()
                         && self.device_draft.is_none()
                         && self.send_draft.is_none()
-                        && self.exact_draft.is_none())
+                        && self.exact_draft.is_none()
+                        && self.fx_ui.text.is_none()
+                        && self.measurement_ui.editor.is_none())
                         || opens_editor
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
@@ -686,11 +689,15 @@ impl Frontend {
                             && self.structural_draft.is_none()
                             && self.device_draft.is_none()
                             && self.send_draft.is_none()
-                            && self.exact_draft.is_none())
-                            || matches!(
-                                key.as_str(),
-                                "E" | "S" | "L" | "D" | "C" | "d" | "c" | "F9" | "F11"
-                            ))
+                            && self.exact_draft.is_none()
+                            && self.fx_ui.text.is_none()
+                            && self.measurement_ui.editor.is_none())
+                            || (self.fx_ui.text.is_none()
+                                && self.measurement_ui.editor.is_none()
+                                && matches!(
+                                    key.as_str(),
+                                    "E" | "S" | "L" | "D" | "C" | "d" | "c" | "F9" | "F11"
+                                )))
                     {
                         let _ = self.provider.send(None, Operation::InputReleased);
                     }

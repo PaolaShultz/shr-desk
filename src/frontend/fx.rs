@@ -257,3 +257,51 @@ mod scene_tests {
         }
     }
 }
+#[cfg(test)]
+mod literal_release_regression {
+    use super::*;
+    #[test]
+    fn detached_numeric_key_releases_do_not_fill_provider_queue() {
+        let mut f = Frontend::new(Config {
+            wire_version: 2,
+            remote: None,
+            endpoint: "/nonexistent/literal-test.sock".into(),
+            show: "11111111-1111-4111-8111-111111111111".into(),
+            epoch: 1,
+            writer: "literal-test".into(),
+            scope: "fx_configuration".into(),
+        });
+        let (tx, rx) = std::sync::mpsc::sync_channel(8);
+        f.provider.tx = tx;
+        f.fx_ui.open = true;
+        f.fx_ui.text = Some(String::new());
+        for key in "1e2 0.2 0.3 0.4".chars() {
+            for pressed in [true, false] {
+                f.enqueue(Event::Key {
+                    key: key.to_string(),
+                    pressed,
+                })
+                .unwrap();
+                f.pump();
+            }
+        }
+        assert_eq!(f.fx_ui.text.as_deref(), Some("1e2 0.2 0.3 0.4"));
+        assert_eq!(rx.try_iter().count(), 0);
+        f.fx_ui.open = false;
+        f.fx_ui.text = None;
+        f.measurement_ui.open = true;
+        f.measurement_ui.editor = Some(crate::pa_measurement::editor::Editor::Capture);
+        for key in "row1".chars() {
+            for pressed in [true, false] {
+                f.enqueue(Event::Key {
+                    key: key.to_string(),
+                    pressed,
+                })
+                .unwrap();
+                f.pump();
+            }
+        }
+        assert_eq!(f.measurement_ui.text, "row1");
+        assert_eq!(rx.try_iter().count(), 0);
+    }
+}
