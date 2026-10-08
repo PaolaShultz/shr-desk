@@ -120,6 +120,118 @@ fn present(f: &mut Frontend) {
     }
     f.mark_presented();
 }
+fn pa_lanes(
+    configuration: &Value,
+    indices: [usize; 2],
+    slots: &[usize],
+) -> (Vec<usize>, Vec<usize>) {
+    assert_eq!(
+        configuration["outputs"].as_array().unwrap().len(),
+        slots.len()
+    );
+    let mut left = Vec::new();
+    let mut right = Vec::new();
+    for (output, slot) in configuration["outputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(slots)
+    {
+        let input = output["source"]["input"]
+            .as_u64()
+            .expect("fixture direct owner input") as usize;
+        if input == indices[0] {
+            left.push(*slot);
+        } else {
+            assert_eq!(input, indices[1], "unexpected owner route");
+            right.push(*slot);
+        }
+    }
+    (left, right)
+}
+#[test]
+fn pa_pcm_lanes_follow_interleaved_and_nonadjacent_owner_routes() {
+    for indices in [[0, 1], [2, 0]] {
+        let configuration = json!({"outputs": (0..6).map(|i| json!({"source":{"input":indices[i % 2]}})).collect::<Vec<_>>()});
+        assert_eq!(
+            pa_lanes(&configuration, indices, &[5, 6, 7, 8, 9, 10]),
+            (vec![5, 7, 9], vec![6, 8, 10])
+        );
+    }
+}
+fn final_operation_ready(
+    fresh: bool,
+    review_open: bool,
+    status: &str,
+    result: Option<&str>,
+) -> bool {
+    fresh
+        && !review_open
+        && !status.starts_with("COMPLETED/READBACK UNAVAILABLE:")
+        && !status.starts_with("REFUSED/UNCERTAIN:")
+        && result.is_some_and(|result| {
+            let mut words = result.split_whitespace();
+            words.next().is_some()
+                && words.next() == Some("applied")
+                && words.next() == Some("revision")
+                && words
+                    .next()
+                    .is_some_and(|revision| revision.trim_end_matches(';').parse::<u64>().is_ok())
+        })
+}
+#[test]
+fn failed_completion_readback_cannot_be_accepted_after_status_overwrite() {
+    let result = Some(
+        "COMPLETED/READBACK UNAVAILABLE: correlated completion: set applied revision 13; fresh post-final readback unavailable: deadline",
+    );
+    for status in [
+        "COMPLETED/READBACK UNAVAILABLE",
+        "passive sends poll failed",
+        "fresh readback",
+    ] {
+        assert!(!final_operation_ready(true, false, status, result));
+    }
+    assert!(final_operation_ready(
+        true,
+        false,
+        "fresh readback",
+        Some("set applied revision 13")
+    ));
+    assert!(final_operation_ready(
+        true,
+        false,
+        "fresh readback",
+        Some("sends_set applied revision 13; crossfade may still be active")
+    ));
+    assert!(!final_operation_ready(
+        false,
+        false,
+        "stale",
+        Some("set applied revision 13")
+    ));
+    assert!(!final_operation_ready(
+        true,
+        true,
+        "ready",
+        Some("set applied revision 13")
+    ));
+    assert!(!final_operation_ready(
+        true,
+        false,
+        "ready",
+        Some("set conflict revision 13")
+    ));
+}
+fn structure_ready(f: &Frontend) -> bool {
+    f.fresh()
+        && f.state.as_ref().is_some_and(|u| {
+            u.structural_fresh
+                && u.structural_age_ms.is_some_and(|age| {
+                    Duration::from_millis(age).saturating_add(u.received.elapsed())
+                        <= Duration::from_millis(250)
+                })
+        })
+}
 fn confirm(f: &mut Frontend, end: Instant) {
     wait(f, end, "review", |f| {
         f.fresh() && f.state.as_ref().is_some_and(|u| u.review.is_some())
@@ -133,13 +245,14 @@ fn confirm(f: &mut Frontend, end: Instant) {
     }
     tap(f, "Enter");
     wait(f, end, "correlated final", |f| {
-        f.fresh()
-            && f.state.as_ref().is_some_and(|u| {
-                u.review.is_none()
-                    && u.last_operation
-                        .as_deref()
-                        .is_some_and(|r| r.contains("applied"))
-            })
+        f.state.as_ref().is_some_and(|u| {
+            final_operation_ready(
+                f.fresh(),
+                u.review.is_some(),
+                &u.status,
+                u.last_operation.as_deref(),
+            )
+        })
     });
 }
 fn grant(f: &mut Frontend, end: Instant) {
@@ -345,10 +458,10 @@ fn settled(f: &mut Frontend, end: Instant) {
             })
     });
 }
-fn compressor_converged(f: &mut Frontend, end: Instant) {
-    // Configuration-ready is not compressor envelope convergence. Allow
-    // ten configured 100ms release constants in actual processed frames,
-    // while keeping the original run deadline and observations current.
+fn signal_history_converged(f: &mut Frontend, end: Instant) {
+    // Configuration-ready does not imply stationary compressor or downstream
+    // PA filter histories. Keep the ten configured 100ms release constants
+    // (48000 actual frames), original run deadline and strict PCM assertions.
     let convergence_frame = f
         .state
         .as_ref()
@@ -360,7 +473,7 @@ fn compressor_converged(f: &mut Frontend, end: Instant) {
         .parse::<u64>()
         .unwrap()
         + 48_000;
-    wait(f, end, "compressor periodic convergence", |f| {
+    wait(f, end, "signal history periodic convergence", |f| {
         f.fresh()
             && f.state.as_ref().is_some_and(|u| {
                 u.snapshot.as_ref().is_some_and(|s| {
@@ -392,9 +505,35 @@ fn fader(f: &mut Frontend, end: Instant, mdb: i32) {
         current, mdb,
         "driver immediate knob requires nonzero movement"
     );
+    let expected_revision = f
+        .state
+        .as_ref()
+        .unwrap()
+        .snapshot
+        .as_ref()
+        .unwrap()
+        .authority
+        .revision
+        .parse::<u64>()
+        .unwrap()
+        .checked_add(1)
+        .unwrap()
+        .to_string();
+    let expected_result = format!("set applied revision {expected_revision}");
     action(f, Action::Adjust(mdb - current));
     wait(f, end, "fader readback", |f| {
         f.fresh()
+            && f.state.as_ref().is_some_and(|u| {
+                final_operation_ready(
+                    f.fresh(),
+                    u.review.is_some(),
+                    &u.status,
+                    u.last_operation.as_deref(),
+                ) && u.last_operation.as_deref() == Some(expected_result.as_str())
+                    && u.snapshot
+                        .as_ref()
+                        .is_some_and(|s| s.authority.revision == expected_revision)
+            })
             && f.state
                 .as_ref()
                 .unwrap()
@@ -616,10 +755,11 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             level(&mut f, end, "-3");
             scope(&mut f, end, "pa_configuration");
             wait(&mut f, end, "global output rearm review readiness", |f| {
-                f.fresh() && f.state.as_ref().is_some_and(|u| u.structural_fresh)
+                structure_ready(f)
             });
             action(&mut f, Action::OutputRearm);
             confirm(&mut f, end);
+            signal_history_converged(&mut f, end);
             monitor(&mut f, end, 3);
             settled(&mut f, end);
             let baseline = capture(&host, &mut f, end, "raw-baseline");
@@ -648,17 +788,22 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             trace(&f, "separate tap review", &mut events);
             scope(&mut f, end, "foh");
             processing_edit(&mut f, end, &[(0, "0"), (1, "1000"), (2, "6"), (17, "1")]);
+            signal_history_converged(&mut f, end);
             let eq = capture(&host, &mut f, end, "channel-eq");
             equal(&pre, &eq, mon1);
             assert!(rms(&lane(&eq, mon3)) > rms(&lane(&pre, mon3)) * 1.5);
             trace(&f, "channel EQ", &mut events);
             processing_edit(&mut f, end, &[(17, "0"), (18, "-50"), (19, "4"), (23, "0")]);
-            compressor_converged(&mut f, end);
+            signal_history_converged(&mut f, end);
             let comp = capture(&host, &mut f, end, "compression");
             equal(&eq, &comp, mon1);
             assert!(rms(&lane(&comp, mon3)) < rms(&lane(&eq, mon3)) * 0.8);
             trace(&f, "channel compressor", &mut events);
             fader(&mut f, end, -6000);
+            // The fader step also excites continuing PA crossover histories.
+            // Raw and pre-fader monitors are unchanged, but every PA lane must
+            // reach periodic stationarity before this all-output capture.
+            signal_history_converged(&mut f, end);
             let prefader = capture(&host, &mut f, end, "pre-fader-change");
             equal(&comp, &prefader, mon1);
             equal(&comp, &prefader, mon3);
@@ -679,13 +824,14 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             tap(&mut f, "M");
             confirm(&mut f, end);
             settled(&mut f, end);
+            signal_history_converged(&mut f, end);
             let muted = capture(&host, &mut f, end, "shared-mute");
             assert_eq!(rms(&lane(&muted, mon1)), 0.);
             assert_eq!(rms(&lane(&muted, mon3)), 0.);
             tap(&mut f, "M");
             confirm(&mut f, end);
             settled(&mut f, end);
-            compressor_converged(&mut f, end);
+            signal_history_converged(&mut f, end);
             let recovered = capture(&host, &mut f, end, "shared-unmute");
             equal(&post, &recovered, mon1);
             equal(&post, &recovered, mon3);
@@ -712,11 +858,10 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             level(&mut f, end, "0");
             scope(&mut f, end, "pa_configuration");
             tap(&mut f, "F7");
-            wait(&mut f, end, "PA structural ready", |f| {
-                f.fresh() && f.state.as_ref().is_some_and(|u| u.structural_fresh)
-            });
+            wait(&mut f, end, "PA structural ready", |f| structure_ready(f));
             action(&mut f, Action::OutputRearm);
             confirm(&mut f, end);
+            signal_history_converged(&mut f, end);
             settled(&mut f, end);
             let baseline = capture(&host, &mut f, end, "pa-rearmed-baseline");
             let power = |v: &Value| pa.iter().map(|i| rms(&lane(v, *i)).powi(2)).sum::<f64>();
@@ -753,6 +898,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             confirm(&mut f, end);
             wait(&mut f, end, "settled live EQ", Frontend::live_eq_ready);
             settled(&mut f, end);
+            signal_history_converged(&mut f, end);
             let live = capture(&host, &mut f, end, "live-eq-settled");
             let owner: Value =
                 serde_json::from_str(live["after"]["master_eq"]["owner_json"].as_str().unwrap())
@@ -771,18 +917,25 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
                     intended_patch["inputs"][i]["eq"]
                 );
             }
-            // The actual fixture routes outputs0..2 from main-left input0,
-            // outputs3..5 from main-right input1; prove that before comparisons.
+            // Bind each actual playback slot to the owner's real output source.
+            // The fixed stereo3way fixture interleaves L/R; lane positions cannot
+            // substitute for routing identity.
             assert_eq!(
                 live["after"]["structure"]["pa_program_buses"],
                 json!([0, 1])
             );
             let fixture = read(&fixtures.join("stereo3way.json"));
-            for i in 0..6 {
-                assert_eq!(fixture["outputs"][i]["source"]["input"], i / 3);
-                if i >= 3 {
-                    equal(&baseline, &live, pa[i]);
-                }
+            for i in 0..pa.len() {
+                assert_eq!(
+                    conf["outputs"][i]["source"],
+                    fixture["outputs"][i]["source"]
+                );
+            }
+            let (affected, unaffected) = pa_lanes(&conf, indices, &pa);
+            assert_eq!(affected.len(), 3);
+            assert_eq!(unaffected.len(), 3);
+            for slot in &unaffected {
+                equal(&baseline, &live, *slot);
             }
 
             assert_eq!(intended_patch["inputs"][0]["eq_enabled"], true);
@@ -800,7 +953,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
                 (real / samples.len() as f64, imag / samples.len() as f64)
             };
             let expected = 10_f64.powf(6.125 / 20.0);
-            for slot in pa.iter().take(3) {
+            for slot in &affected {
                 let (ar, ai) = fundamental(&baseline, *slot);
                 let (br, bi) = fundamental(&live, *slot);
                 let energy = ar * ar + ai * ai;
@@ -828,6 +981,14 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             settled(&mut f, end);
             let mute = capture(&host, &mut f, end, "pa-muted");
             assert_eq!(power(&mute), 0.);
+            // A correlated mute final and PCM silence do not grant a fresh GP14
+            // editing observation. Await the actual matched structural read.
+            wait(&mut f, end, "fresh muted setup observation", |f| {
+                structure_ready(f)
+                    && f.state
+                        .as_ref()
+                        .is_some_and(|u| u.structural.as_ref().is_some_and(|s| s.outputs_quiesced))
+            });
             tap(&mut f, "F11");
             assert!(f.structural_draft.is_some(), "{}", f.message);
             let original = f.structural_draft.as_ref().unwrap().document.clone();
@@ -868,6 +1029,7 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             );
             action(&mut f, Action::OutputRearm);
             confirm(&mut f, end);
+            signal_history_converged(&mut f, end);
             settled(&mut f, end);
             let rearmed = capture(&host, &mut f, end, "separate-rearm");
             assert!(power(&rearmed) > 1e-12);
@@ -876,12 +1038,22 @@ fn actual_frontend_sends_processing_and_master_eq_with_pcm_witness() {
             wait(
                 &mut f,
                 end,
-                "live read after full setup",
-                Frontend::live_eq_ready,
+                "live and structural read after full setup",
+                |f| Frontend::live_eq_ready(f) && structure_ready(f),
             );
             tap(&mut f, "E");
+            assert!(
+                f.structural_draft
+                    .as_ref()
+                    .is_some_and(|d| d.live_context.is_some()),
+                "{}",
+                f.message
+            );
             action(&mut f, Action::StructureField(3));
             action(&mut f, Action::StructureText("2".into()));
+            wait(&mut f, end, "fresh unsent review readback", |f| {
+                Frontend::live_eq_ready(f) && structure_ready(f)
+            });
             action(&mut f, Action::StructureApply);
             wait(&mut f, end, "unsent live review", |f| {
                 f.state.as_ref().is_some_and(|u| u.review.is_some())

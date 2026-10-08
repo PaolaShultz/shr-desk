@@ -39,6 +39,12 @@ both GP03 and GP18 under one original250ms/64-document budget, requiring advanci
 raw and extension observations and matching identities/revisions/inventories.
 Immutable page assembly retains original deadline/hash/order protections. Duplicate,
 stale, partial and cached mutation replies do not renew edit freshness.
+A correlated applied final remains known if its subsequent readback fails, but
+failed or partial readback closes freshness and cannot authorize another edit.
+Queued old raw telemetry or a duplicate final permits the required bounded read;
+stale unsolicited legacy batches do not gain that continuation. No mutation is
+replayed. The frontend reports completed/readback unavailable separately from
+refusal and requires fresh readback and a new review for further edits.
 Selection, scope, revision, epoch and generation changes revoke queued review
 intent. Focus/controller/role loss fences authorization. Reconnect attaches
 read-only with a new writer and never replays a draft or automatically grants.

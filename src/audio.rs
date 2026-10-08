@@ -885,6 +885,12 @@ impl Session {
     pub(crate) fn snapshot_age(&self, now: u64) -> Option<u64> {
         self.receipt.map(|t| now.saturating_sub(t))
     }
+    pub(crate) fn invalidate_raw_observation(&mut self) {
+        self.receipt = None;
+        self.needs_snapshot = true;
+        self.preview = None;
+        self.armed = false;
+    }
     pub fn fresh(&self, now: u64) -> bool {
         !self.context_exhausted
             && !self.needs_snapshot

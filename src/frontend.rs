@@ -878,7 +878,11 @@ fn worker(
                     }
                     Ok(()) => {}
                     Err(e) => {
-                        status = format!("REFUSED/UNCERTAIN: {e}");
+                        status = if e.starts_with("correlated completion:") {
+                            format!("COMPLETED/READBACK UNAVAILABLE: {e}")
+                        } else {
+                            format!("REFUSED/UNCERTAIN: {e}")
+                        };
                         operation_error = Some(status.clone());
                         last_operation = Some(status.clone());
                         review = None;
@@ -893,7 +897,9 @@ fn worker(
             o.guard(generation.clone(), g);
             // Publish a valid new review before unrelated renewal/telemetry work.
             // Its displayed generation/revision/deadline remain checked at confirmation.
-            if ((review.is_some() && o.review_valid()) || status.starts_with("REFUSED/UNCERTAIN:"))
+            if ((review.is_some() && o.review_valid())
+                || (status.starts_with("REFUSED/UNCERTAIN:")
+                    || status.starts_with("COMPLETED/READBACK UNAVAILABLE:")))
                 && generation.load(Ordering::Acquire) == g
             {
                 let received = Instant::now();

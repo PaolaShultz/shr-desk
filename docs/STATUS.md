@@ -1,5 +1,28 @@
 # Status and next steps
 
+## Task0018 D3 post-final recovery — final software gates pending
+
+Ordinary and extension applied finals now require a bounded advancing readback even
+when old independently queued telemetry or duplicate finals arrive first. The
+original 250 ms/64-document and 200 ms frame bounds remain in force. Correlated
+applied completion is retained separately from readback availability; any partial
+readback failure closes observation admission and follows typed recovery. Fresh
+observations and a new complete review remain required before further edits.
+Unsolicited stale legacy batches do not renew freshness or trigger global querying.
+
+Deterministic ordinary/extension regressions cover advancing-readback absence,
+deadline/backlog saturation, identity, generation and partial-ingest errors, with
+one mutation and no replay. The actual driver independently checks completion
+against its own last-operation result, not target values or a later overwritten
+status. Stationary PCM captures wait 48000 actual frames after relevant signal and
+PA history changes under the original episode deadline; route comparisons follow
+the actual owner mapping, including interleaved stereo outputs. D3 private evidence
+retains all failed trials and their exact source attribution. Complete actual and
+final normal/native gates are pending until the final D3 report records their exits.
+D2's nine accepted scenes and 27 exact CPU RGBA comparisons remain reusable only
+with matching renderer hashes. No hardware or whole-host deadline claim is made.
+
+
 ## Task0018 D consumer implementation — software checks, integration pending
 
 Dynamic GP07 now explicitly selects4; legacy2 and historical v3 bytes remain

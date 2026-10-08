@@ -763,3 +763,24 @@ The driver test `gp18_actual_frontend` is explicit opt-in with trusted executabl
 manifest and evidence-path environment variables. It drives Frontend semantic/key
 input, worker reviews, actual rendering/presentation and independent same-provider
 PCM observations. No window, device, host audio, MIDI or service activation occurs.
+
+
+### Correlated completion and required readback
+
+An accepted ordinary or extension final confirms that exact submitted transaction;
+its correlation does not come from matching later target values. Required post-final
+readback explicitly continues past queued old GP03 telemetry or duplicate finals,
+inside one original 250 ms / 64-document budget. The existing 200 ms whole-frame
+transport bound still applies. This continuation neither replays the mutation nor
+makes stale unsolicited legacy batches start queries.
+
+A subsequent observation failure returns an error while retaining the correlated
+completion for the same input context. The frontend displays
+`COMPLETED/READBACK UNAVAILABLE` separately from refusal or an uncertain submission.
+Partial raw admission is invalidated on any required-readback failure; raw and
+Brain freshness, preview authorization and input arming close. Guard revocation
+cannot publish the previous context's completion. Admission failures retain their
+recovery path; transport/protocol faults retain their typed fault recovery and
+bounded held-action closure. A fresh compatible advancing observation, input
+release and a new review are required before another edit. A known applied final
+with unavailable readback never satisfies the actual driver's acceptance predicate.
