@@ -209,10 +209,10 @@ impl Snapshot {
         provider::counter(&s.epoch)?;
         provider::counter(&s.revision)?;
         provider::counter(&s.frame)?;
-        if let Some(t) = &s.pending {
-            if provider::counter(t)? == 0 {
-                return Err("FX pending ticket".into());
-            }
+        if let Some(t) = &s.pending
+            && provider::counter(t)? == 0
+        {
+            return Err("FX pending ticket".into());
         }
         if let Some(o) = &s.observation {
             o.validate()?;
