@@ -22,14 +22,24 @@ fn confirm(f:&mut Frontend,end:Instant,root:&std::path::Path,label:&str){
 #[test]
 #[ignore="requires explicitly launched hash-pinned GP21 provider and Brain, fresh readiness and private TLS"]
 fn actual_fx_keyboard_review_owner_readback(){
-    let root=PathBuf::from(std::env::var("GP21_EPISODE_DIR").unwrap());let c:Value=serde_json::from_slice(&fs::read(root.join("desk-config.json")).unwrap()).unwrap();let cfg=Config{wire_version:2,remote:Some(serde_json::from_value(c["remote"].clone()).unwrap()),endpoint:PathBuf::new(),show:c["show"].as_str().unwrap().into(),epoch:c["epoch"].as_u64().unwrap(),writer:"actual-fx-desk".into(),scope:"fx_configuration".into()};let end=Instant::now()+Duration::from_secs(55);
-    let mut f=Frontend::new(cfg);wait(&mut f,end,"attach read-only",Frontend::fresh);assert!(f.state.as_ref().unwrap().fx.snapshot.is_none());probe(&mut f,end);
+    let root=PathBuf::from(std::env::var("GP21_EPISODE_DIR").unwrap());let c:Value=serde_json::from_slice(&fs::read(root.join("desk-config.json")).unwrap()).unwrap();let cfg=Config{wire_version:2,remote:Some(serde_json::from_value(c["remote"].clone()).unwrap()),endpoint:PathBuf::new(),show:c["show"].as_str().unwrap().into(),epoch:c["epoch"].as_u64().unwrap(),writer:"actual-fx-desk".into(),scope:"pa_configuration".into()};let end=Instant::now()+Duration::from_secs(55);
+    let mut f=Frontend::new(cfg);wait(&mut f,end,"attach read-only",Frontend::fresh);assert!(f.state.as_ref().unwrap().fx.snapshot.is_none());
+    tap(&mut f,"G");wait(&mut f,end,"explicit synthetic output scope grant",|f|f.state.as_ref().is_some_and(|s|s.writer_granted()));
+    f.inject_controller(Action::OutputRearm).unwrap();f.pump();wait(&mut f,end,"explicit synthetic rearm review",|f|f.state.as_ref().is_some_and(|s|s.review.is_some()));
+    f.synchronize_review();for n in 0..f.review_pages(){if n>0{tap(&mut f,"PageDown");}let scene=f.scene();assert!(scene.in_bounds());fs::write(root.join(format!("synthetic-rearm-review-{n}.svg")),shr_desk::render::svg(&scene)).unwrap();f.mark_presented();}tap(&mut f,"Enter");
+    wait(&mut f,end,"synthetic rearm applied",|f|f.state.as_ref().is_some_and(|s|s.review.is_none() && s.last_operation.as_ref().is_some_and(|r|r.contains("structural applied"))));
+    f.inject_controller(Action::SwitchScope("fx_configuration".into())).unwrap();f.pump();wait(&mut f,end,"FX read-only attachment",|f|f.fresh() && f.scope=="fx_configuration" && f.state.as_ref().is_some_and(|s|!s.writer_granted()));probe(&mut f,end);
     let initial=observation(&f);tap(&mut f,"g");wait(&mut f,end,"explicit FX grant",|f|f.state.as_ref().is_some_and(|s|s.writer_granted()));probe(&mut f,end);
     tap(&mut f,"l");tap(&mut f,"e");for c in "2 0.2 0.3 0.4".chars(){tap(&mut f,&c.to_string());}tap(&mut f,"Enter");confirm(&mut f,end,&root,"left-config");
     let changed=observation(&f);let before=fx::Configuration::decode(&initial.owner_json).unwrap();let after=fx::Configuration::decode(&changed.owner_json).unwrap();assert_eq!(after.channels[0].delay_ms,2.0);assert_eq!(after.channels[1],before.channels[1]);assert_eq!(after.channels[0].feedback,0.2);
-    probe(&mut f,end);tap(&mut f,"e");for c in "2 0.2 0.3 0".chars(){tap(&mut f,&c.to_string());}tap(&mut f,"Enter");confirm(&mut f,end,&root,"left-zero-wet");
-    let zero=observation(&f);let until=zero.settled_source_frame.parse::<u64>().unwrap()+24000;
+    let baseline_start=changed.next_source_frame.parse::<u64>().unwrap()+4800;
+    let baseline_until=baseline_start+48000;wait(&mut f,end,"stable positive-wet baseline",|f|observation(f).next_source_frame.parse::<u64>().unwrap()>=baseline_until);probe(&mut f,end);
+    fs::write(root.join("before.json"),serde_json::to_vec_pretty(f.state.as_ref().unwrap().fx.snapshot.as_ref().unwrap()).unwrap()).unwrap();
+    fs::write(root.join("sample-interval.json"),serde_json::to_vec_pretty(&json!({"before_start_frame":baseline_start})).unwrap()).unwrap();
+    tap(&mut f,"e");for c in "2 0.2 0.3 0".chars(){tap(&mut f,&c.to_string());}tap(&mut f,"Enter");confirm(&mut f,end,&root,"left-zero-wet");
+    let zero=observation(&f);let until=zero.settled_source_frame.parse::<u64>().unwrap()+48000;
     wait(&mut f,end,"streamed sample window",|f|observation(f).next_source_frame.parse::<u64>().unwrap()>=until);
+    probe(&mut f,end);fs::write(root.join("after.json"),serde_json::to_vec_pretty(f.state.as_ref().unwrap().fx.snapshot.as_ref().unwrap()).unwrap()).unwrap();
     fs::write(root.join("left-zero-window.json"),serde_json::to_vec_pretty(&json!({"owner":zero,"end_owner":observation(&f),"minimum_source_frame":until})).unwrap()).unwrap();
     probe(&mut f,end);tap(&mut f," ");confirm(&mut f,end,&root,"left-bypass");let bypassed=observation(&f);let c=fx::Configuration::decode(&bypassed.owner_json).unwrap();assert!(c.channels[0].bypass);assert_eq!(c.channels[1],before.channels[1]);
     probe(&mut f,end);tap(&mut f,"p");confirm(&mut f,end,&root,"left-panic");let panic=observation(&f);assert_eq!(panic.reset_count.parse::<u64>().unwrap(),bypassed.reset_count.parse::<u64>().unwrap()+1);assert_eq!(panic.generation,bypassed.generation);assert_eq!(fx::Configuration::decode(&panic.owner_json).unwrap(),c);

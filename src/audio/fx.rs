@@ -61,7 +61,7 @@ mod tests {
     fn corpus()->Value{serde_json::from_str(include_str!("../../tests/fixtures/gp21/v1/owner-relay.json")).unwrap()}
     fn pending()->Session{
         let c=corpus();let v:Value=serde_json::from_str(include_str!("../../tests/fixtures/gp14/v1/profile-48.json")).unwrap();
-        let mut raw=decode_reply(&serde_json::to_vec(&v["snapshot"]).unwrap()).unwrap().snapshot.unwrap();raw.authority.epoch="9".into();raw.authority.revision="0".into();raw.frame="0".into();
+        let mut raw=decode_reply(&serde_json::to_vec(&v["snapshot"]).unwrap()).unwrap().snapshot.unwrap();raw.authority.epoch="9".into();raw.authority.revision="0".into();raw.frame="0".into();raw.clock.as_mut().unwrap().epoch=9;raw.clock.as_mut().unwrap().next_frame=0;
         let context:Context=serde_json::from_value(c["preparing"]["context"].clone()).unwrap();
         let mut s=Session::new_version(&context.show_id,9,context.writer.as_deref().unwrap(),"fx_configuration",2).unwrap();
         s.ingest_snapshot(raw,0).unwrap();s.lease=Some(Lease{token:"1".into(),deadline:5000,renew_at:4000});s.next_id=2;s.input_released();

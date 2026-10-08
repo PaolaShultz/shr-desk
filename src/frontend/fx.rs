@@ -18,7 +18,7 @@ impl Frontend {
                 match a {
                     F::Edit=>{self.fx_ui.text=Some(String::new());Ok(())},
                     F::Bypass=>{let mut c=crate::fx::Configuration::decode(&basis.owner_json)?;let i=self.fx_ui.selected as usize;c.channels[i].bypass=!c.channels[i].bypass;self.send(Operation::Fx(O::Review{basis,configuration_json:Some(serde_json::to_string(&c).map_err(|e|e.to_string())?),panic_mask:None}))},
-                    F::Panic(mask)=>{if !(1..=3).contains(&mask){return Err("FX panic mask".into());}self.send(Operation::Fx(O::Review{basis,configuration_json:None,panic_mask:Some(mask)}))},
+                    F::Panic(mask)=>{if !(1..=3).contains(&mask){return Err("FX panic mask".into());}self.send(Operation::Fx(O::Review{basis,configuration_json:None,panic_mask:Some(u32::from(mask))}))},
                     _=>unreachable!(),
                 }
             },

@@ -86,7 +86,7 @@ impl Mutation {
         if self.binding!=o.binding || self.expected_generation!=o.generation || self.expected_reset_count!=o.reset_count || !o.settled() { return Err("FX reviewed owner basis changed".into()); } Ok(())
     }
 }
-#[derive(Clone,Debug,PartialEq,Eq,Deserialize)]
+#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot { pub contract:String,pub version:u8,pub state:String,pub show_id:String,pub epoch:String,pub revision:String,pub frame:String,pub available:bool,pub observation:Option<Observation>,pub pending:Option<String> }
 impl Snapshot {
@@ -99,7 +99,7 @@ impl Snapshot {
         if s.available && s.observation.is_none(){return Err("available FX missing owner".into());} Ok(s)
     }
 }
-#[derive(Clone,Debug,PartialEq,Eq,Deserialize)]
+#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reply { pub contract:String,pub version:u8,pub state:String,pub reason:Option<String>,pub ticket:String,pub apply_frame:String,pub context:Context,pub revision:String,pub observation:Option<Observation> }
 impl Reply {

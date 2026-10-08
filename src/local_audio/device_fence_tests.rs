@@ -91,6 +91,7 @@ fn device_replacement_during_confirm_discards_prepared_application() {
     let (mut op, body) = operator(1);
     op.draft = Some(Draft {
         measurement_basis: None,
+        fx_basis: None,
         monitor_device: None,
         kind: "device_configure".into(),
         body,
