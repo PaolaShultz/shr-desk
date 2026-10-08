@@ -22,14 +22,20 @@ queue admission, and first-failure poisoning after partial remote framing.
 B2 measurement also fences current basis epoch and accepts only exactly unchanged
 no_change candidates, which remain nonapplyable.
 
-Earlier checkpoints passed coordinator focused software checks. Initial actual
-episodes exposed partial-framing recovery and detached-key queue defects; those
-failures are retained and the corrected final source still requires coordinator
-actual acceptance and complete default/native gates before integration acceptance.
-The private driver connects actual keyboard/review/confirmation to owner
-readback and separately recorded wet/PA sample windows and raw REC evidence;
-old-owner and postpermit-loss episodes are explicit opt-ins. No physical device,
-window, playback, acoustic result or hardware timing qualification is claimed.
+Actual software acceptance passed for keyboard edits, presented review and owner
+readback, focus fencing/read-only reconnect, old-owner fallback, and post-permit
+owner loss with retained UNKNOWN and no replay. Independent wet/PA sample windows
+and raw REC checks accompany the controls episode. Initial framing and detached
+input failures remain retained; bounded regressions cover partial-stream poison,
+recoverable typed application refusal and literal key-up queue suppression.
+
+Final validation passed 322 default and 325 native normal tests, with 20 explicit
+opt-ins ignored in each suite; both all-target warning-denied Clippy configurations,
+formatting, both release builds and nine Python publication tests passed. Pi4's
+same-hash final native test executable passed exact CPU offscreen RGBA comparisons
+for the new FX page at 1920x1080, 960x540 and 728x1024. Earlier unchanged A1 rendering
+and actual-provider evidence is retained. No physical device, window, playback,
+acoustic result or hardware timing qualification is claimed.
 
 ## Task0020 PA measurement integration
 
@@ -41,10 +47,13 @@ bins and uncertainty, checks exact proposal basis and candidate preservation, th
 uses the existing muted GP14 whole-configuration review. Rearm stays separate.
 See [measurement workflow](PA_MEASUREMENT.md) for fields, units and commands.
 
-Producer compatibility is pinned by the actual GP20 corpus; software acceptance
-uses the separately launched hash-pinned synthetic PA witness and the ignored
-`measurement_actual_frontend` test. The combined default/native production gates
-are owned by the final Task0020 Desk integration package. No microphone, physical
+Producer compatibility is pinned by the actual GP20 corpus. The corrected actual
+synthetic PA episode passed capture/cancellation, two-position proposals, exact
+muted configuration readback, unchanged-result handling and stale-proposal refusal
+against the final integrated producer. Current basis epoch is checked against
+current authority; historical records remain readable. An unchanged owner candidate
+must exactly preserve its base and cannot be applied as a proposed change. The
+combined default/native gates above include this consumer. No microphone, physical
 output, acoustic alignment or hardware acceptance is claimed.
 
 ## Task0019 exact FOH controls — software acceptance
