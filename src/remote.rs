@@ -433,7 +433,11 @@ async fn write_timed(
     add_stage(timing, 6, started);
     let bytes = encoded?;
     if bytes.is_empty() || bytes.len() > provider::MAX_BYTES {
-        return Err("remote frame capacity".into());
+        return Err(format!(
+            "remote send frame capacity: length={} limit={}",
+            bytes.len(),
+            provider::MAX_BYTES
+        ));
     }
     let started = timing.as_ref().map(|_| Instant::now());
     let result = tokio::time::timeout_at(deadline.into(), async {
@@ -577,7 +581,10 @@ async fn read_frame_timed<R: tokio::io::AsyncRead + Unpin>(
             .map_err(|e| e.to_string())?;
         let length = u32::from_be_bytes(length) as usize;
         if length == 0 || length > provider::MAX_BYTES {
-            return Err("remote frame capacity".into());
+            return Err(format!(
+                "remote receive frame capacity: length={length} limit={} header=0x{length:08x}",
+                provider::MAX_BYTES
+            ));
         }
         let mut bytes = vec![0; length];
         receive
