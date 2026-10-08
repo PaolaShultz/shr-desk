@@ -167,12 +167,29 @@ mod tests {
 mod page_regressions {
     use super::*;
     #[test]
-    fn literal_w_in_measurement_entry_precedes_global_fx_and_pages_exclude_each_other(){
-        let mut f=Frontend::new(Config{wire_version:2,remote:None,endpoint:"/nonexistent/page-test.sock".into(),show:"11111111-1111-4111-8111-111111111111".into(),epoch:1,writer:"page-test".into(),scope:"pa_configuration".into()});
-        f.measurement_ui.open=true;f.measurement_action(MeasureAction::Capture).unwrap();
-        for c in "row1".chars(){f.key(&c.to_string()).unwrap();}
-        assert_eq!(f.measurement_ui.text,"row1");assert!(!f.fx_ui.open);
-        f.measurement_ui.editor=None;let _=f.key("w");assert!(f.fx_ui.open);assert!(!f.measurement_ui.open);
-        let _=f.key("y");assert!(f.measurement_ui.open);assert!(!f.fx_ui.open);
+    fn literal_w_in_measurement_entry_precedes_global_fx_and_pages_exclude_each_other() {
+        let mut f = Frontend::new(Config {
+            wire_version: 2,
+            remote: None,
+            endpoint: "/nonexistent/page-test.sock".into(),
+            show: "11111111-1111-4111-8111-111111111111".into(),
+            epoch: 1,
+            writer: "page-test".into(),
+            scope: "pa_configuration".into(),
+        });
+        f.measurement_ui.open = true;
+        f.measurement_action(MeasureAction::Capture).unwrap();
+        for c in "row1".chars() {
+            f.key(&c.to_string()).unwrap();
+        }
+        assert_eq!(f.measurement_ui.text, "row1");
+        assert!(!f.fx_ui.open);
+        f.measurement_ui.editor = None;
+        let _ = f.key("w");
+        assert!(f.fx_ui.open);
+        assert!(!f.measurement_ui.open);
+        let _ = f.key("y");
+        assert!(f.measurement_ui.open);
+        assert!(!f.fx_ui.open);
     }
 }

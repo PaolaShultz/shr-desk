@@ -322,7 +322,9 @@ impl Reply {
             }
             if let Some(b) = &s.current_basis {
                 b.validate()?;
-                if b.source_epoch != r.context.epoch { return Err("measurement current basis/envelope epoch mismatch".into()); }
+                if b.source_epoch != r.context.epoch {
+                    return Err("measurement current basis/envelope epoch mismatch".into());
+                }
             }
             if s.available && s.current_basis.is_none() {
                 return Err("available measurement basis".into());

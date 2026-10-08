@@ -281,7 +281,10 @@ impl Proposal {
             return Err("fresh proposed PA basis required".into());
         }
         if self.status == "no_change" {
-            return if candidate == current && self.changes.is_empty() && self.added_latency_samples == 0 {
+            return if candidate == current
+                && self.changes.is_empty()
+                && self.added_latency_samples == 0
+            {
                 Ok(())
             } else {
                 Err("no_change candidate must exactly preserve reviewed basis".into())

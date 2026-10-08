@@ -1,9 +1,9 @@
 //! Reviewed C-AUDIO:1 commands and GP03-rendered:1 observations. No DSP.
-mod measurement;
 mod fx;
+mod measurement;
+use crate::provider::{self, Snapshot, Target};
 #[cfg(test)]
 pub(crate) use fx::tests::pending as fx_test_pending;
-use crate::provider::{self, Snapshot, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
@@ -655,7 +655,12 @@ impl Request {
         }
         let contract = if matches!(self.kind.as_str(), "fx_snapshot" | "fx_configure") {
             crate::fx::validate_body(&self.kind, &self.body)?;
-            if self.version != 2 || (self.kind == "fx_configure") != c.writer.is_some() || (self.kind == "fx_configure" && c.lease.is_none()) { return fail("FX request authority"); }
+            if self.version != 2
+                || (self.kind == "fx_configure") != c.writer.is_some()
+                || (self.kind == "fx_configure" && c.lease.is_none())
+            {
+                return fail("FX request authority");
+            }
             crate::fx::CONTRACT
         } else if crate::pa_measurement::wire::is_kind(&self.kind) {
             crate::pa_measurement::wire::validate_body(&self.kind, &self.body, None)?;
@@ -2379,7 +2384,10 @@ impl Session {
     fn accept_validated(&mut self, r: Reply, now: u64) -> Result<(), String> {
         let p = self.pending.as_ref().ok_or("no pending request")?;
         if p.request.kind.starts_with("processing_")
-            || matches!(p.request.kind.as_str(), "fx_configure" | "send_tap_set" | "master_eq_set")
+            || matches!(
+                p.request.kind.as_str(),
+                "fx_configure" | "send_tap_set" | "master_eq_set"
+            )
         {
             return fail("cross-contract reply");
         }

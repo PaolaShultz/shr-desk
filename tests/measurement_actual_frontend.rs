@@ -259,7 +259,10 @@ fn actual_keyboard_measurement_to_muted_owner_apply() {
         .clone()
         .unwrap();
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(no_change.candidate_configuration_json.as_deref().unwrap()).unwrap(),
+        serde_json::from_str::<serde_json::Value>(
+            no_change.candidate_configuration_json.as_deref().unwrap()
+        )
+        .unwrap(),
         serde_json::from_str::<serde_json::Value>(&no_change.basis.configuration_json).unwrap()
     );
     assert_ne!(no_change.summary.state, "proposed");

@@ -6,8 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-mod measurement;
 mod fx;
+mod measurement;
 mod transport;
 #[cfg(test)]
 use crate::audio::Request;
@@ -270,7 +270,16 @@ impl Operator {
     }
     pub(crate) fn review_valid(&self) -> bool {
         self.draft.as_ref().is_some_and(|d| {
-            d.fx_basis.as_ref().is_none_or(|b| self.session.fx.snapshot.as_ref().and_then(|s|s.observation.as_ref()).is_some_and(|o|b.same_basis(o)) && !self.session.fx.unknown && self.session.fx_fresh(self.now())) && d.measurement_basis.as_ref().is_none_or(|b| {
+            d.fx_basis.as_ref().is_none_or(|b| {
+                self.session
+                    .fx
+                    .snapshot
+                    .as_ref()
+                    .and_then(|s| s.observation.as_ref())
+                    .is_some_and(|o| b.same_basis(o))
+                    && !self.session.fx.unknown
+                    && self.session.fx_fresh(self.now())
+            }) && d.measurement_basis.as_ref().is_none_or(|b| {
                 self.session
                     .measurement
                     .snapshot
@@ -389,10 +398,24 @@ impl Operator {
         }
         let tag: Contract = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         if tag.contract.as_deref() == Some(crate::fx::CONTRACT) {
-            let v=crate::provider::parse_document(bytes)?;
-            if v["state"] == "snapshot" { crate::fx::Snapshot::decode(v)?; return Ok(true); }
-            if v["state"] == "authorization_replayed" && self.session.pending.as_ref().is_some_and(|p|p.request.kind=="fx_configure") { self.session.fx_unknown("authorization replay is not DSP application"); return Err("FX authorization replay".into()); }
-            self.session.dispatch_fx(crate::fx::Reply::decode(v)?)?; return Ok(true);
+            let v = crate::provider::parse_document(bytes)?;
+            if v["state"] == "snapshot" {
+                crate::fx::Snapshot::decode(v)?;
+                return Ok(true);
+            }
+            if v["state"] == "authorization_replayed"
+                && self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|p| p.request.kind == "fx_configure")
+            {
+                self.session
+                    .fx_unknown("authorization replay is not DSP application");
+                return Err("FX authorization replay".into());
+            }
+            self.session.dispatch_fx(crate::fx::Reply::decode(v)?)?;
+            return Ok(true);
         }
         if tag.contract.as_deref() == Some(crate::pa_measurement::wire::CONTRACT) {
             self.session
@@ -2026,7 +2049,9 @@ impl Operator {
         self.mutate_inner(kind, body)
     }
     pub(crate) fn mutate_inner(&mut self, kind: &str, body: Value) -> Result<(), String> {
-        if kind == "fx_configure" { return self.mutate_fx(body); }
+        if kind == "fx_configure" {
+            return self.mutate_fx(body);
+        }
         let deadline = Instant::now() + Duration::from_millis(1900);
         if kind == "renew" && self.uses_atomic_maintenance() {
             return self.maintain(deadline, &mut 64, false);
@@ -2384,7 +2409,24 @@ impl Operator {
         }
         if let Some(basis) = &d.fx_basis {
             self.refresh_fx(false)?;
-            if !self.session.fx_fresh(self.now()) || self.session.fx.unknown || self.session.fx.snapshot.as_ref().and_then(|s|s.observation.as_ref()).is_none_or(|o|!basis.same_basis(o)) || self.session.snapshot.as_ref().is_none_or(|s|s.authority.revision!=d.revision) || self.session.generation()!=d.generation { return Err("FX confirmation basis/context changed; new review required".into()); }
+            if !self.session.fx_fresh(self.now())
+                || self.session.fx.unknown
+                || self
+                    .session
+                    .fx
+                    .snapshot
+                    .as_ref()
+                    .and_then(|s| s.observation.as_ref())
+                    .is_none_or(|o| !basis.same_basis(o))
+                || self
+                    .session
+                    .snapshot
+                    .as_ref()
+                    .is_none_or(|s| s.authority.revision != d.revision)
+                || self.session.generation() != d.generation
+            {
+                return Err("FX confirmation basis/context changed; new review required".into());
+            }
         }
         if let Some(basis) = &d.measurement_basis {
             self.refresh_measurement(None)?;

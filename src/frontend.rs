@@ -1,7 +1,7 @@
 //! Operator state and rendering over the real-provider worker boundary.
 //! No Simulator, device discovery or physical controller I/O.
-mod measurement;
 mod fx;
+mod measurement;
 mod provider;
 #[cfg(test)]
 use crate::local_audio::Operator;
@@ -135,8 +135,23 @@ pub struct Update {
     pub received: Instant,
 }
 impl Update {
-    pub fn fx_is_fresh(&self)->bool {
-        self.raw_fresh() && self.fx_age_ms.is_some_and(|age| age.saturating_add(self.received.elapsed().as_millis() as u64) <= 250) && self.fx.snapshot.as_ref().is_some_and(|s|s.available && s.pending.is_none() && s.observation.as_ref().is_some_and(crate::fx::Observation::settled) && self.snapshot.as_ref().is_some_and(|r|s.revision==r.authority.revision && s.epoch==r.authority.epoch && s.show_id==r.authority.show_id))
+    pub fn fx_is_fresh(&self) -> bool {
+        self.raw_fresh()
+            && self.fx_age_ms.is_some_and(|age| {
+                age.saturating_add(self.received.elapsed().as_millis() as u64) <= 250
+            })
+            && self.fx.snapshot.as_ref().is_some_and(|s| {
+                s.available
+                    && s.pending.is_none()
+                    && s.observation
+                        .as_ref()
+                        .is_some_and(crate::fx::Observation::settled)
+                    && self.snapshot.as_ref().is_some_and(|r| {
+                        s.revision == r.authority.revision
+                            && s.epoch == r.authority.epoch
+                            && s.show_id == r.authority.show_id
+                    })
+            })
     }
     fn observation_fresh(&self, valid: bool, age: Option<u64>) -> bool {
         valid
@@ -446,7 +461,12 @@ impl Frontend {
     }
     fn fence_local(&mut self) {
         self.fx_ui.basis = None;
-        if let Some(s)=&self.state && s.fx.snapshot.is_some(){self.fx_ui.report=s.fx.lines();self.fx_ui.report.insert(0,"RETAINED FX EVIDENCE / stale after input-context change / explicit probe and NEW review required".into());}
+        if let Some(s) = &self.state
+            && s.fx.snapshot.is_some()
+        {
+            self.fx_ui.report = s.fx.lines();
+            self.fx_ui.report.insert(0,"RETAINED FX EVIDENCE / stale after input-context change / explicit probe and NEW review required".into());
+        }
         if let Some(s) = &self.state
             && s.measurement.snapshot.is_some()
         {
@@ -781,6 +801,10 @@ impl Frontend {
         }
         self.state = Some(update);
     }
+    /// Current explicitly selected authority scope; attachment freshness is separate.
+    pub fn scope(&self) -> &str {
+        &self.scope
+    }
     pub fn processing_fresh(&self) -> bool {
         self.fresh()
             && self.state.as_ref().is_some_and(|u| {
@@ -838,10 +862,26 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
-        if self.fx_ui.open && matches!(key,"Esc"|"Escape") {return self.action(Action::Cancel);}
-        if self.fx_ui.open && self.fx_ui.text.is_none() && self.state.as_ref().is_none_or(|s|s.review.is_none()) && key.eq_ignore_ascii_case("g") {return self.send(Operation::Grant);}
-        if self.fx_ui.open && self.fx_ui.text.is_none() && self.state.as_ref().is_none_or(|s|s.review.is_none()) && key.eq_ignore_ascii_case("q") {return self.send(Operation::ReleaseWriter);}
-        if let Some(a)=self.fx_key(key) { return self.action(Action::Fx(a)); }
+        if self.fx_ui.open && matches!(key, "Esc" | "Escape") {
+            return self.action(Action::Cancel);
+        }
+        if self.fx_ui.open
+            && self.fx_ui.text.is_none()
+            && self.state.as_ref().is_none_or(|s| s.review.is_none())
+            && key.eq_ignore_ascii_case("g")
+        {
+            return self.send(Operation::Grant);
+        }
+        if self.fx_ui.open
+            && self.fx_ui.text.is_none()
+            && self.state.as_ref().is_none_or(|s| s.review.is_none())
+            && key.eq_ignore_ascii_case("q")
+        {
+            return self.send(Operation::ReleaseWriter);
+        }
+        if let Some(a) = self.fx_key(key) {
+            return self.action(Action::Fx(a));
+        }
         if let Some(action) = self.measurement_key(key) {
             return self.action(Action::Measurement(action));
         }
@@ -1193,7 +1233,10 @@ impl Frontend {
                 return Ok(());
             }
         }
-        if matches!(self.scope.as_str(), "pa_configuration" | "output_routes" | "fx_configuration") {
+        if matches!(
+            self.scope.as_str(),
+            "pa_configuration" | "output_routes" | "fx_configuration"
+        ) {
             if key == "Z" {
                 return self.action(Action::OutputMute);
             }
@@ -1236,8 +1279,14 @@ impl Frontend {
                 _ => (),
             }
         }
-        if key.eq_ignore_ascii_case("w") { return self.action(Action::Fx(crate::fx::Action::Open)); }
-        if key.eq_ignore_ascii_case("y") { return self.action(Action::Measurement(crate::pa_measurement::editor::Action::Open)); }
+        if key.eq_ignore_ascii_case("w") {
+            return self.action(Action::Fx(crate::fx::Action::Open));
+        }
+        if key.eq_ignore_ascii_case("y") {
+            return self.action(Action::Measurement(
+                crate::pa_measurement::editor::Action::Open,
+            ));
+        }
         let action = actions::key_action(key).ok_or("unmapped key")?;
         self.action(action)
     }
@@ -1457,7 +1506,10 @@ impl Frontend {
                     .and_then(|u| u.snapshot.as_ref())
                     .ok_or("actual inventory required for reattachment")?;
                 if !raw.authority.modes.iter().any(|(s, _)| s == &scope)
-                    && !matches!(scope.as_str(), "pa_configuration" | "output_routes" | "fx_configuration")
+                    && !matches!(
+                        scope.as_str(),
+                        "pa_configuration" | "output_routes" | "fx_configuration"
+                    )
                 {
                     return Err("scope not advertised".into());
                 }
@@ -2158,9 +2210,13 @@ impl Frontend {
                 self.structural_draft = None;
                 self.structure_text_entry = false;
                 self.processing_entry.clear();
-                let fx_submitted=self.state.as_ref().is_some_and(|u|u.fx.unknown || u.status.starts_with("PENDING reviewed operation"));
+                let fx_submitted = self.state.as_ref().is_some_and(|u| {
+                    u.fx.unknown || u.status.starts_with("PENDING reviewed operation")
+                });
                 self.send_cancel();
-                if self.fx_ui.open && fx_submitted {self.message="Unsent FX content discarded; sent FX operation is not cancelled or undone; retain unknown and obtain explicit fresh owner readback".into();}
+                if self.fx_ui.open && fx_submitted {
+                    self.message="Unsent FX content discarded; sent FX operation is not cancelled or undone; retain unknown and obtain explicit fresh owner readback".into();
+                }
                 if submitted {
                     self.message = "Unsent draft discarded; submitted mutation is NOT cancelled or undone; fresh readback required".into();
                 }
@@ -2483,7 +2539,9 @@ impl Frontend {
             line(972, self.message.clone(), "#f47c85");
             return scene;
         }
-        if self.fx_ui.open { return self.fx_scene(); }
+        if self.fx_ui.open {
+            return self.fx_scene();
+        }
         if self.measurement_ui.open {
             return self.measurement_scene();
         }
