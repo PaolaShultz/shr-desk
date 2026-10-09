@@ -1,0 +1,14 @@
+{
+  "contract": "GP-METER",
+  "expected_map": "1",
+  "expected_revision": null,
+  "kind": "meter_snapshot",
+  "lease": null,
+  "module": "audio",
+  "query_id": "1",
+  "request_id": null,
+  "show_id": "00000000-0000-0000-0000-000000000001",
+  "source_epoch": "1",
+  "version": 1,
+  "writer": null
+}

@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gigpies:gp-meter:1",
+  "description": "Structural schema. Canonical u64 bounds, ordered inventory, window arithmetic and numeric relationships additionally require the normative Rust validators.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/snapshot"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "expected_map",
+        "expected_revision",
+        "kind",
+        "lease",
+        "module",
+        "query_id",
+        "request_id",
+        "show_id",
+        "source_epoch",
+        "version",
+        "writer"
+      ],
+      "properties": {
+        "contract": {
+          "const": "GP-METER"
+        },
+        "expected_map": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "expected_revision": {
+          "type": "null"
+        },
+        "kind": {
+          "const": "meter_snapshot"
+        },
+        "lease": {
+          "type": "null"
+        },
+        "module": {
+          "const": "audio"
+        },
+        "query_id": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "request_id": {
+          "type": "null"
+        },
+        "show_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "source_epoch": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "version": {
+          "const": 1
+        },
+        "writer": {
+          "type": "null"
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acquisition_age_ms",
+        "capability_generation",
+        "contract",
+        "end_frame",
+        "first_frame",
+        "inputs",
+        "kind",
+        "map_generation",
+        "module",
+        "monitors",
+        "publication_loss",
+        "query_id",
+        "reason",
+        "sample_rate",
+        "sequence",
+        "show_id",
+        "source_epoch",
+        "taps",
+        "topology",
+        "valid",
+        "version"
+      ],
+      "properties": {
+        "acquisition_age_ms": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capability_generation": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "contract": {
+          "const": "GP-METER"
+        },
+        "end_frame": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_frame": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "meter_snapshot"
+        },
+        "map_generation": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "module": {
+          "const": "audio"
+        },
+        "monitors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "publication_loss": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "query_id": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sample_rate": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "show_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "source_epoch": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "taps": {
+          "type": "array",
+          "maxItems": 2048,
+          "items": {
+            "$ref": "#/$defs/tap"
+          }
+        },
+        "topology": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "version": {
+          "const": 1
+        }
+      }
+    },
+    "tap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "below_floor",
+        "clip_count",
+        "id",
+        "invalid_count",
+        "over_range",
+        "peak_millidbfs",
+        "reason",
+        "rms_millidbfs",
+        "silent",
+        "valid"
+      ],
+      "properties": {
+        "below_floor": {
+          "type": "boolean"
+        },
+        "clip_count": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "invalid_count": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "over_range": {
+          "type": "boolean"
+        },
+        "peak_millidbfs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -120000,
+          "maximum": 6165095
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rms_millidbfs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -120000,
+          "maximum": 6165095
+        },
+        "silent": {
+          "type": "boolean"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

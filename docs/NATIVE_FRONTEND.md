@@ -730,3 +730,45 @@ discards matched authority, baseline and held status; a new gesture needs accept
 full readback. Snapshot copying is unchanged; no coalescing or new queue was added.
 Focused offline tests cover operation order, reuse refusal and actual worker
 publication boundaries. They do not establish network timing or hardware acceptance.
+
+## Measured audio GP-METER:1
+
+**F11** opens the measured-audio page; **F12** selects Input raw or Channel
+pre-fader. Existing arrows select inputs across twelve-strip banks;
+**PageUp/PageDown** select twelve-monitor banks. Stereo main is labelled Main
+pre-PA. Every admitted monitor remains addressable independently of input banks.
+The shared native/SVG primitives show exact peak/RMS milli-dBFS, source-window age,
+clip, measured silence, below-floor, invalid and unavailable states. Stale values
+are dimmed and labelled; silence leaves the bar empty. Selected channel dynamics
+GR remains separate with its own processing observation age. These are sample
+observations, not converter clipping, true peak, protection or acoustic evidence.
+
+The independent `metering::Worker` uses a separate read-only private Unix or
+mutually authenticated connection, never the control/held-action worker. One
+query at a time runs at at most 25 Hz under one 100 ms send/assembly/decode deadline.
+Its latest-only mailbox cannot queue old observations. Retirement is nonblocking
+in the UI pump; the next worker starts after the previous worker finishes. It adds
+one session within the existing deployment limit and creates no grants/renewals.
+Inventory comes from admitted rendered-v2 topology, with structural readback as
+a fallback; FOH observation does not require a structural-control subscription.
+Legacy attachment uses only the explicit eight-input/two-monitor compatibility
+inventory.
+
+The exact [producer corpus](../tests/fixtures/gp-meter/v1/README.md) freezes the
+strict codec. `Cache` checks query/source/map/topology and authenticated generation,
+rejects frame/sequence regression or overlapping windows, and preserves the prior
+expiry of repeated windows. Age includes provider first-sample acquisition age,
+entire local query time and time since receipt; responsive control cannot freshen
+a stopped source. Unsupported replies stay unavailable until a new attach;
+transport errors recover read-only, retaining an expired observation until a new
+complete window arrives. Identity changes clear values. None of these observations
+changes selection, pending reviews, writer authority or held talkback.
+
+The sole plan/results/gates record is
+[GP-METER](https://github.com/PaolaShultz/gigpies/blob/main/docs/MODULE_IMPLEMENTATION_PLAN.md#gp-meter--measured-audio-on-the-real-desk).
+Normal tests cover codec, controlled-clock freshness, clip hold, page identity and
+banked scene geometry. The explicit `tests/metering.rs::actual_local_provider_native_scene`
+opt-in requires `GP_METER_PROVIDER` and producer-exported `GP_METER_TOPOLOGY_DIR`.
+`GP_METER_CPU=1` additionally uses the inspected CPU lavapipe ICD with display
+variables unset at normal/resized viewports; `GP_METER_EVIDENCE_DIR` retains private
+provider-fed PPM scenes. Physical display/audio/controller acceptance is separate.

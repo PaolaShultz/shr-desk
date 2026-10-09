@@ -103,6 +103,16 @@ pub struct Connection {
 }
 impl Connection {
     pub fn connect(config: &Config, scope: &str) -> Result<Self, String> {
+        Self::connect_inner(config, scope, None)
+    }
+    pub(crate) fn connect_observer(config: &Config, deadline: Instant) -> Result<Self, String> {
+        Self::connect_inner(config, "", Some(deadline))
+    }
+    fn connect_inner(
+        config: &Config,
+        scope: &str,
+        observer_deadline: Option<Instant>,
+    ) -> Result<Self, String> {
         if !private_address(config.bind)
             || !private_address(config.server)
             || config.server.port() == 0
@@ -170,7 +180,9 @@ impl Connection {
             let mut endpoint = quinn::Endpoint::client(config.bind).map_err(|e| e.to_string())?;
             endpoint.set_default_client_config(client);
             let connection = tokio::time::timeout(
-                Duration::from_secs(2),
+                observer_deadline
+                    .unwrap_or_else(|| Instant::now() + Duration::from_secs(2))
+                    .saturating_duration_since(Instant::now()),
                 endpoint
                     .connect(config.server, &config.server_name)
                     .map_err(|e| e.to_string())?,
@@ -194,20 +206,28 @@ impl Connection {
                 .export_keying_material(&mut session_bytes, b"gigpies-remote-session-v1", b"")
                 .map_err(|_| "TLS session binding")?;
             let expected_session = u64::from_be_bytes(session_bytes);
-            let (mut send, mut receive) =
-                tokio::time::timeout(Duration::from_secs(2), connection.open_bi())
-                    .await
-                    .map_err(|_| "remote stream deadline")?
-                    .map_err(|e| e.to_string())?;
+            let (mut send, mut receive) = tokio::time::timeout(
+                observer_deadline
+                    .unwrap_or_else(|| Instant::now() + Duration::from_secs(2))
+                    .saturating_duration_since(Instant::now()),
+                connection.open_bi(),
+            )
+            .await
+            .map_err(|_| "remote stream deadline")?
+            .map_err(|e| e.to_string())?;
             write(
                 &mut send,
                 &json!({"kind":"open","contract":"GP-REMOTE","version":1}),
-                Instant::now() + Duration::from_secs(2),
+                observer_deadline.unwrap_or_else(|| Instant::now() + Duration::from_secs(2)),
             )
             .await?;
-            let response = read(&mut receive, Instant::now() + Duration::from_secs(2), false)
-                .await?
-                .ok_or("remote hello deadline")?;
+            let response = read(
+                &mut receive,
+                observer_deadline.unwrap_or_else(|| Instant::now() + Duration::from_secs(2)),
+                false,
+            )
+            .await?
+            .ok_or("remote hello deadline")?;
             let Response::Hello {
                 contract,
                 version,
@@ -246,7 +266,7 @@ impl Connection {
                 Permission::TalkbackFoh => scope == "talkback_foh",
                 _ => false,
             });
-            if !permitted {
+            if !permitted && observer_deadline.is_none() {
                 return Err("remote peer lacks requested scope permission".into());
             }
             let source_epoch = provider::counter(&identity.source_epoch)?;
@@ -343,6 +363,23 @@ impl Drop for Connection {
     }
 }
 impl AuthorityConnection for Connection {
+    fn receive_meter_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        let Some(document) = self.runtime.block_on(read_document_timed_limit(
+            &mut self.receive,
+            deadline,
+            false,
+            &mut self.timing,
+            true,
+        ))?
+        else {
+            return Ok(None);
+        };
+        let payload = accept_reply_document(document, &self.session, &mut self.timing)?;
+        serde_json::to_vec(payload.value())
+            .map(Some)
+            .map_err(|e| e.to_string())
+    }
+
     fn held_identity(&self) -> Option<crate::held_proof::Identity> {
         Some(crate::held_proof::Identity {
             session: self.session.clone(),
@@ -478,6 +515,15 @@ async fn read_document_timed<R: tokio::io::AsyncRead + Unpin>(
     available: bool,
     timing: &mut Option<TransportTiming>,
 ) -> Result<Option<provider::StrictDocument>, String> {
+    read_document_timed_limit(receive, deadline, available, timing, false).await
+}
+async fn read_document_timed_limit<R: tokio::io::AsyncRead + Unpin>(
+    receive: &mut R,
+    deadline: Instant,
+    available: bool,
+    timing: &mut Option<TransportTiming>,
+    meter: bool,
+) -> Result<Option<provider::StrictDocument>, String> {
     let Some(first) = read_frame_timed(receive, deadline, available, timing).await? else {
         return Ok(None);
     };
@@ -485,6 +531,9 @@ async fn read_document_timed<R: tokio::io::AsyncRead + Unpin>(
     let mut frame = first;
     loop {
         let started = timing.as_ref().map(|_| Instant::now());
+        if meter {
+            crate::metering::admit_page(&frame)?;
+        }
         let offered = assembly.offer_document(frame, Instant::now());
         add_stage(timing, 3, started);
         if let Some(document) = offered? {

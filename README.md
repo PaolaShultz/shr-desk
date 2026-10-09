@@ -12,8 +12,11 @@ batch operator paths. The optional `native` feature adds a winit/wgpu window;
 `--offscreen` checks CPU Vulkan texture presentation/readback. Default/native normal suites, actual GP03/GP09/GP05 integration, CPU offscreen
 checks and both release builds pass; [status](docs/STATUS.md) records the evidence
 and limits. Physical HDMI/controller/audio acceptance
-remains separate. The GP03 raw mixer remains offline and unprotected; meters and analysis remain
-unavailable. Optional GP05 read-only health is separate from the raw mixer;
+remains separate. The GP03 raw mixer remains offline and unprotected; its legacy meter field and
+analysis remain unavailable. The separate GP-METER observer presents measured
+audio on **F11**, with **F12** raw/pre-fader selection and **PageUp/PageDown** monitor
+banks. See [the meter contract](docs/NATIVE_FRONTEND.md#measured-audio-gp-meter1)
+and the owning GP-METER card for acceptance and remaining gates. Optional GP05 read-only health is separate from the raw mixer;
 REC/FX writable controls remain unavailable. The explicit dynamic session adds
 scoped PA configuration and output-route controls, with task0014 acceptance tracked
 in [status](docs/STATUS.md). Attaching is read-only, grants are explicit,

@@ -1052,6 +1052,13 @@ pub struct ProcessingDraft {
 pub struct Frontend {
     pub provider: Provider,
     pub state: Option<Update>,
+    meter_client: Option<crate::metering::Worker>,
+    meter_identity: Option<crate::metering::Identity>,
+    meter_generation: u64,
+    pub meters: crate::metering::Cache,
+    pub meter_page: bool,
+    pub meter_processed: bool,
+    pub meter_bus_bank: usize,
     module_config: Config,
     module_client: Option<crate::modules::Worker>,
     pub modules: Option<crate::modules::Update>,
@@ -1097,6 +1104,13 @@ impl Frontend {
         Self {
             provider: Provider::start(config.clone()),
             state: None,
+            meter_client: None,
+            meter_identity: None,
+            meter_generation: 0,
+            meters: crate::metering::Cache::default(),
+            meter_page: false,
+            meter_processed: false,
+            meter_bus_bank: 0,
             module_config: config,
             module_client: None,
             modules: None,
@@ -1308,6 +1322,75 @@ impl Frontend {
             && u.generation == self.provider.generation()
         {
             self.accept_update(u);
+        }
+        let identity = self
+            .state
+            .as_ref()
+            .filter(|u| u.generation == self.provider.generation())
+            .and_then(|u| {
+                if let Some(s) = &u.snapshot
+                    && let Some(topology) = &s.topology
+                {
+                    Some(crate::metering::Identity::new(
+                        &s.authority.show_id,
+                        self.module_config.epoch,
+                        topology,
+                    ))
+                } else {
+                    u.structural.as_ref().map(|s| {
+                        crate::metering::Identity::new(
+                            &s.show_id,
+                            self.module_config.epoch,
+                            &s.topology,
+                        )
+                    })
+                }
+            });
+        // Legacy providers have no structural document: their admitted inventory is
+        // the explicit legacy compatibility topology, never a growth assumption.
+        let identity = identity.or_else(|| {
+            self.state
+                .as_ref()
+                .filter(|u| {
+                    u.generation == self.provider.generation()
+                        && self.module_config.wire_version == 1
+                })
+                .and_then(|u| u.snapshot.as_ref())
+                .map(|s| crate::metering::Identity {
+                    show: self.module_config.show.clone(),
+                    epoch: self.module_config.epoch,
+                    map: 1,
+                    topology: "legacy8-2".into(),
+                    inputs: s.authority.inputs.len(),
+                    monitors: 2,
+                    rate: 48000,
+                })
+        });
+        if self.meter_generation != self.provider.generation() || identity != self.meter_identity {
+            if let Some(worker) = &self.meter_client {
+                worker.stop();
+            }
+            self.meters
+                .clear("METER UNAVAILABLE / awaiting current topology");
+            self.meter_identity = identity.clone();
+            self.meter_generation = self.provider.generation();
+        }
+        if self.meter_client.as_ref().is_some_and(|w| w.finished()) {
+            self.meter_client = None;
+        }
+        if let Some(identity) = identity
+            && self.meter_client.is_none()
+        {
+            self.meter_client = Some(crate::metering::Worker::start(
+                self.module_config.clone(),
+                identity,
+            ));
+        }
+        if let Some(worker) = &self.meter_client
+            && !worker.stopping()
+            && let Some(cache) = worker.take()
+        {
+            self.meters = cache;
         }
         // Optional metadata gets its own connection and worker only after primary
         // attachment. No module query can consume control replies or block input.
@@ -1537,6 +1620,31 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if self.state.as_ref().is_none_or(|u| u.review.is_none())
+            && self.processing_draft.is_none()
+            && self.structural_draft.is_none()
+            && self.device_draft.is_none()
+        {
+            match key {
+                "F11" => {
+                    self.meter_page = !self.meter_page;
+                    return Ok(());
+                }
+                "F12" if self.meter_page => {
+                    self.meter_processed = !self.meter_processed;
+                    return Ok(());
+                }
+                "PageDown" | "PageUp" if self.meter_page => {
+                    let count = self.meter_identity.as_ref().map_or(0, |i| i.monitors);
+                    let banks = count.div_ceil(12).max(1);
+                    self.meter_bus_bank =
+                        (self.meter_bus_bank + if key == "PageUp" { banks - 1 } else { 1 }) % banks;
+                    return Ok(());
+                }
+                _ => (),
+            }
+        }
+
         if key == "F8" {
             return self.reconnect_legacy();
         }
@@ -2470,6 +2578,149 @@ impl Frontend {
             })
             .collect()
     }
+    fn meter_scene(&self) -> Scene {
+        let mut scene = Scene::default();
+        scene.primitives.push(Primitive::Rect {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+            fill: "#10151d",
+        });
+        let now = Instant::now();
+        let fresh = self.meters.fresh(now) && self.fresh();
+        for (y, text, color) in [
+            (12, "MEASURED AUDIO / GP-METER:1".to_string(), "#66dfd3"),
+            (
+                48,
+                format!(
+                    "{} / age {} ms / {}",
+                    if fresh {
+                        "FRESH"
+                    } else {
+                        "STALE / UNAVAILABLE"
+                    },
+                    self.meters.age(now).map_or("--".into(), |a| a.to_string()),
+                    self.meters.message
+                ),
+                "#f1bd6b",
+            ),
+            (
+                96,
+                "F11 return | F12 raw/pre-fader | PageUp/Down monitor bank | arrows input bank"
+                    .into(),
+                "#9caebc",
+            ),
+        ] {
+            scene.primitives.push(Primitive::Text {
+                x: 24,
+                y,
+                value: text.chars().take(156).collect(),
+                color,
+            });
+        }
+        let kind = if self.meter_processed {
+            "processed"
+        } else {
+            "raw"
+        };
+        let label = if self.meter_processed {
+            "Channel pre-fader"
+        } else {
+            "Input raw"
+        };
+        scene.primitives.push(Primitive::Text {
+            x: 24,
+            y: 144,
+            value: format!("{label} / input bank {}", self.selected / 12 + 1),
+            color: "#e4e8e9",
+        });
+        scene.primitives.push(Primitive::Text {
+            x: 1008,
+            y: 144,
+            value: format!("Main pre-PA / monitor bank {}", self.meter_bus_bank + 1),
+            color: "#e4e8e9",
+        });
+        let inputs = self.meter_identity.as_ref().map_or_else(
+            || self.meters.snapshot.as_ref().map_or(0, |s| s.inputs),
+            |i| i.inputs,
+        );
+        let monitors = self.meter_identity.as_ref().map_or_else(
+            || self.meters.snapshot.as_ref().map_or(0, |s| s.monitors),
+            |i| i.monitors,
+        );
+        let find = |id: &str| {
+            self.meters
+                .snapshot
+                .as_ref()
+                .and_then(|s| s.taps.iter().find(|t| t.id == id))
+        };
+        for (row, i) in (self.selected / 12 * 12..inputs).take(12).enumerate() {
+            let id = format!("input-{:02}:{kind}", i + 1);
+            crate::render::measured_meter(
+                &mut scene,
+                24,
+                192 + row as u32 * 60,
+                900,
+                &id,
+                find(&id),
+                fresh,
+                self.meters.clipped(&id, now),
+            );
+        }
+        for (row, id) in ["main-l", "main-r"].into_iter().enumerate() {
+            crate::render::measured_meter(
+                &mut scene,
+                1008,
+                192 + row as u32 * 60,
+                888,
+                id,
+                find(id),
+                fresh,
+                self.meters.clipped(id, now),
+            );
+        }
+        for (row, i) in (self.meter_bus_bank * 12..monitors).take(12).enumerate() {
+            let id = format!("monitor-{}", i + 1);
+            crate::render::measured_meter(
+                &mut scene,
+                1008,
+                336 + row as u32 * 48,
+                888,
+                &id,
+                find(&id),
+                fresh,
+                self.meters.clipped(&id, now),
+            );
+        }
+        let gr = self.state.as_ref().map_or("GR UNAVAILABLE".into(), |u| {
+            let value = u
+                .processing
+                .as_ref()
+                .and_then(|p| p.channels.get(self.selected))
+                .and_then(|c| c.gain_reduction_mdb)
+                .map_or("UNAVAILABLE".into(), |n| {
+                    format!("{:.3} dB", n as f64 / 1000.)
+                });
+            format!(
+                "Selected channel GR {value} / {} / independently aged {} ms",
+                if u.observation_fresh(u.processing.is_some(), u.processing_age_ms) {
+                    "FRESH"
+                } else {
+                    "STALE"
+                },
+                u.processing_age_ms.map_or("--".into(), |a| a.to_string())
+            )
+        });
+        scene.primitives.push(Primitive::Text {
+            x: 24,
+            y: 960,
+            value: gr.chars().take(156).collect(),
+            color: "#9caebc",
+        });
+        scene.primitives.push(Primitive::Text{x:24,y:1008,value:"Sample peak/RMS dBFS; main is pre-PA. No ADC/DAC, true-peak or acoustic safety claim.".into(),color:"#9caebc"});
+        scene
+    }
     pub fn scene(&self) -> Scene {
         let mut scene = Scene::default();
         scene.primitives.push(Primitive::Rect {
@@ -2538,6 +2789,9 @@ impl Frontend {
             }
             line(984, self.message.clone(), "#f47c85");
             return scene;
+        }
+        if self.meter_page && self.processing_draft.is_none() && self.structural_draft.is_none() {
+            return self.meter_scene();
         }
         if self.brain_page {
             line(
@@ -2918,9 +3172,17 @@ impl Frontend {
             48,
             if self.fresh() {
                 if self.state.as_ref().is_some_and(|u| u.processing.is_some()) {
-                    "PROVIDER FRESH / OFFLINE UNPROTECTED / SIGNAL METERS UNAVAILABLE".into()
+                    if self.meters.fresh(Instant::now()) {
+                        "PROVIDER FRESH / F11 MEASURED AUDIO".into()
+                    } else {
+                        "PROVIDER FRESH / OFFLINE UNPROTECTED / SIGNAL METERS UNAVAILABLE / F11 meters".into()
+                    }
                 } else {
-                    "PROVIDER FRESH / RAW MIXER OFFLINE UNPROTECTED / METERS UNAVAILABLE".into()
+                    if self.meters.fresh(Instant::now()) {
+                        "PROVIDER FRESH / F11 MEASURED AUDIO".into()
+                    } else {
+                        "PROVIDER FRESH / RAW MIXER OFFLINE UNPROTECTED / METERS UNAVAILABLE / F11 meters".into()
+                    }
                 }
             } else {
                 "STALE / UNAVAILABLE / MIX UNKNOWN / EDITS DISABLED".into()

@@ -38,3 +38,5 @@ pub mod held_proof;
 
 pub mod lease_maintenance;
 pub mod paired_readback;
+
+pub mod metering;

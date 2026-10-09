@@ -333,6 +333,28 @@ impl ProbeTiming {
     }
 }
 pub trait AuthorityConnection: Send {
+    /// Separate read-only meter document; one original query/assembly deadline.
+    fn receive_meter_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
+        let mut assembly = crate::pages::Assembly::default();
+        for _ in 0..16 {
+            if Instant::now() >= deadline {
+                return Err("meter assembly deadline".into());
+            }
+            let Some(frame) = self.receive_until(deadline)? else {
+                return Ok(None);
+            };
+            crate::metering::admit_page(&frame)?;
+            let document = assembly.offer(frame, Instant::now())?;
+            if Instant::now() >= deadline {
+                return Err("meter assembly deadline".into());
+            }
+            if document.is_some() {
+                return Ok(document);
+            }
+        }
+        Err("meter page capacity".into())
+    }
+
     fn held_identity(&self) -> Option<crate::held_proof::Identity> {
         None
     }
