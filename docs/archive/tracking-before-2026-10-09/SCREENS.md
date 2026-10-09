@@ -1,10 +1,11 @@
+> Historical snapshot, retired as an active tracker. Relative links were
+> adjusted for relocation; source text and dated evidence retain their original scope.
+
 # Screens and operating workflows
 
-Design contract. Current tasks/progress live in [the owning plan](GIGPIES_IMPLEMENTATION.md);
-shared integration tasks live in GigPies. Simulator drawings are illustrative.
-The provider frontend renders actual supported controls and keeps unavailable
-fields explicit. Generate simulator drafts only with the documented gallery command;
-a draft is not evidence that its intended workflow is implemented.
+Design, 2026-10-04. Only Mix, Channel and Analysis have implemented offline scene
+renderers. Unavailable fields in those drafts are labelled; planned pages below
+are not implemented controls. Generate with `cargo run --locked -- gallery artifacts/screens`.
 
 ## Full-HD frame
 
@@ -38,27 +39,26 @@ restrained source colours. Selection outlines, HOLD/MUTED labels and stale marks
 carry meaning without colour. Avoid decorative motion, dial pictures and repeated
 miniature graphs on every strip. Numeric units and target identity stay visible.
 
-## Screen map and provider boundaries
+## Screen map and feature priorities
 
-This table describes intended operator workflows and supported provider seams,
-not implementation task state. Unsupported controls stay visibly unavailable.
-Physical operation follows separate acceptance. Add work to its owning task card.
+P0 means required to call the integrated product a usable manual/assisted desk,
+not that the feature already exists. P1 is useful after the first working desk.
+P2 is outside the initial small-band scope.
 
-| Page | Intended operator workflow | Provider boundary |
-|---|---|---|
-| Mix | Select/bank, fader/pan/mute, holds, levels and PFL/AFL | Real dynamic mixer controls and Brain audition exist; actual level telemetry is GP-METER |
-| Channel | Source identity, four-band EQ/compression, sends and precise feedback | Real prepared processing/control/readback; GR is detector feedback, not a signal-level meter; trim/HPF/gate need advertised support |
-| Sends / monitors | Explicit destination, sends, bus/listen context and stable return to FOH | Configurable monitor scopes exist; established sends are raw post-mute, not arbitrary pre/post tap switching |
-| Routing | Physical/logical identities, detached draft, review and confirmed apply | Actual dynamic topology, output patch and PA configuration controls; no arbitrary patchbay claim |
-| Automation | Mode, scope, proposals/reasons/bounds, human hold and deliberate release | Authority/proposals/holds exist; live musical proposal generation is GP-AUTO |
-| Analysis | Measured levels first; later spectrum/spectrogram/stereo analysis | Schematic simulator plots are not measurements; GP-METER excludes broader FFT/analysis work |
-| FX | Send/return context, rack/effect details, bypass/mute and readback | Actual fixed-delay health; writable prepared rack depends on owner FX-02/03 and shared GP-FX |
-| Recorder | Readiness, start/stop, accepted/written frames, gaps and finalized outcome | Actual host/raw REC lifecycle and health; complete operator workflow is GP-REC; durability stays unknown |
-| PA | Protection/fault summary, reviewed configuration and output routing | Configurable owner v2 is integrated; setup-mic/phase/alignment remain PA-owned work |
-| Brain audio | Duplex mapping/review/arm, PFL/AFL/listen and held talkback | Actual GigPies Brain contracts; Desk opens no PCM; physical qualification remains separate |
-| Show / recovery | Freshness, scopes, connections and reviewed scene recall with safes | Authenticated/recovery foundations exist; complete audio scene workflow is GP-SHOW |
-| Doctor / lights | Evidence and proposals; lighting stays independent | Lightdesk/Lux own real lighting behavior; no second lighting authority in Desk |
-| Controller setup | Identity, profiles/encoding, pickup and exclusive LEDs | Decoder/role/software primitives exist; actual learned devices/LED operation need qualification |
+| Page | Operator task and essential contents | Existing basis / missing dependency | Priority |
+|---|---|---|---|
+| Mix | Bank/select/name channels; fader/pan/mute/PFL; sample peak/clip/GR; main/bus context; hold state | Surface fixtures; missing full live channel/bus API and monitor audition routing | P0 |
+| Channel | Input/source identity; trim/HPF/polarity; EQ; gate/compressor; sends; tap; actual/proposed/bounds | Offline GigPies models + owner descriptors; live per-parameter API missing | P0 |
+| Sends / monitors | Select named destination; twelve send levels; pre/post tap; ON vs level; bus master and PFL; return to FOH | Engine bus graph and scope authority missing | P0 |
+| Routing | Input-to-channel, channel-to-bus, bus-to-output; physical vs logical identity; preview and commit diff | GPA1 groups are not a patch matrix; transaction API missing | P0 |
+| Automation | Mode; granted parameters; per-channel holds; intent; proposals/reasons/bounds; scoped accept/release | Offline reports exist; live arbitration and parameter leases missing | P0 |
+| Analysis | Spectrum; rolling spectrogram; L/R stereo plot; correlation; selected tap, time and freshness | Synthetic drawing exists; live analysis workers and calibration absent | P1, basic trustworthy meters P0 |
+| FX | Send/return paths; rack → effect detail → back; bypass/mute, tempo; degraded return state | SHR FX engines/embedding exist; remote state/control descriptors missing | P0 for existing supported effects |
+| Recorder | Ready/armed/running/finalizing/fault; raw/tap identities; written vs queued frames; free capacity/gaps; deliberate stop | SHR REC bounded writer and recovery exist; host control/telemetry adapter needed | P0 status + safe control |
+| PA | Always-visible protection/fault summary; setup-only processor page; capability-led controls | SHR PA engine exists; configurable embedding/measurement missing | P0 health, P1 setup integration |
+| Show / recovery | Connections, writer scope, scene preview/safes, snapshot freshness, conflicts, rejected commands, recovery | Transport lease pattern exists; full show schema/authentication/atomic recall missing | P0 |
+| Doctor / lights | Evidence and proposals, not automatic unreviewed action; cue state and module health | Offline evidence + SHR LUX simulation; adapters and acceptance missing | P1 |
+| Controller setup | Device identity, learn one physical control, detect encoding, pad banks, preview LED ownership, reset mapping | Pure decoder/pickup/packet encoder exist; device I/O and learner absent | P0 before hardware use |
 
 Source/preamp gain is not channel trim; one physical source may feed several
 channels. Phantom power is an explicit source operation and never a fast Mix knob.
@@ -108,5 +108,3 @@ Do not duplicate every reference-console feature. The distinguishing screen is
 Automation: humans must see what the automixer wants, what it changed, what they
 own, and how to take over. A compact manual desk and understandable overrides take
 priority over dense racks of processors.
-
-[Historical screen assessment](archive/tracking-before-2026-10-09/SCREENS.md) preserves the original missing-dependency table.
