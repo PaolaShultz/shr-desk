@@ -11,7 +11,8 @@ substantial builds; review below 20 GiB free or above 5 GiB target, preserving
 other sessions and unique evidence. Clean only owned disposable artifacts.
 
 State clearly whether behavior is planned, implemented, offline-validated or
-hardware-verified. The initial binary is a simulator and SVG layout renderer.
+hardware-verified. The simulator/SVG gallery is an explicit offline mode; the provider-backed
+native frontend has separate software acceptance and physical limits.
 Never infer real engine or device acceptance from fixtures. Commands, confirmed
 state and telemetry are different things. UI loss cannot stop audio or recording.
 No automatic audio/MIDI/DMX/network/service or host-font changes. Hardware output
@@ -36,3 +37,13 @@ analog numbering contiguous while presenting physical socket and USB identities
 separately; physical patch assignment is configurable, with no fixed PA/monitor
 socket split. Expected interface maps and physical clock lock remain unverified
 until an explicitly authorized session observes the actual rig.
+
+## GigPies task tracking
+
+Use `docs/GIGPIES_IMPLEMENTATION.md` for GigPies work owned here. Keep each task plan,
+implementation state, acceptance checklist, evidence and next action in the same
+card; update it with the change. Shared integration tasks have one card in
+GigPies, linked from contributor plans. STATUS, maps, handoffs and knowledge notes
+route to task owners or preserve dated evidence; never mirror current task state.
+Archive closed cards once; keep the active queue limited to open work. Reference
+projects do not become GigPies runtime modules merely because code is reused.

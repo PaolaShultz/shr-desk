@@ -595,3 +595,63 @@ pub fn provider_scene(client: &crate::provider::Client, now_ms: u64) -> Scene {
     );
     s
 }
+
+/// Shared native/SVG measured primitive; fixtures never enter provider scenes.
+#[allow(clippy::too_many_arguments)]
+pub fn measured_meter(
+    scene: &mut Scene,
+    x: u32,
+    y: u32,
+    width: u32,
+    id: &str,
+    tap: Option<&crate::metering::Tap>,
+    fresh: bool,
+    held_clip: bool,
+) {
+    let color = if !fresh {
+        DIM
+    } else if tap.is_some_and(|t| !t.valid) {
+        AMBER
+    } else if held_clip {
+        RED
+    } else {
+        CYAN
+    };
+    let text = match tap {
+        None => format!("{id}  UNAVAILABLE"),
+        Some(t) if !t.valid => format!(
+            "{id}  INVALID / {}",
+            t.reason.as_deref().unwrap_or("unknown")
+        ),
+        Some(t) => format!(
+            "{id}  P {:.3} R {:.3} dBFS {}{}{}",
+            t.peak_millidbfs.unwrap_or(-120000) as f64 / 1000.,
+            t.rms_millidbfs.unwrap_or(-120000) as f64 / 1000.,
+            if t.silent {
+                "SILENCE "
+            } else if t.below_floor {
+                "BELOW FLOOR "
+            } else {
+                ""
+            },
+            if fresh { "" } else { "STALE " },
+            if held_clip { "CLIP" } else { "" }
+        ),
+    };
+    scene.text(
+        x,
+        y,
+        text.chars().take((width / 12) as usize).collect::<String>(),
+        color,
+    );
+    scene.rect(x, y + 28, width, 6, EDGE);
+    if let Some(t) = tap.filter(|t| t.valid && !t.silent) {
+        let amount = ((t.peak_millidbfs.unwrap_or(-120000).clamp(-60000, 0) + 60000) as f64
+            / 60000.
+            * width as f64)
+            .round() as u32;
+        if amount > 0 {
+            scene.rect(x, y + 28, amount, 6, color);
+        }
+    }
+}

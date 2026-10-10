@@ -1612,3 +1612,24 @@ fn injected_local_field_burst_does_not_fill_provider_release_queue() {
     ));
     assert!(rx.try_recv().is_err());
 }
+
+#[test]
+fn meters_preserve_master_eq_shortcuts_and_local_drafts() {
+    let (mut f, rx) = master_surface();
+    f.brain_page = false;
+    f.key("B").unwrap();
+    assert!(f.meter_page);
+    f.key("T").unwrap();
+    assert!(f.meter_processed);
+    f.key("B").unwrap();
+    assert!(!f.meter_page);
+    f.key("F11").unwrap();
+    assert!(f.structural_draft.is_some());
+    f.key("B").unwrap();
+    assert!(!f.meter_page, "Master EQ B remains the section selector");
+    assert!(f.structural_draft.is_some());
+    assert!(
+        rx.try_recv().is_err(),
+        "browsing never sends a control operation"
+    );
+}

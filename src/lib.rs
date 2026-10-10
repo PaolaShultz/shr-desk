@@ -51,3 +51,4 @@ pub mod exact_value;
 pub mod pa_measurement;
 
 pub mod fx;
+pub mod metering;

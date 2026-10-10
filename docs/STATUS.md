@@ -1,4 +1,4 @@
-# Status and next steps
+# Dated implementation evidence
 
 ## Task0020 actual remote FOH FX operator package
 
@@ -200,6 +200,12 @@ Checkpoint: 2026-10-05. Task0009/0011 source was published and synchronized.
 Task0012 processing source was published and synchronized. Task0013 four-band
 processing software acceptance is recorded below; source publication is coordinator-owned.
 No hardware verification or binary release.
+Task plans and current progress live only in [the owning plan](GIGPIES_IMPLEMENTATION.md).
+The dated records below preserve acceptance and failures for their original scope;
+they are not an active backlog. Later accepted evidence supersedes partial handoffs.
+
+Current work routes to the owning plan. Dated software/publication evidence below
+retains its milestone scope; physical qualification remains separate.
 
 ## Freshness and detached-draft review fixes — 2026-10-06
 
@@ -545,7 +551,7 @@ bit-exact, actual owner FX/PA comparisons pass, and reconnect causes no replay.
 Independent source review and publication remain coordinator-owned. These are software-only
 checks; no physical display, controller, audio, listening or combined-load claim.
 
-## Task0014 dynamic integration — implementation, acceptance pending
+## Historical Task0014 partial handoff — superseded by final acceptance
 
 The existing real provider/session/frontend now has explicit successor version
 selection, dynamic input/coefficient/processing inventory, exact additional monitor
@@ -587,7 +593,8 @@ Actual complete snapshot/pending/final/refusal corpora cover 16/32/48 profiles.
 The latest correction still requires complete matching suite reruns, both Clippy
 feature sets and both release builds. Actual weighted-PA/physical-route/high-channel
 operator and independent sample acceptance also remain pending with the coordinator.
-The current local continuation is a partial handoff, not task0014 completion.
+That dated local continuation was partial. Final task0014 software/two-Pi
+acceptance is recorded in [GigPies modular acceptance](https://github.com/PaolaShultz/gigpies/blob/main/docs/MODULAR_ENGINE_ACCEPTANCE.md).
 
 | Requirement at the preceding partial checkpoint | Consumer location | Then-remaining acceptance |
 |---|---|---|

@@ -1,0 +1,23 @@
+{
+  "acquisition_age_ms": null,
+  "capability_generation": "1",
+  "contract": "GP-METER",
+  "end_frame": null,
+  "first_frame": null,
+  "inputs": 16,
+  "kind": "meter_snapshot",
+  "map_generation": "1",
+  "module": "audio",
+  "monitors": 3,
+  "publication_loss": "0",
+  "query_id": "1",
+  "reason": "missing_window",
+  "sample_rate": 48000,
+  "sequence": "1",
+  "show_id": "00000000-0000-0000-0000-000000000001",
+  "source_epoch": "1",
+  "taps": [],
+  "topology": "software-16-3-0",
+  "valid": false,
+  "version": 1
+}
