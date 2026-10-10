@@ -432,17 +432,24 @@ impl Drop for Connection {
 }
 impl AuthorityConnection for Connection {
     fn receive_meter_until(&mut self, deadline: Instant) -> Result<Option<Vec<u8>>, String> {
-        let Some(document) = self.runtime.block_on(read_document_timed_limit(
+        self.framing.check()?;
+        let read = self.runtime.block_on(read_document_timed_limit(
             &mut self.receive,
             deadline,
             false,
             &mut self.timing,
             true,
-        ))?
-        else {
+        ));
+        let read = self.framing.retain(read);
+        self.close_failed_framing();
+        let Some(document) = read? else {
             return Ok(None);
         };
-        let payload = accept_reply_document(document, &self.session, &mut self.timing)?;
+        let payload = self
+            .framing
+            .reply(document, &self.session, &mut self.timing);
+        self.close_failed_framing();
+        let payload = payload?;
         serde_json::to_vec(payload.value())
             .map(Some)
             .map_err(|e| e.to_string())
