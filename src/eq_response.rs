@@ -108,6 +108,36 @@ pub fn coefficients(input: &Value, rate: u32) -> Result<Vec<[f64; 5]>, String> {
     }
     Ok(bank)
 }
+/// GP07 four-bell settings response, using the existing display-only calculator.
+/// The owner prepares RBJ bells at 48 kHz. No samples or detector work occurs here.
+pub fn channel_coefficients(
+    config: &crate::processing::Config,
+    rate: u32,
+) -> Result<Vec<[f64; 5]>, String> {
+    config.validate()?;
+    if rate != 48000 {
+        return Err("GP07 response requires owner 48 kHz".into());
+    }
+    Ok(config
+        .bands()
+        .iter()
+        .map(|&(hz, db, q, bypass)| {
+            if config.eq_bypass || bypass {
+                IDENTITY
+            } else {
+                band(
+                    "bell",
+                    hz as f64,
+                    db as f64 / 1000.,
+                    q as f64 / 1000.,
+                    1.,
+                    rate,
+                )
+            }
+        })
+        .collect())
+}
+
 /// Static magnitude and phase of one settings bank. Never a running crossfade,
 /// measured spectrum, compressor, crossover, protection or room response.
 pub fn response(bank: &[[f64; 5]], rate: u32, hz: f64) -> Result<(f64, f64), String> {
@@ -152,4 +182,42 @@ pub(crate) fn frequency_axis(x: u32, width: u32, max_hz: f64) -> Vec<(u32, u32, 
         (tick, origin, label)
     })
     .collect()
+}
+
+#[cfg(test)]
+mod channel_tests {
+    use super::*;
+    fn config() -> crate::processing::Config {
+        let v: Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/gp07/v2/snapshot-reply.json"
+        ))
+        .unwrap();
+        serde_json::from_value(v["snapshot"]["channels"][0]["target"].clone()).unwrap()
+    }
+    #[test]
+    fn gp07_bell_centres_bypass_and_rate_are_truthful() {
+        let mut c = config();
+        c.eq_bypass = false;
+        c.band1_gain_mdb = 6000;
+        let coeff = channel_coefficients(&c, 48000).unwrap();
+        assert!((response(&coeff, 48000, 120.).unwrap().0 - 6.).abs() < 1e-8);
+        c.band1_bypass = true;
+        assert!(
+            response(&channel_coefficients(&c, 48000).unwrap(), 48000, 120.)
+                .unwrap()
+                .0
+                .abs()
+                < 1e-8
+        );
+        c.band1_bypass = false;
+        c.eq_bypass = true;
+        assert!(
+            response(&channel_coefficients(&c, 48000).unwrap(), 48000, 120.)
+                .unwrap()
+                .0
+                .abs()
+                < 1e-8
+        );
+        assert!(channel_coefficients(&c, 44100).is_err());
+    }
 }

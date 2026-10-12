@@ -17,7 +17,9 @@
     "docs",
     "scripts",
     "src",
-    "tests"
+    "tests",
+    ".cargo",
+    "vendor"
   ],
   "scripts": [
     ".githooks/pre-commit",

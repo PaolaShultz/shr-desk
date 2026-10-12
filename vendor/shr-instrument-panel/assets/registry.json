@@ -1,0 +1,2225 @@
+{
+  "format": "colrv0",
+  "upm": 1000,
+  "advance": 1000,
+  "line_height": 1000,
+  "width": 1,
+  "size": "stretch",
+  "tiles": [
+    {
+      "name": "raised_top",
+      "codepoint": "U+101000",
+      "layers": 5
+    },
+    {
+      "name": "raised_top_left",
+      "codepoint": "U+101001",
+      "layers": 6
+    },
+    {
+      "name": "raised_top_right",
+      "codepoint": "U+101002",
+      "layers": 6
+    },
+    {
+      "name": "raised_bottom",
+      "codepoint": "U+101003",
+      "layers": 4
+    },
+    {
+      "name": "raised_bottom_left",
+      "codepoint": "U+101004",
+      "layers": 5
+    },
+    {
+      "name": "raised_bottom_right",
+      "codepoint": "U+101005",
+      "layers": 5
+    },
+    {
+      "name": "raised_left",
+      "codepoint": "U+101006",
+      "layers": 4
+    },
+    {
+      "name": "raised_right",
+      "codepoint": "U+101007",
+      "layers": 3
+    },
+    {
+      "name": "pressed_top",
+      "codepoint": "U+101008",
+      "layers": 5
+    },
+    {
+      "name": "pressed_top_left",
+      "codepoint": "U+101009",
+      "layers": 6
+    },
+    {
+      "name": "pressed_top_right",
+      "codepoint": "U+10100A",
+      "layers": 6
+    },
+    {
+      "name": "pressed_bottom",
+      "codepoint": "U+10100B",
+      "layers": 4
+    },
+    {
+      "name": "pressed_bottom_left",
+      "codepoint": "U+10100C",
+      "layers": 5
+    },
+    {
+      "name": "pressed_bottom_right",
+      "codepoint": "U+10100D",
+      "layers": 5
+    },
+    {
+      "name": "pressed_left",
+      "codepoint": "U+10100E",
+      "layers": 4
+    },
+    {
+      "name": "pressed_right",
+      "codepoint": "U+10100F",
+      "layers": 3
+    },
+    {
+      "name": "focused_top",
+      "codepoint": "U+101010",
+      "layers": 5
+    },
+    {
+      "name": "focused_top_left",
+      "codepoint": "U+101011",
+      "layers": 6
+    },
+    {
+      "name": "focused_top_right",
+      "codepoint": "U+101012",
+      "layers": 6
+    },
+    {
+      "name": "focused_bottom",
+      "codepoint": "U+101013",
+      "layers": 4
+    },
+    {
+      "name": "focused_bottom_left",
+      "codepoint": "U+101014",
+      "layers": 5
+    },
+    {
+      "name": "focused_bottom_right",
+      "codepoint": "U+101015",
+      "layers": 5
+    },
+    {
+      "name": "focused_left",
+      "codepoint": "U+101016",
+      "layers": 4
+    },
+    {
+      "name": "focused_right",
+      "codepoint": "U+101017",
+      "layers": 3
+    },
+    {
+      "name": "disabled_top",
+      "codepoint": "U+101018",
+      "layers": 5
+    },
+    {
+      "name": "disabled_top_left",
+      "codepoint": "U+101019",
+      "layers": 6
+    },
+    {
+      "name": "disabled_top_right",
+      "codepoint": "U+10101A",
+      "layers": 6
+    },
+    {
+      "name": "disabled_bottom",
+      "codepoint": "U+10101B",
+      "layers": 4
+    },
+    {
+      "name": "disabled_bottom_left",
+      "codepoint": "U+10101C",
+      "layers": 5
+    },
+    {
+      "name": "disabled_bottom_right",
+      "codepoint": "U+10101D",
+      "layers": 5
+    },
+    {
+      "name": "disabled_left",
+      "codepoint": "U+10101E",
+      "layers": 4
+    },
+    {
+      "name": "disabled_right",
+      "codepoint": "U+10101F",
+      "layers": 3
+    },
+    {
+      "name": "latched_top",
+      "codepoint": "U+101020",
+      "layers": 5
+    },
+    {
+      "name": "latched_top_left",
+      "codepoint": "U+101021",
+      "layers": 6
+    },
+    {
+      "name": "latched_top_right",
+      "codepoint": "U+101022",
+      "layers": 6
+    },
+    {
+      "name": "latched_bottom",
+      "codepoint": "U+101023",
+      "layers": 4
+    },
+    {
+      "name": "latched_bottom_left",
+      "codepoint": "U+101024",
+      "layers": 5
+    },
+    {
+      "name": "latched_bottom_right",
+      "codepoint": "U+101025",
+      "layers": 5
+    },
+    {
+      "name": "latched_left",
+      "codepoint": "U+101026",
+      "layers": 4
+    },
+    {
+      "name": "latched_right",
+      "codepoint": "U+101027",
+      "layers": 3
+    },
+    {
+      "name": "warning_top",
+      "codepoint": "U+101028",
+      "layers": 5
+    },
+    {
+      "name": "warning_top_left",
+      "codepoint": "U+101029",
+      "layers": 6
+    },
+    {
+      "name": "warning_top_right",
+      "codepoint": "U+10102A",
+      "layers": 6
+    },
+    {
+      "name": "warning_bottom",
+      "codepoint": "U+10102B",
+      "layers": 4
+    },
+    {
+      "name": "warning_bottom_left",
+      "codepoint": "U+10102C",
+      "layers": 5
+    },
+    {
+      "name": "warning_bottom_right",
+      "codepoint": "U+10102D",
+      "layers": 5
+    },
+    {
+      "name": "warning_left",
+      "codepoint": "U+10102E",
+      "layers": 4
+    },
+    {
+      "name": "warning_right",
+      "codepoint": "U+10102F",
+      "layers": 3
+    },
+    {
+      "name": "unavailable_top",
+      "codepoint": "U+101030",
+      "layers": 5
+    },
+    {
+      "name": "unavailable_top_left",
+      "codepoint": "U+101031",
+      "layers": 6
+    },
+    {
+      "name": "unavailable_top_right",
+      "codepoint": "U+101032",
+      "layers": 6
+    },
+    {
+      "name": "unavailable_bottom",
+      "codepoint": "U+101033",
+      "layers": 4
+    },
+    {
+      "name": "unavailable_bottom_left",
+      "codepoint": "U+101034",
+      "layers": 5
+    },
+    {
+      "name": "unavailable_bottom_right",
+      "codepoint": "U+101035",
+      "layers": 5
+    },
+    {
+      "name": "unavailable_left",
+      "codepoint": "U+101036",
+      "layers": 4
+    },
+    {
+      "name": "unavailable_right",
+      "codepoint": "U+101037",
+      "layers": 3
+    },
+    {
+      "name": "green_off",
+      "codepoint": "U+101038",
+      "layers": 9
+    },
+    {
+      "name": "green_on",
+      "codepoint": "U+101039",
+      "layers": 9
+    },
+    {
+      "name": "yellow_off",
+      "codepoint": "U+10103A",
+      "layers": 9
+    },
+    {
+      "name": "yellow_on",
+      "codepoint": "U+10103B",
+      "layers": 9
+    },
+    {
+      "name": "red_off",
+      "codepoint": "U+10103C",
+      "layers": 9
+    },
+    {
+      "name": "red_on",
+      "codepoint": "U+10103D",
+      "layers": 9
+    },
+    {
+      "name": "blue_off",
+      "codepoint": "U+10103E",
+      "layers": 9
+    },
+    {
+      "name": "blue_on",
+      "codepoint": "U+10103F",
+      "layers": 9
+    },
+    {
+      "name": "red_level_0",
+      "codepoint": "U+101040",
+      "layers": 2
+    },
+    {
+      "name": "red_level_1",
+      "codepoint": "U+101041",
+      "layers": 3
+    },
+    {
+      "name": "red_level_2",
+      "codepoint": "U+101042",
+      "layers": 4
+    },
+    {
+      "name": "red_level_3",
+      "codepoint": "U+101043",
+      "layers": 5
+    },
+    {
+      "name": "red_level_4",
+      "codepoint": "U+101044",
+      "layers": 6
+    },
+    {
+      "name": "red_level_5",
+      "codepoint": "U+101045",
+      "layers": 7
+    },
+    {
+      "name": "red_level_6",
+      "codepoint": "U+101046",
+      "layers": 8
+    },
+    {
+      "name": "red_level_7",
+      "codepoint": "U+101047",
+      "layers": 9
+    },
+    {
+      "name": "red_level_8",
+      "codepoint": "U+101048",
+      "layers": 10
+    },
+    {
+      "name": "well_top",
+      "codepoint": "U+101049",
+      "layers": 3
+    },
+    {
+      "name": "well_bottom",
+      "codepoint": "U+10104A",
+      "layers": 3
+    },
+    {
+      "name": "fader_track",
+      "codepoint": "U+10104B",
+      "layers": 3
+    },
+    {
+      "name": "fader_cap",
+      "codepoint": "U+10104C",
+      "layers": 5
+    },
+    {
+      "name": "encoder_0_0_0",
+      "codepoint": "U+10104D",
+      "layers": 5
+    },
+    {
+      "name": "encoder_0_0_1",
+      "codepoint": "U+10104E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_0_2",
+      "codepoint": "U+10104F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_0_3",
+      "codepoint": "U+101050",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_0_4",
+      "codepoint": "U+101051",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_0_5",
+      "codepoint": "U+101052",
+      "layers": 5
+    },
+    {
+      "name": "encoder_0_1_0",
+      "codepoint": "U+101053",
+      "layers": 6
+    },
+    {
+      "name": "encoder_0_1_1",
+      "codepoint": "U+101054",
+      "layers": 9
+    },
+    {
+      "name": "encoder_0_1_2",
+      "codepoint": "U+101055",
+      "layers": 9
+    },
+    {
+      "name": "encoder_0_1_3",
+      "codepoint": "U+101056",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_1_4",
+      "codepoint": "U+101057",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_1_5",
+      "codepoint": "U+101058",
+      "layers": 6
+    },
+    {
+      "name": "encoder_0_2_0",
+      "codepoint": "U+101059",
+      "layers": 5
+    },
+    {
+      "name": "encoder_0_2_1",
+      "codepoint": "U+10105A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_2_2",
+      "codepoint": "U+10105B",
+      "layers": 9
+    },
+    {
+      "name": "encoder_0_2_3",
+      "codepoint": "U+10105C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_0_2_4",
+      "codepoint": "U+10105D",
+      "layers": 7
+    },
+    {
+      "name": "encoder_0_2_5",
+      "codepoint": "U+10105E",
+      "layers": 5
+    },
+    {
+      "name": "encoder_1_0_0",
+      "codepoint": "U+10105F",
+      "layers": 5
+    },
+    {
+      "name": "encoder_1_0_1",
+      "codepoint": "U+101060",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_0_2",
+      "codepoint": "U+101061",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_0_3",
+      "codepoint": "U+101062",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_0_4",
+      "codepoint": "U+101063",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_0_5",
+      "codepoint": "U+101064",
+      "layers": 5
+    },
+    {
+      "name": "encoder_1_1_0",
+      "codepoint": "U+101065",
+      "layers": 6
+    },
+    {
+      "name": "encoder_1_1_1",
+      "codepoint": "U+101066",
+      "layers": 9
+    },
+    {
+      "name": "encoder_1_1_2",
+      "codepoint": "U+101067",
+      "layers": 9
+    },
+    {
+      "name": "encoder_1_1_3",
+      "codepoint": "U+101068",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_1_4",
+      "codepoint": "U+101069",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_1_5",
+      "codepoint": "U+10106A",
+      "layers": 6
+    },
+    {
+      "name": "encoder_1_2_0",
+      "codepoint": "U+10106B",
+      "layers": 5
+    },
+    {
+      "name": "encoder_1_2_1",
+      "codepoint": "U+10106C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_2_2",
+      "codepoint": "U+10106D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_2_3",
+      "codepoint": "U+10106E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_1_2_4",
+      "codepoint": "U+10106F",
+      "layers": 7
+    },
+    {
+      "name": "encoder_1_2_5",
+      "codepoint": "U+101070",
+      "layers": 5
+    },
+    {
+      "name": "encoder_2_0_0",
+      "codepoint": "U+101071",
+      "layers": 5
+    },
+    {
+      "name": "encoder_2_0_1",
+      "codepoint": "U+101072",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_0_2",
+      "codepoint": "U+101073",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_0_3",
+      "codepoint": "U+101074",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_0_4",
+      "codepoint": "U+101075",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_0_5",
+      "codepoint": "U+101076",
+      "layers": 5
+    },
+    {
+      "name": "encoder_2_1_0",
+      "codepoint": "U+101077",
+      "layers": 6
+    },
+    {
+      "name": "encoder_2_1_1",
+      "codepoint": "U+101078",
+      "layers": 9
+    },
+    {
+      "name": "encoder_2_1_2",
+      "codepoint": "U+101079",
+      "layers": 9
+    },
+    {
+      "name": "encoder_2_1_3",
+      "codepoint": "U+10107A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_1_4",
+      "codepoint": "U+10107B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_1_5",
+      "codepoint": "U+10107C",
+      "layers": 6
+    },
+    {
+      "name": "encoder_2_2_0",
+      "codepoint": "U+10107D",
+      "layers": 5
+    },
+    {
+      "name": "encoder_2_2_1",
+      "codepoint": "U+10107E",
+      "layers": 7
+    },
+    {
+      "name": "encoder_2_2_2",
+      "codepoint": "U+10107F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_2_3",
+      "codepoint": "U+101080",
+      "layers": 8
+    },
+    {
+      "name": "encoder_2_2_4",
+      "codepoint": "U+101081",
+      "layers": 7
+    },
+    {
+      "name": "encoder_2_2_5",
+      "codepoint": "U+101082",
+      "layers": 5
+    },
+    {
+      "name": "encoder_3_0_0",
+      "codepoint": "U+101083",
+      "layers": 5
+    },
+    {
+      "name": "encoder_3_0_1",
+      "codepoint": "U+101084",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_0_2",
+      "codepoint": "U+101085",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_0_3",
+      "codepoint": "U+101086",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_0_4",
+      "codepoint": "U+101087",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_0_5",
+      "codepoint": "U+101088",
+      "layers": 5
+    },
+    {
+      "name": "encoder_3_1_0",
+      "codepoint": "U+101089",
+      "layers": 6
+    },
+    {
+      "name": "encoder_3_1_1",
+      "codepoint": "U+10108A",
+      "layers": 9
+    },
+    {
+      "name": "encoder_3_1_2",
+      "codepoint": "U+10108B",
+      "layers": 9
+    },
+    {
+      "name": "encoder_3_1_3",
+      "codepoint": "U+10108C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_1_4",
+      "codepoint": "U+10108D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_1_5",
+      "codepoint": "U+10108E",
+      "layers": 6
+    },
+    {
+      "name": "encoder_3_2_0",
+      "codepoint": "U+10108F",
+      "layers": 5
+    },
+    {
+      "name": "encoder_3_2_1",
+      "codepoint": "U+101090",
+      "layers": 7
+    },
+    {
+      "name": "encoder_3_2_2",
+      "codepoint": "U+101091",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_2_3",
+      "codepoint": "U+101092",
+      "layers": 8
+    },
+    {
+      "name": "encoder_3_2_4",
+      "codepoint": "U+101093",
+      "layers": 7
+    },
+    {
+      "name": "encoder_3_2_5",
+      "codepoint": "U+101094",
+      "layers": 5
+    },
+    {
+      "name": "encoder_4_0_0",
+      "codepoint": "U+101095",
+      "layers": 5
+    },
+    {
+      "name": "encoder_4_0_1",
+      "codepoint": "U+101096",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_0_2",
+      "codepoint": "U+101097",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_0_3",
+      "codepoint": "U+101098",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_0_4",
+      "codepoint": "U+101099",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_0_5",
+      "codepoint": "U+10109A",
+      "layers": 5
+    },
+    {
+      "name": "encoder_4_1_0",
+      "codepoint": "U+10109B",
+      "layers": 6
+    },
+    {
+      "name": "encoder_4_1_1",
+      "codepoint": "U+10109C",
+      "layers": 9
+    },
+    {
+      "name": "encoder_4_1_2",
+      "codepoint": "U+10109D",
+      "layers": 9
+    },
+    {
+      "name": "encoder_4_1_3",
+      "codepoint": "U+10109E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_1_4",
+      "codepoint": "U+10109F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_1_5",
+      "codepoint": "U+1010A0",
+      "layers": 6
+    },
+    {
+      "name": "encoder_4_2_0",
+      "codepoint": "U+1010A1",
+      "layers": 5
+    },
+    {
+      "name": "encoder_4_2_1",
+      "codepoint": "U+1010A2",
+      "layers": 7
+    },
+    {
+      "name": "encoder_4_2_2",
+      "codepoint": "U+1010A3",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_2_3",
+      "codepoint": "U+1010A4",
+      "layers": 8
+    },
+    {
+      "name": "encoder_4_2_4",
+      "codepoint": "U+1010A5",
+      "layers": 7
+    },
+    {
+      "name": "encoder_4_2_5",
+      "codepoint": "U+1010A6",
+      "layers": 5
+    },
+    {
+      "name": "encoder_5_0_0",
+      "codepoint": "U+1010A7",
+      "layers": 5
+    },
+    {
+      "name": "encoder_5_0_1",
+      "codepoint": "U+1010A8",
+      "layers": 9
+    },
+    {
+      "name": "encoder_5_0_2",
+      "codepoint": "U+1010A9",
+      "layers": 9
+    },
+    {
+      "name": "encoder_5_0_3",
+      "codepoint": "U+1010AA",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_0_4",
+      "codepoint": "U+1010AB",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_0_5",
+      "codepoint": "U+1010AC",
+      "layers": 5
+    },
+    {
+      "name": "encoder_5_1_0",
+      "codepoint": "U+1010AD",
+      "layers": 6
+    },
+    {
+      "name": "encoder_5_1_1",
+      "codepoint": "U+1010AE",
+      "layers": 9
+    },
+    {
+      "name": "encoder_5_1_2",
+      "codepoint": "U+1010AF",
+      "layers": 9
+    },
+    {
+      "name": "encoder_5_1_3",
+      "codepoint": "U+1010B0",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_1_4",
+      "codepoint": "U+1010B1",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_1_5",
+      "codepoint": "U+1010B2",
+      "layers": 6
+    },
+    {
+      "name": "encoder_5_2_0",
+      "codepoint": "U+1010B3",
+      "layers": 5
+    },
+    {
+      "name": "encoder_5_2_1",
+      "codepoint": "U+1010B4",
+      "layers": 7
+    },
+    {
+      "name": "encoder_5_2_2",
+      "codepoint": "U+1010B5",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_2_3",
+      "codepoint": "U+1010B6",
+      "layers": 8
+    },
+    {
+      "name": "encoder_5_2_4",
+      "codepoint": "U+1010B7",
+      "layers": 7
+    },
+    {
+      "name": "encoder_5_2_5",
+      "codepoint": "U+1010B8",
+      "layers": 5
+    },
+    {
+      "name": "encoder_6_0_0",
+      "codepoint": "U+1010B9",
+      "layers": 5
+    },
+    {
+      "name": "encoder_6_0_1",
+      "codepoint": "U+1010BA",
+      "layers": 9
+    },
+    {
+      "name": "encoder_6_0_2",
+      "codepoint": "U+1010BB",
+      "layers": 9
+    },
+    {
+      "name": "encoder_6_0_3",
+      "codepoint": "U+1010BC",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_0_4",
+      "codepoint": "U+1010BD",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_0_5",
+      "codepoint": "U+1010BE",
+      "layers": 5
+    },
+    {
+      "name": "encoder_6_1_0",
+      "codepoint": "U+1010BF",
+      "layers": 6
+    },
+    {
+      "name": "encoder_6_1_1",
+      "codepoint": "U+1010C0",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_1_2",
+      "codepoint": "U+1010C1",
+      "layers": 9
+    },
+    {
+      "name": "encoder_6_1_3",
+      "codepoint": "U+1010C2",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_1_4",
+      "codepoint": "U+1010C3",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_1_5",
+      "codepoint": "U+1010C4",
+      "layers": 6
+    },
+    {
+      "name": "encoder_6_2_0",
+      "codepoint": "U+1010C5",
+      "layers": 5
+    },
+    {
+      "name": "encoder_6_2_1",
+      "codepoint": "U+1010C6",
+      "layers": 7
+    },
+    {
+      "name": "encoder_6_2_2",
+      "codepoint": "U+1010C7",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_2_3",
+      "codepoint": "U+1010C8",
+      "layers": 8
+    },
+    {
+      "name": "encoder_6_2_4",
+      "codepoint": "U+1010C9",
+      "layers": 7
+    },
+    {
+      "name": "encoder_6_2_5",
+      "codepoint": "U+1010CA",
+      "layers": 5
+    },
+    {
+      "name": "encoder_7_0_0",
+      "codepoint": "U+1010CB",
+      "layers": 5
+    },
+    {
+      "name": "encoder_7_0_1",
+      "codepoint": "U+1010CC",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_0_2",
+      "codepoint": "U+1010CD",
+      "layers": 9
+    },
+    {
+      "name": "encoder_7_0_3",
+      "codepoint": "U+1010CE",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_0_4",
+      "codepoint": "U+1010CF",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_0_5",
+      "codepoint": "U+1010D0",
+      "layers": 5
+    },
+    {
+      "name": "encoder_7_1_0",
+      "codepoint": "U+1010D1",
+      "layers": 6
+    },
+    {
+      "name": "encoder_7_1_1",
+      "codepoint": "U+1010D2",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_1_2",
+      "codepoint": "U+1010D3",
+      "layers": 9
+    },
+    {
+      "name": "encoder_7_1_3",
+      "codepoint": "U+1010D4",
+      "layers": 9
+    },
+    {
+      "name": "encoder_7_1_4",
+      "codepoint": "U+1010D5",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_1_5",
+      "codepoint": "U+1010D6",
+      "layers": 6
+    },
+    {
+      "name": "encoder_7_2_0",
+      "codepoint": "U+1010D7",
+      "layers": 5
+    },
+    {
+      "name": "encoder_7_2_1",
+      "codepoint": "U+1010D8",
+      "layers": 7
+    },
+    {
+      "name": "encoder_7_2_2",
+      "codepoint": "U+1010D9",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_2_3",
+      "codepoint": "U+1010DA",
+      "layers": 8
+    },
+    {
+      "name": "encoder_7_2_4",
+      "codepoint": "U+1010DB",
+      "layers": 7
+    },
+    {
+      "name": "encoder_7_2_5",
+      "codepoint": "U+1010DC",
+      "layers": 5
+    },
+    {
+      "name": "encoder_8_0_0",
+      "codepoint": "U+1010DD",
+      "layers": 5
+    },
+    {
+      "name": "encoder_8_0_1",
+      "codepoint": "U+1010DE",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_0_2",
+      "codepoint": "U+1010DF",
+      "layers": 9
+    },
+    {
+      "name": "encoder_8_0_3",
+      "codepoint": "U+1010E0",
+      "layers": 9
+    },
+    {
+      "name": "encoder_8_0_4",
+      "codepoint": "U+1010E1",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_0_5",
+      "codepoint": "U+1010E2",
+      "layers": 5
+    },
+    {
+      "name": "encoder_8_1_0",
+      "codepoint": "U+1010E3",
+      "layers": 6
+    },
+    {
+      "name": "encoder_8_1_1",
+      "codepoint": "U+1010E4",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_1_2",
+      "codepoint": "U+1010E5",
+      "layers": 9
+    },
+    {
+      "name": "encoder_8_1_3",
+      "codepoint": "U+1010E6",
+      "layers": 9
+    },
+    {
+      "name": "encoder_8_1_4",
+      "codepoint": "U+1010E7",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_1_5",
+      "codepoint": "U+1010E8",
+      "layers": 6
+    },
+    {
+      "name": "encoder_8_2_0",
+      "codepoint": "U+1010E9",
+      "layers": 5
+    },
+    {
+      "name": "encoder_8_2_1",
+      "codepoint": "U+1010EA",
+      "layers": 7
+    },
+    {
+      "name": "encoder_8_2_2",
+      "codepoint": "U+1010EB",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_2_3",
+      "codepoint": "U+1010EC",
+      "layers": 8
+    },
+    {
+      "name": "encoder_8_2_4",
+      "codepoint": "U+1010ED",
+      "layers": 7
+    },
+    {
+      "name": "encoder_8_2_5",
+      "codepoint": "U+1010EE",
+      "layers": 5
+    },
+    {
+      "name": "encoder_9_0_0",
+      "codepoint": "U+1010EF",
+      "layers": 5
+    },
+    {
+      "name": "encoder_9_0_1",
+      "codepoint": "U+1010F0",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_0_2",
+      "codepoint": "U+1010F1",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_0_3",
+      "codepoint": "U+1010F2",
+      "layers": 9
+    },
+    {
+      "name": "encoder_9_0_4",
+      "codepoint": "U+1010F3",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_0_5",
+      "codepoint": "U+1010F4",
+      "layers": 5
+    },
+    {
+      "name": "encoder_9_1_0",
+      "codepoint": "U+1010F5",
+      "layers": 6
+    },
+    {
+      "name": "encoder_9_1_1",
+      "codepoint": "U+1010F6",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_1_2",
+      "codepoint": "U+1010F7",
+      "layers": 9
+    },
+    {
+      "name": "encoder_9_1_3",
+      "codepoint": "U+1010F8",
+      "layers": 9
+    },
+    {
+      "name": "encoder_9_1_4",
+      "codepoint": "U+1010F9",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_1_5",
+      "codepoint": "U+1010FA",
+      "layers": 6
+    },
+    {
+      "name": "encoder_9_2_0",
+      "codepoint": "U+1010FB",
+      "layers": 5
+    },
+    {
+      "name": "encoder_9_2_1",
+      "codepoint": "U+1010FC",
+      "layers": 7
+    },
+    {
+      "name": "encoder_9_2_2",
+      "codepoint": "U+1010FD",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_2_3",
+      "codepoint": "U+1010FE",
+      "layers": 8
+    },
+    {
+      "name": "encoder_9_2_4",
+      "codepoint": "U+1010FF",
+      "layers": 7
+    },
+    {
+      "name": "encoder_9_2_5",
+      "codepoint": "U+101100",
+      "layers": 5
+    },
+    {
+      "name": "encoder_10_0_0",
+      "codepoint": "U+101101",
+      "layers": 5
+    },
+    {
+      "name": "encoder_10_0_1",
+      "codepoint": "U+101102",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_0_2",
+      "codepoint": "U+101103",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_0_3",
+      "codepoint": "U+101104",
+      "layers": 9
+    },
+    {
+      "name": "encoder_10_0_4",
+      "codepoint": "U+101105",
+      "layers": 9
+    },
+    {
+      "name": "encoder_10_0_5",
+      "codepoint": "U+101106",
+      "layers": 5
+    },
+    {
+      "name": "encoder_10_1_0",
+      "codepoint": "U+101107",
+      "layers": 6
+    },
+    {
+      "name": "encoder_10_1_1",
+      "codepoint": "U+101108",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_1_2",
+      "codepoint": "U+101109",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_1_3",
+      "codepoint": "U+10110A",
+      "layers": 9
+    },
+    {
+      "name": "encoder_10_1_4",
+      "codepoint": "U+10110B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_1_5",
+      "codepoint": "U+10110C",
+      "layers": 6
+    },
+    {
+      "name": "encoder_10_2_0",
+      "codepoint": "U+10110D",
+      "layers": 5
+    },
+    {
+      "name": "encoder_10_2_1",
+      "codepoint": "U+10110E",
+      "layers": 7
+    },
+    {
+      "name": "encoder_10_2_2",
+      "codepoint": "U+10110F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_2_3",
+      "codepoint": "U+101110",
+      "layers": 8
+    },
+    {
+      "name": "encoder_10_2_4",
+      "codepoint": "U+101111",
+      "layers": 7
+    },
+    {
+      "name": "encoder_10_2_5",
+      "codepoint": "U+101112",
+      "layers": 5
+    },
+    {
+      "name": "encoder_11_0_0",
+      "codepoint": "U+101113",
+      "layers": 5
+    },
+    {
+      "name": "encoder_11_0_1",
+      "codepoint": "U+101114",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_0_2",
+      "codepoint": "U+101115",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_0_3",
+      "codepoint": "U+101116",
+      "layers": 9
+    },
+    {
+      "name": "encoder_11_0_4",
+      "codepoint": "U+101117",
+      "layers": 9
+    },
+    {
+      "name": "encoder_11_0_5",
+      "codepoint": "U+101118",
+      "layers": 5
+    },
+    {
+      "name": "encoder_11_1_0",
+      "codepoint": "U+101119",
+      "layers": 6
+    },
+    {
+      "name": "encoder_11_1_1",
+      "codepoint": "U+10111A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_1_2",
+      "codepoint": "U+10111B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_1_3",
+      "codepoint": "U+10111C",
+      "layers": 9
+    },
+    {
+      "name": "encoder_11_1_4",
+      "codepoint": "U+10111D",
+      "layers": 9
+    },
+    {
+      "name": "encoder_11_1_5",
+      "codepoint": "U+10111E",
+      "layers": 6
+    },
+    {
+      "name": "encoder_11_2_0",
+      "codepoint": "U+10111F",
+      "layers": 5
+    },
+    {
+      "name": "encoder_11_2_1",
+      "codepoint": "U+101120",
+      "layers": 7
+    },
+    {
+      "name": "encoder_11_2_2",
+      "codepoint": "U+101121",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_2_3",
+      "codepoint": "U+101122",
+      "layers": 8
+    },
+    {
+      "name": "encoder_11_2_4",
+      "codepoint": "U+101123",
+      "layers": 7
+    },
+    {
+      "name": "encoder_11_2_5",
+      "codepoint": "U+101124",
+      "layers": 5
+    },
+    {
+      "name": "encoder_12_0_0",
+      "codepoint": "U+101125",
+      "layers": 5
+    },
+    {
+      "name": "encoder_12_0_1",
+      "codepoint": "U+101126",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_0_2",
+      "codepoint": "U+101127",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_0_3",
+      "codepoint": "U+101128",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_0_4",
+      "codepoint": "U+101129",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_0_5",
+      "codepoint": "U+10112A",
+      "layers": 5
+    },
+    {
+      "name": "encoder_12_1_0",
+      "codepoint": "U+10112B",
+      "layers": 6
+    },
+    {
+      "name": "encoder_12_1_1",
+      "codepoint": "U+10112C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_1_2",
+      "codepoint": "U+10112D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_1_3",
+      "codepoint": "U+10112E",
+      "layers": 9
+    },
+    {
+      "name": "encoder_12_1_4",
+      "codepoint": "U+10112F",
+      "layers": 9
+    },
+    {
+      "name": "encoder_12_1_5",
+      "codepoint": "U+101130",
+      "layers": 6
+    },
+    {
+      "name": "encoder_12_2_0",
+      "codepoint": "U+101131",
+      "layers": 5
+    },
+    {
+      "name": "encoder_12_2_1",
+      "codepoint": "U+101132",
+      "layers": 7
+    },
+    {
+      "name": "encoder_12_2_2",
+      "codepoint": "U+101133",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_2_3",
+      "codepoint": "U+101134",
+      "layers": 8
+    },
+    {
+      "name": "encoder_12_2_4",
+      "codepoint": "U+101135",
+      "layers": 7
+    },
+    {
+      "name": "encoder_12_2_5",
+      "codepoint": "U+101136",
+      "layers": 5
+    },
+    {
+      "name": "encoder_13_0_0",
+      "codepoint": "U+101137",
+      "layers": 5
+    },
+    {
+      "name": "encoder_13_0_1",
+      "codepoint": "U+101138",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_0_2",
+      "codepoint": "U+101139",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_0_3",
+      "codepoint": "U+10113A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_0_4",
+      "codepoint": "U+10113B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_0_5",
+      "codepoint": "U+10113C",
+      "layers": 5
+    },
+    {
+      "name": "encoder_13_1_0",
+      "codepoint": "U+10113D",
+      "layers": 6
+    },
+    {
+      "name": "encoder_13_1_1",
+      "codepoint": "U+10113E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_1_2",
+      "codepoint": "U+10113F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_1_3",
+      "codepoint": "U+101140",
+      "layers": 9
+    },
+    {
+      "name": "encoder_13_1_4",
+      "codepoint": "U+101141",
+      "layers": 9
+    },
+    {
+      "name": "encoder_13_1_5",
+      "codepoint": "U+101142",
+      "layers": 6
+    },
+    {
+      "name": "encoder_13_2_0",
+      "codepoint": "U+101143",
+      "layers": 5
+    },
+    {
+      "name": "encoder_13_2_1",
+      "codepoint": "U+101144",
+      "layers": 7
+    },
+    {
+      "name": "encoder_13_2_2",
+      "codepoint": "U+101145",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_2_3",
+      "codepoint": "U+101146",
+      "layers": 8
+    },
+    {
+      "name": "encoder_13_2_4",
+      "codepoint": "U+101147",
+      "layers": 7
+    },
+    {
+      "name": "encoder_13_2_5",
+      "codepoint": "U+101148",
+      "layers": 5
+    },
+    {
+      "name": "encoder_14_0_0",
+      "codepoint": "U+101149",
+      "layers": 5
+    },
+    {
+      "name": "encoder_14_0_1",
+      "codepoint": "U+10114A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_0_2",
+      "codepoint": "U+10114B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_0_3",
+      "codepoint": "U+10114C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_0_4",
+      "codepoint": "U+10114D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_0_5",
+      "codepoint": "U+10114E",
+      "layers": 5
+    },
+    {
+      "name": "encoder_14_1_0",
+      "codepoint": "U+10114F",
+      "layers": 6
+    },
+    {
+      "name": "encoder_14_1_1",
+      "codepoint": "U+101150",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_1_2",
+      "codepoint": "U+101151",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_1_3",
+      "codepoint": "U+101152",
+      "layers": 9
+    },
+    {
+      "name": "encoder_14_1_4",
+      "codepoint": "U+101153",
+      "layers": 9
+    },
+    {
+      "name": "encoder_14_1_5",
+      "codepoint": "U+101154",
+      "layers": 6
+    },
+    {
+      "name": "encoder_14_2_0",
+      "codepoint": "U+101155",
+      "layers": 5
+    },
+    {
+      "name": "encoder_14_2_1",
+      "codepoint": "U+101156",
+      "layers": 7
+    },
+    {
+      "name": "encoder_14_2_2",
+      "codepoint": "U+101157",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_2_3",
+      "codepoint": "U+101158",
+      "layers": 8
+    },
+    {
+      "name": "encoder_14_2_4",
+      "codepoint": "U+101159",
+      "layers": 7
+    },
+    {
+      "name": "encoder_14_2_5",
+      "codepoint": "U+10115A",
+      "layers": 5
+    },
+    {
+      "name": "encoder_15_0_0",
+      "codepoint": "U+10115B",
+      "layers": 5
+    },
+    {
+      "name": "encoder_15_0_1",
+      "codepoint": "U+10115C",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_0_2",
+      "codepoint": "U+10115D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_0_3",
+      "codepoint": "U+10115E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_0_4",
+      "codepoint": "U+10115F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_0_5",
+      "codepoint": "U+101160",
+      "layers": 5
+    },
+    {
+      "name": "encoder_15_1_0",
+      "codepoint": "U+101161",
+      "layers": 6
+    },
+    {
+      "name": "encoder_15_1_1",
+      "codepoint": "U+101162",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_1_2",
+      "codepoint": "U+101163",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_1_3",
+      "codepoint": "U+101164",
+      "layers": 9
+    },
+    {
+      "name": "encoder_15_1_4",
+      "codepoint": "U+101165",
+      "layers": 9
+    },
+    {
+      "name": "encoder_15_1_5",
+      "codepoint": "U+101166",
+      "layers": 6
+    },
+    {
+      "name": "encoder_15_2_0",
+      "codepoint": "U+101167",
+      "layers": 5
+    },
+    {
+      "name": "encoder_15_2_1",
+      "codepoint": "U+101168",
+      "layers": 7
+    },
+    {
+      "name": "encoder_15_2_2",
+      "codepoint": "U+101169",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_2_3",
+      "codepoint": "U+10116A",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_2_4",
+      "codepoint": "U+10116B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_15_2_5",
+      "codepoint": "U+10116C",
+      "layers": 5
+    },
+    {
+      "name": "encoder_16_0_0",
+      "codepoint": "U+10116D",
+      "layers": 5
+    },
+    {
+      "name": "encoder_16_0_1",
+      "codepoint": "U+10116E",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_0_2",
+      "codepoint": "U+10116F",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_0_3",
+      "codepoint": "U+101170",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_0_4",
+      "codepoint": "U+101171",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_0_5",
+      "codepoint": "U+101172",
+      "layers": 5
+    },
+    {
+      "name": "encoder_16_1_0",
+      "codepoint": "U+101173",
+      "layers": 6
+    },
+    {
+      "name": "encoder_16_1_1",
+      "codepoint": "U+101174",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_1_2",
+      "codepoint": "U+101175",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_1_3",
+      "codepoint": "U+101176",
+      "layers": 9
+    },
+    {
+      "name": "encoder_16_1_4",
+      "codepoint": "U+101177",
+      "layers": 9
+    },
+    {
+      "name": "encoder_16_1_5",
+      "codepoint": "U+101178",
+      "layers": 6
+    },
+    {
+      "name": "encoder_16_2_0",
+      "codepoint": "U+101179",
+      "layers": 5
+    },
+    {
+      "name": "encoder_16_2_1",
+      "codepoint": "U+10117A",
+      "layers": 7
+    },
+    {
+      "name": "encoder_16_2_2",
+      "codepoint": "U+10117B",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_2_3",
+      "codepoint": "U+10117C",
+      "layers": 9
+    },
+    {
+      "name": "encoder_16_2_4",
+      "codepoint": "U+10117D",
+      "layers": 8
+    },
+    {
+      "name": "encoder_16_2_5",
+      "codepoint": "U+10117E",
+      "layers": 5
+    },
+    {
+      "name": "slider_0_0",
+      "codepoint": "U+10117F",
+      "layers": 8
+    },
+    {
+      "name": "slider_0_1",
+      "codepoint": "U+101180",
+      "layers": 8
+    },
+    {
+      "name": "slider_0_2",
+      "codepoint": "U+101181",
+      "layers": 8
+    },
+    {
+      "name": "slider_0_3",
+      "codepoint": "U+101182",
+      "layers": 8
+    },
+    {
+      "name": "slider_0_4",
+      "codepoint": "U+101183",
+      "layers": 8
+    },
+    {
+      "name": "slider_0_5",
+      "codepoint": "U+101184",
+      "layers": 8
+    },
+    {
+      "name": "slider_1_0",
+      "codepoint": "U+101185",
+      "layers": 7
+    },
+    {
+      "name": "slider_1_1",
+      "codepoint": "U+101186",
+      "layers": 7
+    },
+    {
+      "name": "slider_1_2",
+      "codepoint": "U+101187",
+      "layers": 7
+    },
+    {
+      "name": "slider_1_3",
+      "codepoint": "U+101188",
+      "layers": 7
+    },
+    {
+      "name": "slider_1_4",
+      "codepoint": "U+101189",
+      "layers": 7
+    },
+    {
+      "name": "slider_1_5",
+      "codepoint": "U+10118A",
+      "layers": 7
+    },
+    {
+      "name": "key_top",
+      "codepoint": "U+10118B",
+      "layers": 4
+    },
+    {
+      "name": "key_bottom",
+      "codepoint": "U+10118C",
+      "layers": 4
+    },
+    {
+      "name": "key_left",
+      "codepoint": "U+10118D",
+      "layers": 3
+    },
+    {
+      "name": "key_right",
+      "codepoint": "U+10118E",
+      "layers": 3
+    },
+    {
+      "name": "key_tl",
+      "codepoint": "U+10118F",
+      "layers": 6
+    },
+    {
+      "name": "key_tr",
+      "codepoint": "U+101190",
+      "layers": 6
+    },
+    {
+      "name": "key_bl",
+      "codepoint": "U+101191",
+      "layers": 6
+    },
+    {
+      "name": "key_br",
+      "codepoint": "U+101192",
+      "layers": 6
+    },
+    {
+      "name": "active_top",
+      "codepoint": "U+101193",
+      "layers": 4
+    },
+    {
+      "name": "active_bottom",
+      "codepoint": "U+101194",
+      "layers": 4
+    },
+    {
+      "name": "active_left",
+      "codepoint": "U+101195",
+      "layers": 3
+    },
+    {
+      "name": "active_right",
+      "codepoint": "U+101196",
+      "layers": 3
+    },
+    {
+      "name": "active_tl",
+      "codepoint": "U+101197",
+      "layers": 6
+    },
+    {
+      "name": "active_tr",
+      "codepoint": "U+101198",
+      "layers": 6
+    },
+    {
+      "name": "active_bl",
+      "codepoint": "U+101199",
+      "layers": 6
+    },
+    {
+      "name": "active_br",
+      "codepoint": "U+10119A",
+      "layers": 6
+    },
+    {
+      "name": "redkey_top",
+      "codepoint": "U+10119B",
+      "layers": 4
+    },
+    {
+      "name": "redkey_bottom",
+      "codepoint": "U+10119C",
+      "layers": 4
+    },
+    {
+      "name": "redkey_left",
+      "codepoint": "U+10119D",
+      "layers": 3
+    },
+    {
+      "name": "redkey_right",
+      "codepoint": "U+10119E",
+      "layers": 3
+    },
+    {
+      "name": "redkey_tl",
+      "codepoint": "U+10119F",
+      "layers": 6
+    },
+    {
+      "name": "redkey_tr",
+      "codepoint": "U+1011A0",
+      "layers": 6
+    },
+    {
+      "name": "redkey_bl",
+      "codepoint": "U+1011A1",
+      "layers": 6
+    },
+    {
+      "name": "redkey_br",
+      "codepoint": "U+1011A2",
+      "layers": 6
+    },
+    {
+      "name": "lens_green_off_0_0",
+      "codepoint": "U+1011A3",
+      "layers": 9
+    },
+    {
+      "name": "lens_green_off_0_1",
+      "codepoint": "U+1011A4",
+      "layers": 9
+    },
+    {
+      "name": "lens_green_off_0_2",
+      "codepoint": "U+1011A5",
+      "layers": 8
+    },
+    {
+      "name": "lens_green_on_0_0",
+      "codepoint": "U+1011A6",
+      "layers": 9
+    },
+    {
+      "name": "lens_green_on_0_1",
+      "codepoint": "U+1011A7",
+      "layers": 9
+    },
+    {
+      "name": "lens_green_on_0_2",
+      "codepoint": "U+1011A8",
+      "layers": 8
+    },
+    {
+      "name": "lens_yellow_off_0_0",
+      "codepoint": "U+1011A9",
+      "layers": 9
+    },
+    {
+      "name": "lens_yellow_off_0_1",
+      "codepoint": "U+1011AA",
+      "layers": 9
+    },
+    {
+      "name": "lens_yellow_off_0_2",
+      "codepoint": "U+1011AB",
+      "layers": 8
+    },
+    {
+      "name": "lens_yellow_on_0_0",
+      "codepoint": "U+1011AC",
+      "layers": 9
+    },
+    {
+      "name": "lens_yellow_on_0_1",
+      "codepoint": "U+1011AD",
+      "layers": 9
+    },
+    {
+      "name": "lens_yellow_on_0_2",
+      "codepoint": "U+1011AE",
+      "layers": 8
+    },
+    {
+      "name": "lens_red_off_0_0",
+      "codepoint": "U+1011AF",
+      "layers": 9
+    },
+    {
+      "name": "lens_red_off_0_1",
+      "codepoint": "U+1011B0",
+      "layers": 9
+    },
+    {
+      "name": "lens_red_off_0_2",
+      "codepoint": "U+1011B1",
+      "layers": 8
+    },
+    {
+      "name": "lens_red_on_0_0",
+      "codepoint": "U+1011B2",
+      "layers": 9
+    },
+    {
+      "name": "lens_red_on_0_1",
+      "codepoint": "U+1011B3",
+      "layers": 9
+    },
+    {
+      "name": "lens_red_on_0_2",
+      "codepoint": "U+1011B4",
+      "layers": 8
+    },
+    {
+      "name": "lens_blue_off_0_0",
+      "codepoint": "U+1011B5",
+      "layers": 9
+    },
+    {
+      "name": "lens_blue_off_0_1",
+      "codepoint": "U+1011B6",
+      "layers": 9
+    },
+    {
+      "name": "lens_blue_off_0_2",
+      "codepoint": "U+1011B7",
+      "layers": 8
+    },
+    {
+      "name": "lens_blue_on_0_0",
+      "codepoint": "U+1011B8",
+      "layers": 9
+    },
+    {
+      "name": "lens_blue_on_0_1",
+      "codepoint": "U+1011B9",
+      "layers": 9
+    },
+    {
+      "name": "lens_blue_on_0_2",
+      "codepoint": "U+1011BA",
+      "layers": 8
+    }
+  ]
+}

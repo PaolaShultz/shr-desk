@@ -386,3 +386,128 @@ fn focus_and_overflow_during_inflight_grant_stop_every_retry() {
         drop(f);
     }
 }
+
+#[test]
+fn channel_panel_has_all_processing_targets_and_preserves_modal_precedence() {
+    use shr_instrument_panel::{
+        Material,
+        terminal::ratatui::{buffer::Buffer, layout::Rect},
+    };
+    let (peer, config) = peer();
+    let mut f = Frontend::new(config);
+    wait(&mut f);
+    f.page = shr_desk::model::Page::Channel;
+    let v: Value =
+        serde_json::from_str(include_str!("fixtures/gp07/v2/snapshot-reply.json")).unwrap();
+    let mut p: shr_desk::processing::Snapshot =
+        serde_json::from_value(v["snapshot"].clone()).unwrap();
+    let u = f.state.as_mut().unwrap();
+    p.revision = u.snapshot.as_ref().unwrap().authority.revision.clone();
+    u.processing = Some(p);
+    u.processing_age_ms = Some(0);
+    u.received = Instant::now();
+    assert!(f.channel_panel_visible());
+    for material in [Material::Text, Material::Glyph] {
+        let mut b = Buffer::empty(Rect::new(0, 0, 160, 45));
+        let hits = shr_desk::channel_panel::draw(&f, &mut b, material);
+        let fields: std::collections::BTreeSet<_> = hits
+            .iter()
+            .filter_map(|h| {
+                if let shr_desk::channel_panel::Target::Field(i) = h.target {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(fields, (0..24).collect());
+        assert!(
+            hits.iter()
+                .all(|h| h.area.right() <= 160 && h.area.bottom() <= 45)
+        );
+        let text: String = b.content.iter().map(|c| c.symbol()).collect();
+        assert!(text.contains("CONFIRMED TARGET"));
+        assert!(!text.contains("GATE"));
+        assert!(!text.contains("PHANTOM"));
+        for hint in [
+            "F1 ", "F2 ", "F4 ", "F12 ", "PgUp", "U / I", "C exact", "D exact",
+        ] {
+            assert!(!text.contains(hint), "keyboard hint leaked: {hint}");
+        }
+        if material == Material::Glyph {
+            let on = !f
+                .state
+                .as_ref()
+                .unwrap()
+                .processing
+                .as_ref()
+                .unwrap()
+                .channels[0]
+                .current
+                .eq_bypass;
+            assert_eq!(
+                b[(60, 6)].symbol(),
+                shr_instrument_panel::tile(&format!(
+                    "lens_green_{}_0_0",
+                    if on { "on" } else { "off" }
+                ))
+                .to_string()
+            );
+        }
+        for (w, h) in [(159, 45), (160, 44), (0, 0)] {
+            let mut small = Buffer::empty(Rect::new(0, 0, w, h));
+            assert!(shr_desk::channel_panel::draw(&f, &mut small, material).is_empty());
+        }
+    }
+    let before = f
+        .state
+        .as_ref()
+        .unwrap()
+        .processing
+        .as_ref()
+        .unwrap()
+        .channels[0]
+        .target
+        .clone();
+    f.channel_panel_field(2).unwrap();
+    assert_eq!(f.processing_field, 2);
+    assert_eq!(f.processing_draft.as_ref().unwrap().config, before);
+    assert_eq!(
+        f.state
+            .as_ref()
+            .unwrap()
+            .processing
+            .as_ref()
+            .unwrap()
+            .channels[0]
+            .target,
+        before
+    );
+    // An unapplied bypass change must not change the settled-owner lamp.
+    let mut before_buffer = Buffer::empty(Rect::new(0, 0, 160, 45));
+    shr_desk::channel_panel::draw(&f, &mut before_buffer, Material::Glyph);
+    f.processing_draft.as_mut().unwrap().config.eq_bypass = !before.eq_bypass;
+    let mut draft_buffer = Buffer::empty(Rect::new(0, 0, 160, 45));
+    shr_desk::channel_panel::draw(&f, &mut draft_buffer, Material::Glyph);
+    for x in 60..63 {
+        assert_eq!(before_buffer[(x, 6)], draft_buffer[(x, 6)]);
+    }
+    assert_eq!(
+        draft_buffer[(2, 43)].symbol(),
+        shr_instrument_panel::tile("lens_blue_on_0_0").to_string()
+    );
+    f.state.as_mut().unwrap().review = Some((77, "EXACT REVIEW".into()));
+    assert!(!f.channel_panel_visible());
+    assert!(f.channel_panel_field(1).is_err());
+    f.state.as_mut().unwrap().review = None;
+    f.meter_page = true;
+    assert!(!f.channel_panel_visible());
+    f.meter_page = false;
+    f.sends_page = true;
+    assert!(!f.channel_panel_visible());
+    f.sends_page = false;
+    f.state.as_mut().unwrap().received = Instant::now() - Duration::from_secs(1);
+    assert!(f.channel_panel_field(1).is_err());
+    drop(f);
+    drop(peer);
+}

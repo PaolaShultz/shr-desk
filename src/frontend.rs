@@ -2749,6 +2749,48 @@ impl Frontend {
         scene.primitives.push(Primitive::Text{x:24,y:1008,value:"Sample peak/RMS dBFS; main is pre-PA. No ADC/DAC, true-peak or acoustic safety claim.".into(),color:"#9caebc"});
         scene
     }
+    /// Dedicated channel layout must never obscure a modal or mark it reviewed.
+    pub fn channel_panel_visible(&self) -> bool {
+        self.page == Page::Channel
+            && self.scope == "foh"
+            && !self.meter_page
+            && !self.brain_page
+            && !self.live_page
+            && !self.sends_page
+            && self.topology_page.is_none()
+            && !self.fx_ui.open
+            && !self.measurement_ui.open
+            && !self.mode_picker
+            && self.exact_draft.is_none()
+            && self.structural_draft.is_none()
+            && self.device_draft.is_none()
+            && self.state.as_ref().is_some_and(|s| {
+                s.review.is_none()
+                    && s.snapshot.is_some()
+                    && s.processing.as_ref().is_some_and(|p| {
+                        p.channels
+                            .iter()
+                            .any(|c| Some(c.input.as_str()) == self.selected_input())
+                    })
+            })
+    }
+    /// Mouse selection only opens/selects a detached field; it never applies it.
+    pub fn channel_panel_field(&mut self, index: usize) -> Result<(), String> {
+        if !self.channel_panel_visible()
+            || !self.processing_ready()
+            || !self.focused
+            || !self.device_ready
+            || index >= crate::processing::FIELDS.len()
+        {
+            return Err("channel field context changed".into());
+        }
+        if self.processing_draft.is_none() {
+            self.action(Action::ProcessingEdit)?;
+        }
+        self.action(Action::ProcessingField(
+            index as i32 - self.processing_field as i32,
+        ))
+    }
     pub fn scene(&self) -> Scene {
         let mut scene = Scene::default();
         scene.primitives.push(Primitive::Rect {

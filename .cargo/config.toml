@@ -1,0 +1,8 @@
+# Frozen shared source, authored in GigPies src/instrument-panel.
+[registries.shr-panel]
+index = "sparse+https://shr-panel.invalid/index/"
+[source.shr-panel]
+registry = "sparse+https://shr-panel.invalid/index/"
+replace-with = "shr-panel-vendor"
+[source.shr-panel-vendor]
+directory = "vendor"

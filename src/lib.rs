@@ -52,3 +52,7 @@ pub mod pa_measurement;
 
 pub mod fx;
 pub mod metering;
+
+pub mod terminal;
+
+pub mod channel_panel;

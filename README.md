@@ -86,3 +86,5 @@ for control boundaries. Physical audio remains unactivated.
 The [retained audio-console screen library](docs/console-screen-reference/README.md)
 contains 12 manufacturer references with per-screen notes and an offline gallery
 for future original layouts; it does not change the implemented frontend.
+
+The shared [Ratatui instrument console](docs/TERMINAL.md) is available through the explicit terminal entry point; its acceptance and font contract are tracked in GP-PANEL.
