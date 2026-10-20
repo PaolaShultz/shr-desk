@@ -227,6 +227,9 @@ pub fn draw_observation(
     ui: &PanelUi,
     spectrum: Option<&crate::spectrum::View>,
 ) -> Vec<Hit> {
+    if f.eq_fullscreen {
+        return crate::fullscreen_eq::draw(f, b, spectrum);
+    }
     let mut hits = Vec::new();
     if b.area.width < 160 || b.area.height < 45 {
         text(
@@ -234,7 +237,7 @@ pub fn draw_observation(
             0,
             0,
             b.area.width,
-            "Resize to 160 x 45 cells. Controls paused.",
+            "Resize to 160 x 45, or F11 fullscreen EQ/RTA (60 x 18).",
             TEXT,
         );
         return hits;
@@ -309,6 +312,14 @@ pub fn draw_observation(
             Target::Field(0),
             selected(0),
         );
+        readout(
+            b,
+            &mut hits,
+            Rect::new(3, 2, 38, 1),
+            "F11 Fullscreen EQ / RTA",
+            Target::Key("F11"),
+            false,
+        );
         well(b, Rect::new(3, 3, 74, 19));
         let graph = Rect::new(8, 4, 63, 16);
         if let Ok(bank) = crate::eq_response::channel_coefficients(cfg, proc.unwrap().sample_rate) {
@@ -327,23 +338,26 @@ pub fn draw_observation(
                 .y_bounds([-18., 18.])
                 .paint(|ctx| {
                     if let Some(s) = &spectrum {
-                        for (i, db) in s.bins.iter().enumerate() {
+                        let bins = s
+                            .fft_bins
+                            .as_ref()
+                            .map(|v| crate::spectrum::aggregate(v, s.rate, 64))
+                            .unwrap_or_else(|| s.bins.clone());
+                        for (i, db) in bins.iter().enumerate() {
                             let x = (i as f64 + 0.5) * 3. / 64.;
                             let y =
                                 -18. + (f64::from(*db) / 1000. + 96.).clamp(0., 96.) * 36. / 96.;
                             for offset in [-0.012, -0.006, 0., 0.006, 0.012] {
-                                for (bottom, top, colour) in [
-                                    (-18., 4.5, Color::Rgb(35, 76, 101)),
-                                    (4.5, 13.5, Color::Rgb(45, 118, 87)),
-                                    (13.5, 18., Color::Rgb(157, 112, 43)),
-                                ] {
+                                for step in 0..48 {
+                                    let db = -96. + step as f64 * 2.;
+                                    let bottom = -18. + (db + 96.) * 36. / 96.;
                                     if y > bottom {
                                         ctx.draw(&Line {
                                             x1: x + offset,
                                             x2: x + offset,
                                             y1: bottom,
-                                            y2: y.min(top),
-                                            color: colour,
+                                            y2: y.min(bottom + 0.75),
+                                            color: crate::fullscreen_eq::level_colour(db),
                                         });
                                     }
                                 }
@@ -525,11 +539,15 @@ pub fn draw_observation(
             4,
             22,
             74,
-            if spectrum.is_some() {
-                "Hz           raw FFT · dBFS −96..0"
-            } else {
-                "Hz           raw FFT —"
-            },
+            &spectrum.map_or_else(
+                || {
+                    format!(
+                        "RTA {} / unavailable",
+                        f.analysis_source.as_deref().unwrap_or("--").escape_debug()
+                    )
+                },
+                |s| format!("RTA {} / {} / dBFS -96..0", s.source.escape_debug(), s.tap),
+            ),
             DIM,
         );
         let knobs = [

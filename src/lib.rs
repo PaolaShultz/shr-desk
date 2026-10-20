@@ -60,3 +60,5 @@ pub mod channel_panel;
 pub mod channel_material;
 
 pub mod spectrum;
+
+pub mod fullscreen_eq;

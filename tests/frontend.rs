@@ -441,9 +441,13 @@ fn channel_panel_has_all_processing_targets_and_preserves_modal_precedence() {
                 }
             );
         }
-        // Header is framed: an empty border, labels/LEDs, then an empty row.
+        // Header keeps its empty border; row two now has an explicit fullscreen entry.
+        assert!(text.contains("F11 Fullscreen EQ / RTA"));
         for y in [0, 2] {
             for x in 2..158 {
+                if y == 2 && (3..41).contains(&x) {
+                    continue;
+                }
                 assert!(
                     matches!(b[(x, y)].symbol(), " " | "▔" | "▁" | "─" | "┌" | "┐" | "│"),
                     "unexpected header content at {x},{y}: {}",
@@ -915,5 +919,59 @@ fn channel_material_performance() {
     }
     drop(lifecycle);
     drop(front);
+    drop(peer);
+}
+
+#[test]
+fn fullscreen_eq_resizes_and_analysis_selection_does_not_change_eq_target() {
+    use shr_instrument_panel::{
+        Material,
+        terminal::ratatui::{buffer::Buffer, layout::Rect},
+    };
+    let (peer, config) = peer();
+    let mut f = Frontend::new(config);
+    wait(&mut f);
+    f.page = shr_desk::model::Page::Channel;
+    let v: Value =
+        serde_json::from_str(include_str!("fixtures/gp07/v2/snapshot-reply.json")).unwrap();
+    let mut p: shr_desk::processing::Snapshot =
+        serde_json::from_value(v["snapshot"].clone()).unwrap();
+    let u = f.state.as_mut().unwrap();
+    p.revision = u.snapshot.as_ref().unwrap().authority.revision.clone();
+    u.processing = Some(p);
+    u.processing_age_ms = Some(0);
+    u.received = Instant::now();
+    f.eq_fullscreen = true;
+    f.analysis_source = Some("main:left".into());
+    f.analysis_sources = vec![shr_desk::spectrum::Source {
+        id: "main:left".into(),
+        label: "Main left".into(),
+        tap: "main-pre-pa".into(),
+    }];
+    let selected = f.selected;
+    for (w, h) in [(160, 45), (200, 60), (80, 24), (60, 18)] {
+        let mut b = Buffer::empty(Rect::new(0, 0, w, h));
+        let hits = shr_desk::channel_panel::draw(&f, &mut b, Material::Text);
+        assert!(!hits.is_empty());
+        assert!(
+            hits.iter()
+                .all(|hit| hit.area.right() <= w && hit.area.bottom() <= h)
+        );
+        let text = b.content.iter().map(|c| c.symbol()).collect::<String>();
+        assert!(text.contains("EQ input-01"));
+        assert!(text.contains("∅"));
+        // Only one textual string, in the header; graph contains graphics only.
+        for y in 1..h {
+            for x in 0..w {
+                assert!(!b[(x, y)].symbol().chars().any(char::is_alphanumeric));
+            }
+        }
+        assert!(!text.chars().any(|c| ('\u{2800}'..='\u{28ff}').contains(&c)));
+        assert_eq!(shr_desk::fullscreen_eq::graph_area(b.area).width, w - 2);
+    }
+    assert_eq!(f.selected, selected);
+    assert!(f.processing_draft.is_none());
+    assert!(peer.seen.lock().unwrap().iter().all(|k| k == "snapshot"));
+    drop(f);
     drop(peer);
 }

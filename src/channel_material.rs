@@ -239,6 +239,34 @@ impl Drop for Materials {
 mod tests {
     use super::*;
     #[test]
+    fn rotating_one_knob_only_replaces_its_placement() {
+        let mut materials = Materials::default();
+        let mut placements = Vec::new();
+        add(&mut placements, "eq", 1, 0, -10);
+        add(&mut placements, "encoder_0", 3, 24, -7);
+        add(&mut placements, "encoder_0", 23, 24, -7);
+        assert_eq!(placements.len(), 3);
+        materials
+            .present(placements.clone(), &mut Vec::new())
+            .unwrap();
+        let mut rotated = Vec::new();
+        add(&mut rotated, "encoder_1", 3, 24, -7);
+        assert_eq!(rotated.len(), 1);
+        placements[1] = rotated.remove(0);
+        let mut bytes = Vec::new();
+        materials.present(placements.clone(), &mut bytes).unwrap();
+        let commands = String::from_utf8(bytes).unwrap();
+        assert_eq!(commands.matches("a=d,").count(), 1);
+        assert_eq!(commands.matches("a=p,").count(), 1);
+        assert!(!commands.contains("p=1,"));
+        assert!(!commands.contains("p=3,"));
+        let mut idle = Vec::new();
+        materials.present(placements, &mut idle).unwrap();
+        assert!(idle.is_empty());
+        materials.clear(&mut Vec::new()).unwrap();
+    }
+
+    #[test]
     fn idle_sends_no_assets_or_placements_and_changes_reuse_cache() {
         let mut m = Materials::default();
         let mut sink = vec![];

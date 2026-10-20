@@ -38,3 +38,6 @@ A documentation reconciliation does not rerun tests or qualify hardware.
 The shared [GP-UI-COMPARE](../../gigpies/docs/archive/records/2026-10-11-gp-ui-compare.md) owns the requested Ratatui/current-renderer comparison.
 
 The shared [GP-PANEL card](../../gigpies/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-panel--shared-physical-instrument-panel) owns the physical Ratatui panel, shared assets and specimen-first migration gates.
+
+Fullscreen EQ/RTA and GP-SPECTRUM:2 are contributions to that same GP-PANEL card;
+[terminal usage](TERMINAL.md#fullscreen-eq--rta) documents the operator workflow.

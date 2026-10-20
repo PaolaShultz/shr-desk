@@ -18,6 +18,16 @@ clipped review as presented. Terminal release-event support is queried. Held
 safety controls/confirmations that require release edges are refused on an
 unsupported path rather than generating a false release.
 
+Presentation is capped at 10 Hz (100 ms between completed submissions and the
+next frame), including graphical knobs, meters and spectrum. Outside fullscreen EQ/RTA, input events do not
+force extra frames: changes accumulate until the next presentation. Provider
+pumping keeps its independent maximum 40 ms idle wait, and input wakes that wait
+immediately. Slow frames skip missed deadlines rather than drawing catch-up frames.
+Review pages count as presented only after an actual submission; resizing fences
+input and discards old mouse targets until the next frame. Ratatui diffs text cells,
+and material images upload once with only changed placements sent thereafter.
+The cap reduces scheduled render work; whole-host CPU savings are not yet measured.
+
 The [shared presentation contract](../../gigpies/docs/reference/INSTRUMENT_PANEL.md)
 owns the Ratatui controls, font licence/authoring, primary Rio/font proof and
 fallback rules. Set `SHR_PANEL_FONT='SHR Panel Mono:0.3'` only with that verified
@@ -40,7 +50,7 @@ It contains working four-band EQ/compressor controls, exact fader/pan targets,
 mute/Hold, monitor-send navigation and live owner telemetry. Click a processing
 parameter to select its detached field, then edit with existing U/I/J/K/N/P or
 numeric keys. F4 opens the full review; a separate Enter confirms. The EQ curve is
-calculated settings response; the separate optional raw spectrum sits behind it. Missing engine features are
+calculated settings response; the separate independently selected spectrum sits behind it. Missing engine features are
 omitted. See the shared contract's selected-channel section for captures and
 current mouse/terminal limits.
 
@@ -122,20 +132,61 @@ workloads. Benchmark data never enters the connected production screen.
 Results and current acceptance belong only to GP-PANEL.
 
 
-Selected Channel spectrum is the optional local `GP-SPECTRUM:1` observer. Its
+Selected Channel spectrum uses the optional local/authenticated-remote
+`GP-SPECTRUM:2` observer, with explicit v1 fallback. Its
 [owning contract](../../gigpies/docs/reference/INSTRUMENT_PANEL.md#selected-channel-spectrum-contract)
 defines tap, digital amplitude normalization, finite payload, freshness and
 mixed-version fallback. Desk performs no audio analysis. Actual software proof
-and the latest two real-terminal screenshots are owned by the existing
+and retained visual evidence are owned by the existing
 [GP-PANEL card](../../gigpies/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-panel--shared-physical-instrument-panel).
 
 Explicit end-to-end test (no devices), after building the canonical GigPies
 `spectrum-source` example:
 
 ```sh
-flock -xn /home/shome/p/.gigpies-build.lock env CARGO_INCREMENTAL=0 GP_SPECTRUM_SOURCE=/home/shome/p/gigpies/target/debug/examples/spectrum-source cargo +1.97.1 test --locked -j1 --test spectrum -- --ignored --nocapture
+flock -xn /home/shome/p/.gigpies-build.lock env CARGO_INCREMENTAL=0 GP_SPECTRUM_SOURCE=/home/shome/p/gigpies/target/debug/examples/spectrum-source cargo +1.97.1 test --locked -j1 --test spectrum actual_provider_spectrum_recovery -- --ignored --nocapture
 ```
 
 The Channel render benchmark additionally accepts `--workload spectrum`; that
 workload and the moving meter workload are labelled synthetic test observations.
 They measure the actual renderer and terminal transport, never live audio.
+
+## Fullscreen EQ / RTA
+
+With the provider-backed Channel panel visible, F11 opens or closes the fullscreen
+EQ/RTA. In fullscreen, `[` and `]` cycle the provider's analysis-source inventory; changing this
+selection never changes the channel EQ target. Inputs are raw pre-processing;
+main L/R is pre-PA; configured outputs are their actual post-patch playback slots.
+The compact header identifies source/tap and the separate EQ target; ∅ marks
+missing/stale observations. It is the screen's only text string. While editing,
+it instead shows the EQ target, draft marker and selected frequency/gain/Q/entry.
+Frame/clock identity stays in the observation and freshness fences, not a panel.
+
+The plot fills the screen below that header, using width minus two border columns
+(158 at width 160). Filled spectrum columns dominate. Four coloured points show
+EQ frequency/gain, with horizontal nominal Q-width brackets (bandwidth f/Q,
+geometrically centred). The selected bracket is heavier; bypassed points are
+hollow with dashed brackets. There is no combined response curve, band-number
+text, legend, footer, help paragraph or telemetry panel in fullscreen.
+
+Click a point/bracket to select its band; existing E, U/I, J/K, numeric entry,
+F4 review, Enter confirmation and Esc cancellation remain available. F11 or the
+header exits. Supported size is 60×18 and larger; editing reviews still require
+160×45. Outside fullscreen, `[`/`]` remain pan controls; PA F11 remains Master EQ.
+Esc exits fullscreen only without a draft.
+
+GP-SPECTRUM:2 retains the 4096-point FFT and publishes native bins at 10 Hz. The
+renderer derives logarithmic column coverage from bin frequency boundaries;
+more columns do not imply more resolved bands. A v1 fallback is labelled as 64
+coarse bands. Spectrum height is fixed −96..0 dBFS; points use −18..+18 dB EQ gain. Frequency
+runs logarithmically from 20 Hz to 20 kHz. The scales are fixed, with no level
+normalization. Colour stops are dark green −96, green −72, yellow −54, orange −36,
+red −18 and brighter red 0 dBFS; colours interpolate between these fixed levels.
+Numerical legends are intentionally absent from this visual view. Fullscreen key interaction can redraw before
+the ordinary 100 ms presentation deadline; the analysis worker remains at 10 Hz.
+Both the private local socket and configured authenticated QUIC connection use
+this observer, separate from editing authority. No DSP runs in Desk.
+
+The [shared spectrum contract](../../gigpies/docs/reference/INSTRUMENT_PANEL.md#selected-channel-spectrum-contract)
+and [GP-PANEL owning card](../../gigpies/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-panel--shared-physical-instrument-panel)
+define compatibility, resource bounds, validation and remaining qualification.

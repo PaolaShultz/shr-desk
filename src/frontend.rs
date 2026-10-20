@@ -288,6 +288,9 @@ pub struct Frontend {
     meter_generation: u64,
     pub meters: crate::metering::Cache,
     pub spectrum: Option<crate::spectrum::Worker>,
+    pub eq_fullscreen: bool,
+    pub analysis_source: Option<String>,
+    pub analysis_sources: Vec<crate::spectrum::Source>,
     pub meter_page: bool,
     pub meter_processed: bool,
     pub meter_bus_bank: usize,
@@ -351,6 +354,9 @@ impl Frontend {
             meter_generation: 0,
             meters: crate::metering::Cache::default(),
             spectrum: None,
+            eq_fullscreen: false,
+            analysis_source: None,
+            analysis_sources: vec![],
             meter_page: false,
             meter_processed: false,
             meter_bus_bank: 0,
@@ -645,8 +651,24 @@ impl Frontend {
             .and_then(|u| u.snapshot.as_ref())
             .and_then(|s| s.authority.inputs.get(self.selected))
             .cloned();
-        if self.module_config.remote.is_none() && self.fresh() && self.channel_panel_visible() {
-            if let (Some(id), Some(input)) = (identity.clone(), selection) {
+        if self.meter_generation != self.provider.generation() || identity != self.meter_identity {
+            if let Some(worker) = &self.spectrum {
+                worker.stop();
+            }
+            self.analysis_sources.clear();
+            self.analysis_source = None;
+        }
+        if let Some(worker) = &self.spectrum {
+            let choices = worker.sources();
+            if !choices.is_empty() {
+                self.analysis_sources = choices;
+            }
+        }
+        if self.analysis_source.is_none() {
+            self.analysis_source = selection;
+        }
+        if self.fresh() && self.channel_panel_visible() {
+            if let (Some(id), Some(input)) = (identity.clone(), self.analysis_source.clone()) {
                 let key = format!(
                     "{}:{}:{}:{}",
                     self.provider.generation(),
@@ -654,7 +676,14 @@ impl Frontend {
                     id.map,
                     input
                 );
-                if self.spectrum.as_ref().is_none_or(|w| w.key != key) {
+                if let Some(worker) = &self.spectrum
+                    && worker.key != key
+                {
+                    worker.stop();
+                }
+                // Retire the bounded in-flight read before creating its replacement;
+                // rapid source/page changes never accumulate observer threads.
+                if self.spectrum.as_ref().is_none_or(|w| w.finished()) {
                     self.spectrum = Some(crate::spectrum::Worker::start(
                         self.module_config.clone(),
                         id,
@@ -664,7 +693,12 @@ impl Frontend {
                 }
             }
         } else {
-            self.spectrum = None;
+            if let Some(worker) = &self.spectrum {
+                worker.stop();
+            }
+            if self.spectrum.as_ref().is_some_and(|w| w.finished()) {
+                self.spectrum = None;
+            }
         }
         if self.meter_generation != self.provider.generation() || identity != self.meter_identity {
             if let Some(worker) = &self.meter_client {
@@ -981,6 +1015,38 @@ impl Frontend {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<(), String> {
+        if self.channel_panel_visible() {
+            if key == "F11"
+                || (self.eq_fullscreen
+                    && matches!(key, "Esc" | "Escape")
+                    && self.processing_draft.is_none())
+            {
+                self.eq_fullscreen = !self.eq_fullscreen;
+                return Ok(());
+            }
+            if self.eq_fullscreen && matches!(key, "[" | "]") {
+                if self.analysis_sources.is_empty() {
+                    self.message = "RTA sources unavailable".into();
+                    return Ok(());
+                }
+                let at = self
+                    .analysis_sources
+                    .iter()
+                    .position(|s| Some(&s.id) == self.analysis_source.as_ref())
+                    .unwrap_or(0);
+                let n = self.analysis_sources.len();
+                let next = if key == "]" {
+                    (at + 1) % n
+                } else {
+                    (at + n - 1) % n
+                };
+                self.analysis_source = Some(self.analysis_sources[next].id.clone());
+                if let Some(worker) = &self.spectrum {
+                    worker.stop();
+                }
+                return Ok(());
+            }
+        }
         if self.fx_ui.open && matches!(key, "Esc" | "Escape") {
             return self.action(Action::Cancel);
         }
