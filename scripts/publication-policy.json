@@ -26,7 +26,8 @@
     ".githooks/pre-push",
     "scripts/check_publication.py",
     "scripts/test_publication.py",
-    ".github/workflows/ci.yml"
+    ".github/workflows/ci.yml",
+    "scripts/build_channel_materials.py"
   ],
   "binary_artwork": [],
   "binary_assets": {

@@ -10,6 +10,59 @@ transposition. SHR FX's interface records physical clicks on rotaries 1 and 9.
 The encoders are endless controls, not motorized faders. Learn their actual
 absolute/relative encoding; never infer it from appearance or CC number.
 
+## Selected Channel: eight physical columns
+
+The operator's October 12 direction defines the selected Channel layout. The screen follows the MiniLab mkII's two rows of eight encoders and one
+row of eight pads. These are intended physical positions, not verified CC/note
+bindings. The [Arturia manual](https://downloads.arturia.com/products/minilab-mkII/manual/MiniLabmkII_Manual_1_0_7_EN.pdf)
+describes the pad 1–8 / 9–16 bank switch; it does not establish our active preset's
+messages or LED feedback protocol.
+
+| Column / pad | Upper encoder | Lower encoder |
+|---|---|---|
+| 1 | 1: band 1 frequency | 9: band 1 gain |
+| 2 | 2: band 2 frequency | 10: band 2 gain |
+| 3 | 3: band 3 frequency | 11: band 3 gain |
+| 4 | 4: band 4 frequency | 12: band 4 gain |
+| 5 | 5: threshold | 13: attack |
+| 6 | 6: ratio | 14: release |
+| 7 | 7: knee | 15: makeup |
+| 8 | 8: pan | 16: channel level |
+
+The eight primary pads are Band 1, Band 2, Band 3, Band 4, Compressor,
+Review/Apply, Hold and Output. Band menus expose frequency, gain, Q, individual
+and global EQ bypass, review, cancellation and Back. The compressor menu exposes
+its six parameters, bypass and Back. Output exposes pan, level, mute, Hold,
+release, sends, cancellation and Back. Mute is secondary to the level pot.
+
+The 9–16 layer carries Mix, Channel, Sends, Health, Writer Grant, Release Hold,
+Cancel and Reconnect. Menu meanings are local to the selected screen. Clicking
+`PADS 1–8` / `PADS 9–16` changes this preview layer; clicking a pad uses the same
+existing semantic field or action path. It does not synthesize a MIDI message.
+Green indicates fresh owner-enabled processing, red fresh owner mute, amber Hold
+or an edit requiring review, and blue local selection/navigation. These meanings
+are labelled on screen; green is not evidence that a physical output is playing.
+
+Still missing: learned encoder encoding and pad-bank messages for the actual
+preset, context-bound dispatch through the production controller path, LED colour
+feedback, pickup/fine behavior and physical end-to-end qualification. No port is
+opened and no controller memory is programmed by the terminal preview. Exact
+entry, grants, full review, freshness and confirmation fences remain unchanged.
+
+### Bank-switch evidence (software investigation, 2026-10-12)
+
+Arturia MiniLab mkII manual 1.0.7 §§2.1.4, 2.1.7 and 3.4 describes the
+button selecting two sets of subsequent pad functions and the illuminated second
+bank. It does **not** specify a separate MIDI message emitted by the bank button.
+Therefore neither “distinct message” nor “only subsequent messages” is verified
+for this device/preset. Desk `src/midi.rs` currently decodes one fixture bank of
+eight note numbers; it has no bank-switch decoder. Its two-bank SysEx encoder is
+output construction, not evidence of input behavior. No MIDI port was opened.
+The eventual profile must capture the button alone and both banks' pad messages;
+until then the on-screen layer selector is a software menu control only. Learned
+CC/note assignments, encoder modes and LED feedback remain outside the operating
+screen and unqualified.
+
 ## Channel selection by pitch
 
 All piano keys, including black keys and the upper end key, select channels.
@@ -52,15 +105,13 @@ future selected-channel-first profile before deciding ergonomics permanently.
 |---|---|---|---|---|---|---|
 | Mix | Channels 1–8 level in visible bank | Channels 9–12 level | Selected channel level | Selected pan | Select bus/scope, confirm before switching sends | Main level, only with explicit capability/grant |
 | Sends | Send levels 1–8 to named bus | Sends 9–12 | Selected send | Send pan if supported | Destination browse/confirm | Current bus master |
-| Channel: EQ | Four pairs of frequency/gain | Four Q/bandwidth values | Selected level | Pan | Section browse | Focused value/fine adjustment |
-| Channel: dynamics | Gate/comp parameters in displayed order | Remaining supported controls | Selected level | Makeup if supported | Section browse | Focused value/fine adjustment |
 | FX | Owner-provided named parameters | Owner-provided named parameters | Return level | Wet balance if meaningful | Slot browse | Focused value |
 | Analysis | Cursor/range/zoom controls, no sound edits | Time/frequency controls | Tap browse | Freeze display | Panel browse | Focused value |
 
 Unsupported positions show `--` and emit no commands. The initial simulator
 implements Mix absolute-value controls K01–K14 only; K15/K16 refuse changes.
-EQ, dynamics and FX maps are proposals dependent on descriptors, not hard-coded
-DSP assumptions. Never map phantom power, routing, PA protection or recorder stop
+Channel uses the eight-column table above. Other context maps remain proposals
+dependent on descriptors, not hard-coded DSP assumptions. Never map phantom power, routing, PA protection or recorder stop
 to an unguarded rotary.
 
 Learned clicks on K01/K09 can provide Open/Confirm and Back/Cancel, following SHR
@@ -70,8 +121,9 @@ may provide fine mode only after release/timeout behavior has been verified.
 
 ## Eight pads, visible actions and feedback
 
-Base page is deliberately stable. A dedicated menu/picker is allowed for less
-frequent actions, but the footer must show what all eight pads will do right now.
+The earlier simulator base-page proposal below remains separate from the
+selected Channel menus above. Every screen must show what all eight pads will
+do in its current context.
 
 | Pad | Base action | State shown |
 |---|---|---|
@@ -89,9 +141,9 @@ panel, they show Confirm/Cancel. No global mode cycling or mix recall from an
 unlabelled tap. Channel selection while a dialog is open cancels or explicitly
 retargets it; never apply a preview to a newly selected channel by accident.
 
-The second hardware pad bank initially mirrors the same eight semantic actions
-and colours. It is not sixteen physical pads, extra modifier buttons, or a
-different user memory. No dependency on a specific User2 preset is established.
+The simulator originally proposed mirroring both banks. Selected Channel now
+uses 9–16 for the less-used actions listed above. These are eight physical pads
+with two logical layers, not extra physical pads or a different user memory. No dependency on a specific User2 preset is established.
 Mapping both logical input banks and transient device gestures requires capture
 and acceptance. The simulator currently models one fixture input bank; it can
 encode feedback for both banks. P6/P7 in the simulator show guidance; the explicit

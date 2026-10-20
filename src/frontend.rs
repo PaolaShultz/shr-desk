@@ -287,6 +287,7 @@ pub struct Frontend {
     meter_identity: Option<crate::metering::Identity>,
     meter_generation: u64,
     pub meters: crate::metering::Cache,
+    pub spectrum: Option<crate::spectrum::Worker>,
     pub meter_page: bool,
     pub meter_processed: bool,
     pub meter_bus_bank: usize,
@@ -349,6 +350,7 @@ impl Frontend {
             meter_identity: None,
             meter_generation: 0,
             meters: crate::metering::Cache::default(),
+            spectrum: None,
             meter_page: false,
             meter_processed: false,
             meter_bus_bank: 0,
@@ -637,6 +639,33 @@ impl Frontend {
                     rate: 48000,
                 })
         });
+        let selection = self
+            .state
+            .as_ref()
+            .and_then(|u| u.snapshot.as_ref())
+            .and_then(|s| s.authority.inputs.get(self.selected))
+            .cloned();
+        if self.module_config.remote.is_none() && self.fresh() && self.channel_panel_visible() {
+            if let (Some(id), Some(input)) = (identity.clone(), selection) {
+                let key = format!(
+                    "{}:{}:{}:{}",
+                    self.provider.generation(),
+                    id.epoch,
+                    id.map,
+                    input
+                );
+                if self.spectrum.as_ref().is_none_or(|w| w.key != key) {
+                    self.spectrum = Some(crate::spectrum::Worker::start(
+                        self.module_config.clone(),
+                        id,
+                        input,
+                        key,
+                    ));
+                }
+            }
+        } else {
+            self.spectrum = None;
+        }
         if self.meter_generation != self.provider.generation() || identity != self.meter_identity {
             if let Some(worker) = &self.meter_client {
                 worker.stop();

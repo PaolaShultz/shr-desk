@@ -1,5 +1,6 @@
-//! Selected-channel equipment layout over confirmed provider data, never UI DSP state.
-use crate::{frontend::Frontend, processing::FIELDS};
+//! Selected Channel follows the MiniLab's two rotary rows and eight pad columns.
+//! Provider state/actions retain authority; the layout is not a learned MIDI map.
+use crate::frontend::Frontend;
 use shr_instrument_panel::terminal::ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -10,51 +11,35 @@ use shr_instrument_panel::terminal::ratatui::{
     },
 };
 use shr_instrument_panel::{Material, rack::*};
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Menu {
+    #[default]
+    Channel,
+    Band(usize),
+    Compressor,
+    Output,
+}
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PanelUi {
+    pub menu: Menu,
+    pub secondary: bool,
+}
 #[derive(Clone, Debug)]
 pub enum Target {
     Key(&'static str),
     Field(usize),
+    Menu(Menu),
+    Layer,
 }
 #[derive(Clone, Debug)]
 pub struct Hit {
     pub area: Rect,
     pub target: Target,
 }
-fn key(
-    b: &mut Buffer,
-    h: &mut Vec<Hit>,
-    a: Rect,
-    label: &str,
-    k: &'static str,
-    on: bool,
-    m: Material,
-) {
-    button(b, a, label, on, k == "M" && on, m);
-    h.push(Hit {
-        area: a,
-        target: Target::Key(k),
-    });
-}
-fn field(
-    b: &mut Buffer,
-    h: &mut Vec<Hit>,
-    a: Rect,
-    label: &str,
-    value: &str,
-    index: usize,
-    selected: bool,
-) {
-    text(
-        b,
-        a.x,
-        a.y,
-        a.width,
-        label,
-        if selected { CYAN } else { DIM },
-    );
+fn readout(b: &mut Buffer, h: &mut Vec<Hit>, a: Rect, value: &str, target: Target, selected: bool) {
     fill(
         b,
-        Rect::new(a.x, a.y + 1, a.width, 1),
+        a,
         if selected {
             Color::Rgb(32, 69, 81)
         } else {
@@ -64,17 +49,156 @@ fn field(
     text(
         b,
         a.x + 1,
-        a.y + 1,
-        a.width - 1,
+        a.y,
+        a.width.saturating_sub(2),
         value,
         if selected { CYAN } else { TEXT },
     );
-    h.push(Hit {
-        area: a,
-        target: Target::Field(index),
-    });
+    h.push(Hit { area: a, target });
 }
+fn pot(
+    b: &mut Buffer,
+    h: &mut Vec<Hit>,
+    (column, row): (u16, u16),
+    label: &str,
+    (value, n): (&str, f64),
+    (target, selected): (Target, bool),
+    m: Material,
+) {
+    let x = column * 20;
+    let y = if row == 0 { 24 } else { 33 };
+    text(
+        b,
+        x + 2,
+        y - 1,
+        18,
+        &format!("{:02} {label}", column + 1 + row * 8),
+        if selected { CYAN } else { DIM },
+    );
+    encoder(b, x + 6, y, n, m);
+    h.push(Hit {
+        area: Rect::new(x + 4, y, 12, 4),
+        target: target.clone(),
+    });
+    readout(
+        b,
+        h,
+        Rect::new(x + 2, y + 5, 16, 1),
+        value,
+        target,
+        selected,
+    );
+}
+fn pad(
+    b: &mut Buffer,
+    h: &mut Vec<Hit>,
+    (col, number): (u16, u16),
+    label: &str,
+    target: Target,
+    (colour, on): (&str, bool),
+    m: Material,
+) {
+    let x = 1 + col * 20;
+    let area = Rect::new(x, 44, 18, 1);
+    let face = if colour == "red" && on {
+        Color::Rgb(113, 37, 43)
+    } else if on {
+        Color::Rgb(57, 78, 89)
+    } else {
+        Color::Rgb(87, 94, 103)
+    };
+    fill(b, area, face);
+    let label = match label {
+        "REVIEW / APPLY" => "REVIEW",
+        "WRITER GRANT" => "GRANT",
+        "RELEASE HOLD" => "RELEASE",
+        other => other,
+    };
+    text(b, x + 1, 44, 2, &format!("{number:02}"), TEXT);
+    text(b, x + 4, 44, 11, label, TEXT);
+    indicator(b, x + 15, 44, colour, on, m);
+    h.push(Hit { area, target });
+}
+/// Default entry retained for fallback and focused workflow regression tests.
+/// Observed raw input levels and independently fresh owner gain reduction.
+/// Reduction fills downward; missing observations leave an unlit scale and dash.
+fn compressor_meter(
+    b: &mut Buffer,
+    x: u16,
+    label: &str,
+    value: Option<i32>,
+    reduction: bool,
+    silent: bool,
+) {
+    well(b, Rect::new(x, 3, 14, 19));
+    text(b, x + 1, 4, 12, label, DIM);
+    let amount = value.map_or(0., |v| {
+        if reduction {
+            (f64::from(v) / 24000.).clamp(0., 1.)
+        } else {
+            ((f64::from(v) + 60000.) / 60000.).clamp(0., 1.)
+        }
+    });
+    for row in 0..13u16 {
+        let step = if reduction { row + 1 } else { 13 - row };
+        let colour = if value.is_some() && f64::from(step) / 13. <= amount {
+            if reduction {
+                AMBER
+            } else if row == 0 {
+                RED
+            } else if row < 3 {
+                AMBER
+            } else {
+                CYAN
+            }
+        } else {
+            Color::Rgb(29, 39, 45)
+        };
+        text(b, x + 2, 6 + row, 4, "▰▰▰▰", colour);
+    }
+    for (row, level) in if reduction {
+        [(6, " 0"), (9, " 6"), (12, "12"), (15, "18"), (18, "24")]
+    } else {
+        [
+            (6, "  0"),
+            (9, "-15"),
+            (12, "-30"),
+            (15, "-45"),
+            (18, "-60"),
+        ]
+    } {
+        text(b, x + 8, row, 5, level, DIM);
+    }
+    let reading = if silent {
+        "−inf".into()
+    } else {
+        value.map_or("—".into(), |v| format!("{:.1}", f64::from(v) / 1000.))
+    };
+    text(
+        b,
+        x + 2,
+        20,
+        11,
+        &reading,
+        if reduction { AMBER } else { CYAN },
+    );
+}
+
 pub fn draw(f: &Frontend, b: &mut Buffer, m: Material) -> Vec<Hit> {
+    draw_with_ui(f, b, m, &PanelUi::default())
+}
+pub fn draw_with_ui(f: &Frontend, b: &mut Buffer, m: Material, ui: &PanelUi) -> Vec<Hit> {
+    let spectrum = f.spectrum.as_ref().and_then(|w| w.view());
+    draw_observation(f, b, m, ui, spectrum.as_ref())
+}
+/// Draw an already validated observation. Explicit benchmark fixtures use this same renderer.
+pub fn draw_observation(
+    f: &Frontend,
+    b: &mut Buffer,
+    m: Material,
+    ui: &PanelUi,
+    spectrum: Option<&crate::spectrum::View>,
+) -> Vec<Hit> {
     let mut hits = Vec::new();
     if b.area.width < 160 || b.area.height < 45 {
         text(
@@ -100,152 +224,72 @@ pub fn draw(f: &Frontend, b: &mut Buffer, m: Material) -> Vec<Hit> {
     let fader = parameter("fader");
     let pan = parameter("pan");
     let mute = parameter("mute");
+    let muted = mute.is_some_and(|p| p.target_value.as_bool() == Some(true));
+    let held = fader.is_some_and(|p| p.hold.is_some());
     fill(b, b.area, Color::Rgb(19, 23, 27));
-    fill(b, Rect::new(0, 0, 160, 2), Color::Rgb(91, 26, 34));
-    text(b, 2, 0, 20, "SHR / DESK", TEXT);
+    panel(b, Rect::new(1, 0, 78, 44), "");
+    panel(b, Rect::new(81, 0, 58, 44), "");
+    panel(b, Rect::new(141, 0, 18, 44), "");
     text(
         b,
-        24,
-        0,
-        60,
-        &format!("CHANNEL {:02}   /   {}", f.selected + 1, input),
-        TEXT,
-    );
-    text(
-        b,
-        2,
-        1,
-        145,
-        "SELECTED CHANNEL     INPUT → FOUR-BAND EQ → COMPRESSOR → MUTE / FADER / PAN → FOH",
-        Color::Rgb(220, 177, 179),
-    );
-    indicator(b, 110, 0, "green", f.fresh() && !raw.faulted, m);
-    text(
-        b,
-        114,
-        0,
-        16,
-        if raw.faulted {
-            "OWNER FAULT"
-        } else if f.fresh() {
-            "OWNER FRESH"
-        } else {
-            "OWNER STALE"
-        },
-        TEXT,
-    );
-    text(
-        b,
-        132,
-        0,
-        27,
-        if !f.fresh() || raw.faulted || f.role_status.as_ref().is_some_and(|r| !r.live) {
-            "WRITES BLOCKED"
-        } else if u.writer_granted() {
-            "WRITER GRANTED"
-        } else {
-            "READ ONLY"
-        },
-        AMBER,
-    );
-    text(
-        b,
-        2,
         3,
-        156,
-        &format!(
-            "{}  /  epoch {}  /  revision {}  /  no physical output qualification",
-            raw.protection, raw.authority.epoch, raw.authority.revision
-        ),
-        AMBER,
+        1,
+        32,
+        &format!("{:02} / {}", f.selected + 1, input),
+        DIM,
     );
-    for (x, label, k) in [
-        (2, "MIX", "F1"),
-        (15, "CHANNEL", "F2"),
-        (32, "HEALTH", "F6"),
-        (48, "SENDS", "F12"),
-        (77, "◀ CHANNEL", "Left"),
-        (88, "CHANNEL ▶", "Right"),
-        (102, "◀ BANK", "PageUp"),
-        (111, "BANK ▶", "PageDown"),
-    ] {
-        text(
-            b,
-            x,
-            2,
-            label.chars().count() as u16,
-            label,
-            if k == "F2" { CYAN } else { DIM },
-        );
-        hits.push(Hit {
-            area: Rect::new(x, 2, label.chars().count() as u16, 1),
-            target: Target::Key(k),
-        });
-    }
-    panel(b, Rect::new(1, 4, 84, 25), "01 / PARAMETRIC EQUALIZER");
-    panel(b, Rect::new(86, 4, 48, 25), "02 / COMPRESSOR");
-    panel(b, Rect::new(135, 4, 24, 36), "03 / OUTPUT · FOH");
+    text(
+        b,
+        36,
+        1,
+        20,
+        if ui.secondary {
+            "PADS 9–16"
+        } else {
+            "PADS 1–8"
+        },
+        CYAN,
+    );
+    hits.push(Hit {
+        area: Rect::new(36, 1, 20, 1),
+        target: Target::Layer,
+    });
     let proc = u.processing.as_ref();
     let channel = proc.and_then(|p| p.channels.iter().find(|c| c.input == *input));
     if let Some(c) = channel {
         let cfg = f.processing_draft.as_ref().map_or(&c.target, |d| &d.config);
         let selected = |i| f.processing_draft.is_some() && f.processing_field == i;
-        let status = if !f.processing_fresh() {
-            "STALE · retained settings"
-        } else if proc.is_some_and(|p| p.faulted) {
-            "FAULT · edits blocked"
-        } else if !c.ready {
-            "TRANSITION · target settings"
-        } else if f.processing_draft.is_some() {
-            "LOCAL DRAFT · not applied"
-        } else {
-            "CONFIRMED TARGET"
-        };
-        text(
-            b,
-            3,
-            6,
-            48,
-            status,
-            if f.processing_draft.is_some() {
-                AMBER
-            } else {
-                CYAN
-            },
-        );
-        field(
-            b,
-            &mut hits,
-            Rect::new(65, 5, 17, 2),
-            "EQUALIZER",
-            if cfg.eq_bypass { "BYPASS" } else { "IN" },
-            0,
-            selected(0),
-        );
         indicator(
             b,
             60,
-            6,
+            1,
             "green",
             f.processing_fresh() && !c.current.eq_bypass,
             m,
         );
-        indicator(
+        readout(
             b,
-            108,
-            6,
-            "green",
-            f.processing_fresh() && !c.current.compressor_bypass,
-            m,
+            &mut hits,
+            Rect::new(64, 1, 13, 1),
+            if !f.processing_fresh() {
+                "EQ STALE"
+            } else if cfg.eq_bypass {
+                "EQ BYPASS"
+            } else {
+                "EQ IN"
+            },
+            Target::Field(0),
+            selected(0),
         );
-        well(b, Rect::new(3, 8, 79, 10));
-        let graph = Rect::new(9, 9, 71, 7);
+        well(b, Rect::new(3, 3, 74, 19));
+        let graph = Rect::new(8, 4, 63, 16);
         if let Ok(bank) = crate::eq_response::channel_coefficients(cfg, proc.unwrap().sample_rate) {
             let points: Vec<_> = (0..=280)
                 .map(|i| {
                     let x = i as f64 / 280. * 3.;
                     let hz = 20. * 10f64.powf(x);
-                    let y = crate::eq_response::response(&bank, 48000, hz).map_or(0., |v| v.0);
+                    let y = crate::eq_response::response(&bank, proc.unwrap().sample_rate, hz)
+                        .map_or(0., |v| v.0);
                     (x, y)
                 })
                 .collect();
@@ -254,7 +298,40 @@ pub fn draw(f: &Frontend, b: &mut Buffer, m: Material) -> Vec<Hit> {
                 .x_bounds([0., 3.])
                 .y_bounds([-18., 18.])
                 .paint(|ctx| {
-                    for db in [-12., 0., 12.] {
+                    if let Some(s) = &spectrum {
+                        for (i, db) in s.bins.iter().enumerate() {
+                            let x = (i as f64 + 0.5) * 3. / 64.;
+                            let y =
+                                -18. + (f64::from(*db) / 1000. + 96.).clamp(0., 96.) * 36. / 96.;
+                            for offset in [-0.012, -0.006, 0., 0.006, 0.012] {
+                                for (bottom, top, colour) in [
+                                    (-18., 4.5, Color::Rgb(35, 76, 101)),
+                                    (4.5, 13.5, Color::Rgb(45, 118, 87)),
+                                    (13.5, 18., Color::Rgb(157, 112, 43)),
+                                ] {
+                                    if y > bottom {
+                                        ctx.draw(&Line {
+                                            x1: x + offset,
+                                            x2: x + offset,
+                                            y1: bottom,
+                                            y2: y.min(top),
+                                            color: colour,
+                                        });
+                                    }
+                                }
+                            }
+                            let py = -18.
+                                + (f64::from(s.peaks[i]) / 1000. + 96.).clamp(0., 96.) * 36. / 96.;
+                            ctx.draw(&Line {
+                                x1: x - 0.012,
+                                x2: x + 0.012,
+                                y1: py,
+                                y2: py,
+                                color: Color::Rgb(97, 123, 137),
+                            });
+                        }
+                    }
+                    for db in [-12., -6., 0., 6., 12.] {
                         ctx.draw(&Line {
                             x1: 0.,
                             x2: 3.,
@@ -289,534 +366,511 @@ pub fn draw(f: &Frontend, b: &mut Buffer, m: Material) -> Vec<Hit> {
                 })
                 .render(graph, b);
         }
-        text(b, 4, 10, 5, "+12", DIM);
-        text(b, 4, 12, 5, "  0", DIM);
-        text(b, 4, 14, 5, "-12", DIM);
+        for (y, s) in [
+            (4, "+18"),
+            (7, "+12"),
+            (9, " +6"),
+            (12, "  0"),
+            (14, " -6"),
+            (17, "-12"),
+            (19, "-18"),
+        ] {
+            text(b, 4, y, 4, s, DIM);
+        }
         for (hz, label) in [
-            (20_f64, "20"),
+            (20f64, "20"),
             (100., "100"),
             (1000., "1k"),
             (10000., "10k"),
             (20000., "20k"),
         ] {
-            let x = 9 + ((hz / 20.).log10() / 3. * 70.).round() as u16;
+            let x = 8 + ((hz / 20.).log10() / 3. * 62.).round() as u16;
             text(
                 b,
-                x.saturating_sub((label.len() / 2) as u16),
-                16,
+                x.saturating_sub(label.len() as u16 / 2),
+                20,
                 5,
                 label,
                 DIM,
             );
         }
-        text(
-            b,
-            5,
-            8,
-            66,
-            "EQ RESPONSE / ±18 dB window · calculated settings",
-            DIM,
-        );
         for (i, (hz, g, q, bypass)) in cfg.bands().iter().enumerate() {
-            let x = 3 + i as u16 * 20;
+            let x = i as u16 * 20;
             let base = 1 + i * 4;
-            text(
-                b,
-                x,
-                18,
-                18,
-                &format!("BAND {} / BELL", i + 1),
-                [
-                    CYAN,
-                    Color::Rgb(164, 202, 139),
-                    AMBER,
-                    Color::Rgb(190, 165, 222),
-                ][i],
-            );
-            encoder(b, x, 19, (*hz as f64 / 20.).log10() / 3., m);
-            field(
+            pot(
                 b,
                 &mut hits,
-                Rect::new(x + 7, 19, 11, 2),
-                "Hz",
-                &hz.to_string(),
-                base,
-                selected(base),
+                (i as u16, 0),
+                "FREQ / Hz",
+                (&hz.to_string(), (*hz as f64 / 20.).log10() / 3.),
+                (Target::Field(base), selected(base)),
+                m,
             );
-            field(
+            pot(
                 b,
                 &mut hits,
-                Rect::new(x, 23, 9, 2),
-                "GAIN dB",
-                &format!("{:+.1}", *g as f64 / 1000.),
-                base + 1,
-                selected(base + 1),
+                (i as u16, 1),
+                "GAIN / dB",
+                (
+                    &format!("{:+.1}", *g as f64 / 1000.),
+                    (*g as f64 + 18000.) / 36000.,
+                ),
+                (Target::Field(base + 1), selected(base + 1)),
+                m,
             );
-            field(
+            readout(
                 b,
                 &mut hits,
-                Rect::new(x + 10, 23, 8, 2),
-                "Q",
-                &format!("{:.1}", *q as f64 / 1000.),
-                base + 2,
+                Rect::new(x + 2, 40, 8, 1),
+                &format!("Q {:.1}", *q as f64 / 1000.),
+                Target::Field(base + 2),
                 selected(base + 2),
             );
-            field(
+            readout(
                 b,
                 &mut hits,
-                Rect::new(x, 26, 18, 2),
-                "BAND STATE",
-                if *bypass { "BYPASS" } else { "IN" },
-                base + 3,
+                Rect::new(x + 11, 40, 7, 1),
+                if *bypass { "BYP" } else { "IN" },
+                Target::Field(base + 3),
                 selected(base + 3),
             );
-            let settled_bypass = c.current.bands()[i].3;
             indicator(
                 b,
                 x + 14,
-                26,
+                42,
                 "green",
-                f.processing_fresh() && !c.current.eq_bypass && !settled_bypass,
+                f.processing_fresh() && !c.current.eq_bypass && !c.current.bands()[i].3,
                 m,
             );
-            hits.push(Hit {
-                area: Rect::new(x, 19, 6, 3),
-                target: Target::Field(base),
-            });
         }
-        field(
+        indicator(
+            b,
+            121,
+            1,
+            "green",
+            f.processing_fresh() && !c.current.compressor_bypass,
+            m,
+        );
+        readout(
             b,
             &mut hits,
-            Rect::new(112, 5, 19, 2),
-            "COMPRESSOR",
-            if cfg.compressor_bypass {
+            Rect::new(125, 1, 12, 1),
+            if !f.processing_fresh() {
+                "COMP STALE"
+            } else if cfg.compressor_bypass {
                 "BYPASS"
             } else {
-                "IN"
+                "COMP IN"
             },
-            17,
+            Target::Field(17),
             selected(17),
         );
-        text(b, 88, 6, 22, "GAIN REDUCTION / dB", DIM);
-        well(b, Rect::new(88, 8, 43, 3));
-        if f.processing_fresh() && !proc.unwrap().faulted && c.ready {
-            if c.target.compressor_bypass {
-                text(b, 90, 9, 39, "BYPASSED", DIM);
-            } else if let Some(gr) = c.gain_reduction_mdb {
-                let n = ((gr as f64 / 24000.).clamp(0., 1.) * 30.).round() as u16;
-                for x in 0..30 {
-                    text(
-                        b,
-                        90 + x,
-                        9,
-                        1,
-                        "▰",
-                        if x < n { AMBER } else { Color::Rgb(41, 52, 59) },
-                    );
-                }
-                text(b, 122, 9, 8, &format!("{:.1}", gr as f64 / 1000.), AMBER);
-            } else {
-                text(b, 90, 9, 39, "NO DETECTOR TELEMETRY", DIM);
-            }
+        let gr = if f.processing_fresh() && c.ready {
+            c.gain_reduction_mdb
         } else {
-            text(b, 90, 9, 39, "STALE / NO LIVE GR", AMBER);
+            None
+        };
+        let raw_tap = f
+            .meters
+            .snapshot
+            .as_ref()
+            .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:raw")))
+            .filter(|t| t.valid && f.meters.fresh(std::time::Instant::now()));
+        for (x, label, value, reduction) in [
+            (
+                83,
+                "RAW PEAK",
+                raw_tap.and_then(|t| t.peak_millidbfs),
+                false,
+            ),
+            (103, "RAW RMS", raw_tap.and_then(|t| t.rms_millidbfs), false),
+            (123, "GR", gr.map(|v| v as i32), true),
+        ] {
+            compressor_meter(
+                b,
+                x,
+                label,
+                value,
+                reduction,
+                !reduction && raw_tap.is_some_and(|t| t.silent),
+            );
         }
-        text(b, 90, 11, 39, "0          12           24 dB", DIM);
+        text(b, 84, 22, 32, "dBFS · raw input", DIM);
+        text(b, 124, 22, 12, "dB reduction", DIM);
+        text(
+            b,
+            4,
+            22,
+            74,
+            if spectrum.is_some() {
+                "Hz           raw FFT · dBFS −96..0"
+            } else {
+                "Hz           raw FFT —"
+            },
+            DIM,
+        );
         let knobs = [
             (
-                "THRESH dBFS",
+                4,
+                0,
+                "THRESH / dB",
                 format!("{:.1}", cfg.threshold_mdb as f64 / 1000.),
                 18,
                 (cfg.threshold_mdb as f64 + 60000.) / 60000.,
             ),
             (
+                5,
+                0,
                 "RATIO",
                 format!("{:.1}:1", cfg.ratio_milli as f64 / 1000.),
                 19,
                 (cfg.ratio_milli as f64 - 1000.) / 19000.,
             ),
             (
-                "ATTACK ms",
-                format!("{:.1}", cfg.attack_us as f64 / 1000.),
-                21,
-                cfg.attack_us as f64 / 200000.,
-            ),
-            (
-                "RELEASE ms",
-                cfg.release_ms.to_string(),
-                22,
-                cfg.release_ms as f64 / 2000.,
-            ),
-            (
-                "KNEE dB",
+                6,
+                0,
+                "KNEE / dB",
                 format!("{:.1}", cfg.knee_mdb as f64 / 1000.),
                 20,
                 cfg.knee_mdb as f64 / 18000.,
             ),
             (
-                "MAKEUP dB",
+                4,
+                1,
+                "ATTACK / ms",
+                format!("{:.1}", cfg.attack_us as f64 / 1000.),
+                21,
+                cfg.attack_us as f64 / 200000.,
+            ),
+            (
+                5,
+                1,
+                "RELEASE / ms",
+                cfg.release_ms.to_string(),
+                22,
+                cfg.release_ms as f64 / 2000.,
+            ),
+            (
+                6,
+                1,
+                "MAKEUP / dB",
                 format!("{:+.1}", cfg.makeup_mdb as f64 / 1000.),
                 23,
                 (cfg.makeup_mdb as f64 + 12000.) / 24000.,
             ),
         ];
-        for (i, (label, value, index, n)) in knobs.iter().enumerate() {
-            let x = 88 + (i as u16 % 2) * 22;
-            let y = 13 + (i as u16 / 2) * 5;
-            encoder(b, x, y + 1, *n, m);
-            field(
+        for (col, row, label, value, index, n) in knobs {
+            pot(
                 b,
                 &mut hits,
-                Rect::new(x + 7, y + 1, 13, 2),
+                (col, row),
                 label,
-                value,
-                *index,
-                selected(*index),
-            );
-            hits.push(Hit {
-                area: Rect::new(x, y, 21, 4),
-                target: Target::Field(*index),
-            });
-        }
-    } else {
-        // No decorative pretend processors when this owner has no processing path.
-        fill(b, Rect::new(1, 4, 133, 25), FACE);
-        text(
-            b,
-            3,
-            6,
-            125,
-            "Channel processing has not been connected. Reconnect with --processing to probe the owner.",
-            AMBER,
-        );
-    }
-    let db = fader
-        .and_then(|p| p.target_value.as_i64())
-        .map(|v| v as f64 / 1000.);
-    let pv = pan.and_then(|p| p.target_value.as_i64()).unwrap_or(0);
-    text(b, 137, 6, 20, "PAN", DIM);
-    encoder(b, 138, 7, (pv as f64 + 100.) / 200., m);
-    text(
-        b,
-        146,
-        8,
-        11,
-        &if pv == 0 {
-            "CENTER".into()
-        } else {
-            format!("{} {}", if pv < 0 { "L" } else { "R" }, pv.abs())
-        },
-        TEXT,
-    );
-    hits.push(Hit {
-        area: Rect::new(137, 6, 20, 4),
-        target: Target::Key("C"),
-    });
-    text(b, 137, 11, 20, "LEVEL TARGET", DIM);
-    well(b, Rect::new(137, 12, 20, 3));
-    text(
-        b,
-        139,
-        13,
-        17,
-        &db.map_or("—".into(), |v| format!("{v:+.1} dB")),
-        TEXT,
-    );
-    if let Some(db) = db {
-        fader_draw(b, Rect::new(137, 16, 20, 17), db, m);
-    }
-    hits.push(Hit {
-        area: Rect::new(137, 12, 20, 21),
-        target: Target::Key("D"),
-    });
-    key(
-        b,
-        &mut hits,
-        Rect::new(137, 33, 20, 3),
-        if mute.is_some_and(|p| p.target_value.as_bool() == Some(true)) {
-            "MUTED"
-        } else {
-            "MUTE"
-        },
-        "M",
-        mute.is_some_and(|p| p.target_value.as_bool() == Some(true)),
-        m,
-    );
-    key(
-        b,
-        &mut hits,
-        Rect::new(137, 36, 20, 3),
-        if fader.is_some_and(|p| p.hold.is_some()) {
-            "HELD"
-        } else {
-            "HOLD"
-        },
-        "H",
-        fader.is_some_and(|p| p.hold.is_some()),
-        m,
-    );
-    indicator(
-        b,
-        138,
-        34,
-        "red",
-        f.fresh() && mute.is_some_and(|p| p.target_value.as_bool() == Some(true)),
-        m,
-    );
-    indicator(
-        b,
-        138,
-        37,
-        "yellow",
-        f.fresh() && fader.is_some_and(|p| p.hold.is_some()),
-        m,
-    );
-    panel(b, Rect::new(1, 30, 84, 10), "04 / MONITOR SENDS");
-    let sends: Vec<_> = raw
-        .authority
-        .parameters
-        .iter()
-        .filter(|p| p.target.input == *input && p.target.parameter == "send")
-        .collect();
-    for (i, p) in sends.iter().take(2).enumerate() {
-        let x = 3 + (i as u16 % 2) * 40;
-        let y = 32 + (i as u16 / 2) * 3;
-        let value = p.target_value.as_i64().map(|v| v as f64 / 1000.);
-        text(
-            b,
-            x,
-            y,
-            23,
-            p.target.monitor.as_deref().unwrap_or("monitor"),
-            TEXT,
-        );
-        text(
-            b,
-            x + 25,
-            y,
-            12,
-            &value.map_or("—".into(), |v| format!("{v:+.1} dB")),
-            CYAN,
-        );
-        for n in 0..36 {
-            text(
-                b,
-                x + n,
-                y + 1,
-                1,
-                "━",
-                if value.is_some_and(|v| n as f64 / 36. < (v + 60.) / 72.) {
-                    Color::Rgb(104, 163, 171)
-                } else {
-                    Color::Rgb(22, 29, 34)
-                },
+                (&value, n),
+                (Target::Field(index), selected(index)),
+                m,
             );
         }
-        hits.push(Hit {
-            area: Rect::new(x, y, 37, 2),
-            target: Target::Key("F12"),
-        });
-    }
-    if let Some(tap) = f
-        .meters
-        .snapshot
-        .as_ref()
-        .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:raw")))
-    {
-        let live = f.meters.fresh(std::time::Instant::now()) && tap.valid;
         text(
             b,
-            3,
-            35,
-            77,
+            83,
+            40,
+            53,
             &format!(
-                "INPUT SAMPLE PEAK  {}",
-                if !live {
-                    "STALE".into()
-                } else if tap.silent {
-                    "-inf dBFS".into()
-                } else {
-                    tap.peak_millidbfs.map_or("NO SAMPLE".into(), |p| {
-                        format!("{:.1} dBFS", p as f64 / 1000.)
-                    })
-                }
+                "FADER OWNER  {}",
+                fader.and_then(|p| p.owner.as_deref()).unwrap_or("unowned")
             ),
             DIM,
         );
-        let n = if live {
-            tap.peak_millidbfs
-                .map(|p| ((p as f64 / 1000. + 60.) / 60.).clamp(0., 1.))
-                .unwrap_or(0.)
-        } else {
-            0.
-        };
-        for x in 0..76 {
+        text(
+            b,
+            83,
+            42,
+            53,
+            &format!(
+                "MODE  {}",
+                raw.authority
+                    .modes
+                    .iter()
+                    .find(|(s, _)| s == "foh")
+                    .map_or("—", |(_, m)| m.as_str())
+            ),
+            DIM,
+        );
+    }
+    text(b, 143, 1, 14, "PEAK dBFS", DIM);
+    well(b, Rect::new(143, 3, 14, 19));
+    let tap = f
+        .meters
+        .snapshot
+        .as_ref()
+        .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:raw")));
+    let live = tap.is_some_and(|t| t.valid) && f.meters.fresh(std::time::Instant::now());
+    let peak = tap.and_then(|t| t.peak_millidbfs);
+    let n = if live {
+        peak.map_or(0., |p| ((p as f64 / 1000. + 60.) / 60.).clamp(0., 1.))
+    } else {
+        0.
+    };
+    for y in 0..16 {
+        for x in 0..4 {
             text(
                 b,
-                3 + x,
-                36,
+                145 + x,
+                4 + y,
                 1,
                 "▰",
-                if (x as f64 / 76.) < n {
-                    if x > 69 {
+                if live && f64::from(16 - y) / 16. <= n {
+                    if y == 0 {
                         RED
-                    } else if x > 60 {
+                    } else if y < 3 {
                         AMBER
                     } else {
                         CYAN
                     }
                 } else {
-                    Color::Rgb(23, 31, 37)
+                    Color::Rgb(29, 39, 45)
                 },
             );
         }
-        text(
-            b,
-            3,
-            37,
-            77,
-            "-60                  -40                       -20                   0 dBFS",
-            DIM,
-        );
     }
-    text(
+    for (y, s) in [
+        (4, "  0"),
+        (7, "-10"),
+        (9, "-20"),
+        (12, "-30"),
+        (14, "-40"),
+        (17, "-50"),
+        (19, "-60"),
+    ] {
+        text(b, 151, y, 5, s, DIM);
+    }
+    let value = if !live {
+        "STALE".into()
+    } else if tap.is_some_and(|t| t.silent) {
+        "-inf".into()
+    } else {
+        peak.map_or("NO SAMPLE".into(), |p| format!("{:.1}", p as f64 / 1000.))
+    };
+    text(b, 145, 20, 11, &value, if live { CYAN } else { AMBER });
+    let pv = pan.and_then(|p| p.target_value.as_i64());
+    pot(
         b,
-        3,
-        38,
-        78,
-        &format!(
-            "{} destinations · select SENDS for levels and taps",
-            sends.len()
+        &mut hits,
+        (7, 0),
+        "PAN",
+        (
+            &pv.map_or("—".into(), |v| {
+                if v == 0 {
+                    "CENTER".into()
+                } else {
+                    format!("{} {}", if v < 0 { "L" } else { "R" }, v.abs())
+                }
+            }),
+            pv.map_or(0.5, |v| (v as f64 + 100.) / 200.),
         ),
-        DIM,
+        (Target::Key("C"), false),
+        m,
     );
-    panel(b, Rect::new(86, 30, 48, 10), "05 / EDIT & OWNERSHIP");
-    if let Some(c) = channel {
-        let index = f.processing_field.min(23);
-        text(
-            b,
-            88,
-            32,
-            43,
-            &format!("SETTLED  {}", c.current.display(FIELDS[index])),
-            DIM,
-        );
-        text(
-            b,
-            88,
-            33,
-            43,
-            &format!("TARGET   {}", c.target.display(FIELDS[index])),
-            TEXT,
-        );
-        if let Some(d) = &f.processing_draft {
-            text(
-                b,
-                88,
-                34,
-                43,
-                &format!("DRAFT    {}", d.config.display(FIELDS[index])),
-                AMBER,
-            );
-            text(
-                b,
-                88,
-                35,
-                43,
-                &format!("ENTRY    {}", f.processing_entry),
-                CYAN,
-            );
-        } else {
-            text(b, 88, 35, 43, "Select a parameter to edit", CYAN);
+    let db = fader
+        .and_then(|p| p.target_value.as_i64())
+        .map(|v| v as f64 / 1000.);
+    pot(
+        b,
+        &mut hits,
+        (7, 1),
+        "LEVEL / dB",
+        (
+            &db.map_or("—".into(), |v| format!("{v:+.1}")),
+            db.map_or(0., |v| (v + 60.) / 72.),
+        ),
+        (Target::Key("D"), false),
+        m,
+    );
+    text(b, 143, 40, 14, if muted { "MUTED" } else { "UNMUTED" }, DIM);
+    indicator(b, 154, 40, "red", f.fresh() && muted, m);
+    text(b, 143, 42, 14, if held { "HELD" } else { "HOLD OFF" }, DIM);
+    indicator(b, 154, 42, "yellow", f.fresh() && held, m);
+    // Numeric entry stays visible in its existing well, not a duplicate ENTRY row.
+    if f.processing_draft.is_some() && !f.processing_entry.is_empty() {
+        for hit in &hits {
+            if matches!(hit.target,Target::Field(i) if i==f.processing_field)
+                && hit.area.height == 1
+            {
+                fill(b, hit.area, Color::Rgb(32, 69, 81));
+                text(
+                    b,
+                    hit.area.x + 1,
+                    hit.area.y,
+                    hit.area.width.saturating_sub(2),
+                    &f.processing_entry,
+                    CYAN,
+                );
+            }
         }
     }
-    text(
-        b,
-        88,
-        37,
-        43,
-        &format!(
-            "FADER OWNER  {}",
-            fader.and_then(|p| p.owner.as_deref()).unwrap_or("unowned")
-        ),
-        DIM,
-    );
-    text(
-        b,
-        88,
-        38,
-        43,
-        &format!(
-            "MODE  {}",
-            raw.authority
-                .modes
-                .iter()
-                .find(|(s, _)| s == "foh")
-                .map_or("—", |(_, m)| m.as_str())
-        ),
-        AMBER,
-    );
-    for (x, w, label, k, on) in [
-        (1, 23, "EDIT PROCESSING", "E", false),
-        (25, 22, "REVIEW / APPLY", "F4", f.processing_draft.is_some()),
-        (48, 19, "CANCEL", "Esc", false),
-        (68, 20, "RELEASE HOLD", "R", false),
-        (89, 21, "WRITER GRANT", "G", u.writer_granted()),
-        (111, 23, "SENDS", "F12", false),
-        (135, 24, "RECONNECT", "F5", false),
-    ] {
-        key(b, &mut hits, Rect::new(x, 40, w, 3), label, k, on, m);
-    }
-    let focus = f
-        .processing_draft
-        .as_ref()
-        .map(|_| FIELDS[f.processing_field.min(23)]);
-    indicator(b, 2, 43, "blue", focus.is_some(), m);
-    text(
-        b,
-        6,
-        43,
-        75,
-        &focus.map_or("NO PARAMETER SELECTED".into(), |field| {
-            format!(
-                "SELECTED  {}",
-                f.processing_draft.as_ref().unwrap().config.display(field)
-            )
-        }),
-        if focus.is_some() { CYAN } else { DIM },
-    );
-    indicator(b, 88, 43, "yellow", f.processing_draft.is_some(), m);
-    text(
-        b,
-        92,
-        43,
-        40,
-        if f.processing_draft.is_some() {
-            "LOCAL DRAFT · NOT APPLIED"
-        } else {
-            "NO PENDING DRAFT"
-        },
-        DIM,
-    );
-    let message = if f.processing_draft.is_some() {
-        f.message.as_str()
+    let cmds: Vec<(&str, Target, &str, bool)> = if ui.secondary {
+        vec![
+            ("MIX", Target::Key("F1"), "blue", false),
+            ("CHANNEL", Target::Menu(Menu::Channel), "blue", true),
+            ("SENDS", Target::Key("F12"), "blue", false),
+            ("HEALTH", Target::Key("F6"), "blue", false),
+            (
+                "WRITER GRANT",
+                Target::Key("G"),
+                "green",
+                f.fresh() && u.writer_granted(),
+            ),
+            (
+                "RELEASE HOLD",
+                Target::Key("R"),
+                "yellow",
+                f.fresh() && held,
+            ),
+            (
+                "CANCEL",
+                Target::Key("Esc"),
+                "yellow",
+                f.processing_draft.is_some(),
+            ),
+            ("RECONNECT", Target::Key("F5"), "red", !f.fresh()),
+        ]
     } else {
-        u.last_operation
-            .as_deref()
-            .unwrap_or(if f.message.is_empty() {
-                &u.status
-            } else {
-                &f.message
+        match ui.menu {
+            Menu::Channel => (0..4)
+                .map(|i| {
+                    (
+                        ["BAND 1", "BAND 2", "BAND 3", "BAND 4"][i],
+                        Target::Menu(Menu::Band(i)),
+                        "green",
+                        channel.is_some_and(|c| {
+                            f.processing_fresh() && !c.current.eq_bypass && !c.current.bands()[i].3
+                        }),
+                    )
+                })
+                .chain([
+                    (
+                        "COMPRESSOR",
+                        Target::Menu(Menu::Compressor),
+                        "green",
+                        channel
+                            .is_some_and(|c| f.processing_fresh() && !c.current.compressor_bypass),
+                    ),
+                    (
+                        "REVIEW / APPLY",
+                        Target::Key("F4"),
+                        "yellow",
+                        f.processing_draft.is_some(),
+                    ),
+                    (
+                        if held { "HELD" } else { "HOLD" },
+                        Target::Key("H"),
+                        "yellow",
+                        f.fresh() && held,
+                    ),
+                    (
+                        "OUTPUT",
+                        Target::Menu(Menu::Output),
+                        if muted { "red" } else { "blue" },
+                        f.fresh() && muted,
+                    ),
+                ])
+                .collect(),
+            Menu::Band(i) => {
+                let base = 1 + i.min(3) * 4;
+                vec![
+                    (
+                        "FREQUENCY",
+                        Target::Field(base),
+                        "blue",
+                        f.processing_field == base && f.processing_draft.is_some(),
+                    ),
+                    (
+                        "GAIN",
+                        Target::Field(base + 1),
+                        "blue",
+                        f.processing_field == base + 1 && f.processing_draft.is_some(),
+                    ),
+                    (
+                        "Q",
+                        Target::Field(base + 2),
+                        "blue",
+                        f.processing_field == base + 2 && f.processing_draft.is_some(),
+                    ),
+                    (
+                        "BAND BYPASS",
+                        Target::Field(base + 3),
+                        "blue",
+                        f.processing_field == base + 3 && f.processing_draft.is_some(),
+                    ),
+                    (
+                        "EQ BYPASS",
+                        Target::Field(0),
+                        "blue",
+                        f.processing_field == 0 && f.processing_draft.is_some(),
+                    ),
+                    (
+                        "REVIEW / APPLY",
+                        Target::Key("F4"),
+                        "yellow",
+                        f.processing_draft.is_some(),
+                    ),
+                    ("CANCEL", Target::Key("Esc"), "yellow", false),
+                    ("BACK", Target::Menu(Menu::Channel), "blue", false),
+                ]
+            }
+            Menu::Compressor => [
+                "THRESHOLD",
+                "RATIO",
+                "KNEE",
+                "ATTACK",
+                "RELEASE",
+                "MAKEUP",
+                "BYPASS",
+            ]
+            .into_iter()
+            .zip([18, 19, 20, 21, 22, 23, 17])
+            .map(|(s, i)| {
+                (
+                    s,
+                    Target::Field(i),
+                    "blue",
+                    f.processing_draft.is_some() && f.processing_field == i,
+                )
             })
+            .chain([("BACK", Target::Menu(Menu::Channel), "blue", false)])
+            .collect(),
+            Menu::Output => vec![
+                ("PAN", Target::Key("C"), "blue", false),
+                ("LEVEL", Target::Key("D"), "blue", false),
+                (
+                    if muted { "UNMUTE" } else { "MUTE" },
+                    Target::Key("M"),
+                    "red",
+                    f.fresh() && muted,
+                ),
+                ("HOLD", Target::Key("H"), "yellow", f.fresh() && held),
+                (
+                    "RELEASE HOLD",
+                    Target::Key("R"),
+                    "yellow",
+                    f.fresh() && held,
+                ),
+                ("SENDS", Target::Key("F12"), "blue", false),
+                ("CANCEL", Target::Key("Esc"), "yellow", false),
+                ("BACK", Target::Menu(Menu::Channel), "blue", false),
+            ],
+        }
     };
-    let message = if f.processing_draft.is_some() && message.starts_with("Local draft only.") {
-        "Local draft only. Review before applying; Cancel discards edits."
-    } else {
-        message
-    };
-    text(b, 2, 44, 156, message, AMBER);
+    for (i, (label, target, colour, on)) in cmds.into_iter().enumerate() {
+        pad(
+            b,
+            &mut hits,
+            (i as u16, i as u16 + if ui.secondary { 9 } else { 1 }),
+            label,
+            target,
+            (colour, on),
+            m,
+        );
+    }
     hits
-}
-fn fader_draw(b: &mut Buffer, a: Rect, db: f64, m: Material) {
-    shr_instrument_panel::rack::fader(b, a, db, m);
 }

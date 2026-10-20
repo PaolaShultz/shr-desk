@@ -84,6 +84,9 @@ pub fn run(
     let mut processing_probe = std::time::Instant::now();
     let mut visible = false;
     let mut hits = Vec::new();
+    let mut panel_ui = crate::channel_panel::PanelUi::default();
+    let materials_enabled = crate::channel_material::Materials::enabled();
+    let mut materials = crate::channel_material::Materials::default();
     let result = (|| -> Result<(), String> {
         loop {
             front.pump();
@@ -99,14 +102,31 @@ pub fn run(
                 front.enable_processing()?;
                 processing_probe = std::time::Instant::now();
             }
-            let s = primitives(&front.scene());
-            let material = console.material;
+            let s = if front.channel_panel_visible() {
+                Vec::new()
+            } else {
+                primitives(&front.scene())
+            };
+            let material = if materials_enabled && front.channel_panel_visible() {
+                shr_instrument_panel::Material::Glyph
+            } else {
+                console.material
+            };
+            let mut placements = Vec::new();
             console
                 .terminal
                 .draw(|f| {
                     hits.clear();
                     visible = if front.channel_panel_visible() {
-                        hits = crate::channel_panel::draw(&front, f.buffer_mut(), material);
+                        hits = crate::channel_panel::draw_with_ui(
+                            &front,
+                            f.buffer_mut(),
+                            material,
+                            &panel_ui,
+                        );
+                        if materials_enabled {
+                            placements = crate::channel_material::prepare(f.buffer_mut());
+                        }
                         f.area().width >= 160 && f.area().height >= 45
                     } else if s
                         .iter()
@@ -135,6 +155,11 @@ pub fn run(
                     };
                 })
                 .map_err(|e| e.to_string())?;
+            if materials_enabled {
+                materials
+                    .present(placements, &mut std::io::stdout())
+                    .map_err(|e| e.to_string())?;
+            }
             if visible {
                 front.mark_presented();
             } else {
@@ -203,6 +228,19 @@ pub fn run(
                                         key: (*key).into(),
                                         pressed: false,
                                     });
+                                }
+                                (
+                                    crate::channel_panel::Target::Menu(menu),
+                                    MouseEventKind::Down(MouseButton::Left),
+                                ) => {
+                                    panel_ui.menu = *menu;
+                                    panel_ui.secondary = false;
+                                }
+                                (
+                                    crate::channel_panel::Target::Layer,
+                                    MouseEventKind::Down(MouseButton::Left),
+                                ) => {
+                                    panel_ui.secondary = !panel_ui.secondary;
                                 }
                                 _ => {}
                             }
