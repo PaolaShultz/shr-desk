@@ -95,6 +95,27 @@ pub fn prepare(b: &mut Buffer) -> Vec<Placement> {
             }
         }
     }
+    // Four-cell meter bars use cached lens strips; text fallback keeps its glyphs.
+    for (x, start, end) in [(85, 4, 20), (105, 4, 20), (125, 4, 20), (145, 4, 20)] {
+        for y in start..end {
+            if b[(x, y)].symbol() != "▰" {
+                continue;
+            }
+            let name = match b[(x, y)].fg {
+                Color::Rgb(59, 224, 113) => "meter_green_on",
+                Color::Rgb(25, 59, 40) => "meter_green_off",
+                Color::Rgb(72, 30, 34) => "meter_red_off",
+                Color::Rgb(69, 53, 28) => "meter_amber_off",
+                c if c == shr_instrument_panel::rack::RED => "meter_red_on",
+                c if c == shr_instrument_panel::rack::AMBER => "meter_amber_on",
+                _ => "meter_amber_off",
+            };
+            add(&mut out, name, x, y, -7);
+            for xx in x..x + 4 {
+                b[(xx, y)].set_char(' ');
+            }
+        }
+    }
     for y in 0..45 {
         for x in 0..160 {
             let c = &mut b[(x, y)];

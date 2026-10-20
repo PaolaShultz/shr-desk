@@ -434,7 +434,11 @@ fn channel_panel_has_all_processing_targets_and_preserves_modal_precedence() {
             assert_eq!(b[(145, y)].symbol(), "▰");
             assert_eq!(
                 b[(145, y)].fg,
-                shr_instrument_panel::terminal::ratatui::style::Color::Rgb(29, 39, 45)
+                match y {
+                    4..=5 => shr_instrument_panel::terminal::ratatui::style::Color::Rgb(72, 30, 34),
+                    6..=7 => shr_instrument_panel::terminal::ratatui::style::Color::Rgb(69, 53, 28),
+                    _ => shr_instrument_panel::terminal::ratatui::style::Color::Rgb(25, 59, 40),
+                }
             );
         }
         // Header is framed: an empty border, labels/LEDs, then an empty row.
@@ -482,6 +486,57 @@ fn channel_panel_has_all_processing_targets_and_preserves_modal_precedence() {
             assert!(shr_desk::channel_panel::draw(&f, &mut small, material).is_empty());
         }
     }
+    // Identical level scales and geometry; output must use the actual processed tap.
+    let mut meter: shr_desk::metering::Snapshot =
+        serde_json::from_str(include_str!("fixtures/gp-meter/v1/valid-sine.json")).unwrap();
+    meter.taps[0].peak_millidbfs = Some(-1000);
+    meter.taps[0].rms_millidbfs = Some(-4000);
+    meter.taps[1].peak_millidbfs = Some(-8000);
+    meter.taps[1].rms_millidbfs = Some(-11000);
+    let identity = shr_desk::metering::Identity {
+        show: meter.show_id.clone(),
+        epoch: meter.source_epoch.0,
+        map: meter.map_generation.0,
+        topology: meter.topology.clone(),
+        inputs: meter.inputs,
+        monitors: meter.monitors,
+        rate: meter.sample_rate,
+    };
+    f.meters
+        .accept(meter, &identity, 1, Duration::ZERO, Instant::now())
+        .unwrap();
+    let mut meters = Buffer::empty(Rect::new(0, 0, 160, 45));
+    shr_desk::channel_panel::draw(&f, &mut meters, Material::Text);
+    // Titles use the formerly empty first black row; original master rows stay fixed.
+    for (x, label) in [(88, "PEAK"), (108, "RMS"), (129, "GR"), (148, "PEAK")] {
+        for (offset, c) in label.chars().enumerate() {
+            assert_eq!(meters[(x + offset as u16, 3)].symbol(), c.to_string());
+        }
+    }
+    for x in [85, 105, 125, 145] {
+        for y in 4..20 {
+            assert_eq!(meters[(x, y)].symbol(), "▰");
+        }
+    }
+    for y in [4, 5, 7, 10, 13, 16, 19] {
+        for offset in 0..3 {
+            assert_eq!(meters[(91 + offset, y)], meters[(111 + offset, y)]);
+            assert_eq!(meters[(91 + offset, y)], meters[(151 + offset, y)]);
+        }
+    }
+    let reading = |x| {
+        (x..x + 4)
+            .map(|xx| meters[(xx, 20)].symbol())
+            .collect::<String>()
+    };
+    assert_eq!(reading(85), "-1.0");
+    assert_eq!(reading(145), "-8.0");
+    assert_eq!(
+        meters[(145, 5)].fg,
+        shr_instrument_panel::terminal::ratatui::style::Color::Rgb(72, 30, 34)
+    );
+    assert_eq!(meters[(85, 5)].fg, shr_instrument_panel::rack::RED);
+    f.meters = Default::default();
     // Physical grouping is a presentation contract: eight columns, exactly
     // eight contextual pads, and the same confirmed state for every menu/layer.
     for secondary in [false, true] {
@@ -537,18 +592,18 @@ fn channel_panel_has_all_processing_targets_and_preserves_modal_precedence() {
             shr_instrument_panel::terminal::ratatui::style::Color::Rgb(19, 23, 27)
         );
     }
-    assert_eq!(observed[(125, 6)].fg, shr_instrument_panel::rack::AMBER);
+    assert_eq!(observed[(125, 4)].fg, shr_instrument_panel::rack::AMBER);
     assert_eq!(
-        observed[(125, 18)].fg,
+        observed[(125, 19)].fg,
         shr_instrument_panel::terminal::ratatui::style::Color::Rgb(29, 39, 45)
     );
     let labels: String = observed.content.iter().map(|c| c.symbol()).collect();
-    assert!(labels.contains("RAW PEAK"));
-    assert!(labels.contains("RAW RMS"));
+    assert!(labels.contains("PEAK"));
+    assert!(labels.contains("RMS"));
     f.state.as_mut().unwrap().processing_age_ms = Some(1000);
     shr_desk::channel_panel::draw(&f, &mut observed, Material::Text);
     assert_eq!(
-        observed[(125, 6)].fg,
+        observed[(125, 4)].fg,
         shr_instrument_panel::terminal::ratatui::style::Color::Rgb(29, 39, 45)
     );
     assert_eq!(observed[(125, 20)].symbol(), "—");

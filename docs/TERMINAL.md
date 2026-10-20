@@ -61,6 +61,15 @@ three compressor pairs, and pan/level. Separate full-height EQ, compressor and
 output plates retain these boundaries. The EQ plot occupies only columns 1–4.
 Raw peak/RMS and actual gain-reduction meters sit above the compressor controls;
 raw levels are labelled explicitly, and stale observations leave unlit scales.
+Level-meter scales retain dim green/amber/red zones: green below −12 dBFS,
+amber from −12 to below −4, and red from −4 to full scale. Bright cached LED
+segments show measured levels; coloured tick values align with segment thresholds.
+All four meters share 16 segments on rows 4–19, centred labels on row 3 and
+readings on row 20. The right-hand OUT meter reads the actual `input-NN:processed`
+tap after EQ/compression and before mute/fader/pan; it does not repeat raw input
+or estimate output from GR. Gain reduction retains its separate amber dB scale.
+These are digital levels,
+not a calibrated VU or acoustic meter.
 Eight pads occupy the same columns. Their
 context menus and secondary 9–16 layer follow the [controller design](CONTROLLER.md#selected-channel-eight-physical-columns).
 The positions are a design contract; physical MIDI mappings remain unqualified.

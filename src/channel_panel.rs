@@ -119,10 +119,22 @@ fn pad(
     indicator(b, x + 15, 44, colour, on, m);
     h.push(Hit { area, target });
 }
+// Digital peak scale: green below -12 dBFS, amber to -4, red near full scale.
+// Dim coloured segments describe the scale, never a valid observation.
+fn meter_colour(db: i32, lit: bool) -> Color {
+    match (db >= -4000, db >= -12000, lit) {
+        (true, _, true) => RED,
+        (true, _, false) => Color::Rgb(72, 30, 34),
+        (_, true, true) => AMBER,
+        (_, true, false) => Color::Rgb(69, 53, 28),
+        (_, _, true) => Color::Rgb(59, 224, 113),
+        (_, _, false) => Color::Rgb(25, 59, 40),
+    }
+}
 /// Default entry retained for fallback and focused workflow regression tests.
 /// Observed raw input levels and independently fresh owner gain reduction.
 /// Reduction fills downward; missing observations leave an unlit scale and dash.
-fn compressor_meter(
+fn channel_meter(
     b: &mut Buffer,
     x: u16,
     label: &str,
@@ -131,7 +143,7 @@ fn compressor_meter(
     silent: bool,
 ) {
     well(b, Rect::new(x, 3, 14, 19));
-    text(b, x + 1, 4, 12, label, DIM);
+    text(b, x + (14 - label.len() as u16) / 2, 3, 12, label, DIM);
     let amount = value.map_or(0., |v| {
         if reduction {
             (f64::from(v) / 24000.).clamp(0., 1.)
@@ -139,35 +151,51 @@ fn compressor_meter(
             ((f64::from(v) + 60000.) / 60000.).clamp(0., 1.)
         }
     });
-    for row in 0..13u16 {
-        let step = if reduction { row + 1 } else { 13 - row };
-        let colour = if value.is_some() && f64::from(step) / 13. <= amount {
+    for row in 0..16u16 {
+        let threshold = if reduction {
+            f64::from(row) / 15.
+        } else {
+            f64::from(15 - row) / 15.
+        };
+        let colour = if value.is_some() && !silent && amount > 0. && threshold <= amount {
             if reduction {
                 AMBER
-            } else if row == 0 {
-                RED
-            } else if row < 3 {
-                AMBER
             } else {
-                CYAN
+                meter_colour(-i32::from(row) * 4000, true)
             }
-        } else {
+        } else if reduction {
             Color::Rgb(29, 39, 45)
+        } else {
+            meter_colour(-i32::from(row) * 4000, false)
         };
-        text(b, x + 2, 6 + row, 4, "▰▰▰▰", colour);
+        text(b, x + 2, 4 + row, 4, "▰▰▰▰", colour);
     }
-    for (row, level) in if reduction {
-        [(6, " 0"), (9, " 6"), (12, "12"), (15, "18"), (18, "24")]
+    let scale: &[(u16, &str)] = if reduction {
+        &[(4, " 0"), (9, " 8"), (14, "16"), (19, "24")]
     } else {
-        [
-            (6, "  0"),
-            (9, "-15"),
-            (12, "-30"),
-            (15, "-45"),
-            (18, "-60"),
+        &[
+            (4, "  0"),
+            (5, " -4"),
+            (7, "-12"),
+            (10, "-24"),
+            (13, "-36"),
+            (16, "-48"),
+            (19, "-60"),
         ]
-    } {
-        text(b, x + 8, row, 5, level, DIM);
+    };
+    for &(row, level) in scale {
+        text(
+            b,
+            x + 8,
+            row,
+            5,
+            level,
+            if reduction {
+                DIM
+            } else {
+                meter_colour(-i32::from(row - 4) * 4000, true)
+            },
+        );
     }
     let reading = if silent {
         "−inf".into()
@@ -477,16 +505,11 @@ pub fn draw_observation(
             .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:raw")))
             .filter(|t| t.valid && f.meters.fresh(std::time::Instant::now()));
         for (x, label, value, reduction) in [
-            (
-                83,
-                "RAW PEAK",
-                raw_tap.and_then(|t| t.peak_millidbfs),
-                false,
-            ),
-            (103, "RAW RMS", raw_tap.and_then(|t| t.rms_millidbfs), false),
+            (83, "PEAK", raw_tap.and_then(|t| t.peak_millidbfs), false),
+            (103, "RMS", raw_tap.and_then(|t| t.rms_millidbfs), false),
             (123, "GR", gr.map(|v| v as i32), true),
         ] {
-            compressor_meter(
+            channel_meter(
                 b,
                 x,
                 label,
@@ -597,61 +620,24 @@ pub fn draw_observation(
             DIM,
         );
     }
-    text(b, 143, 1, 14, "PEAK dBFS", DIM);
-    well(b, Rect::new(143, 3, 14, 19));
+    text(b, 143, 1, 14, "OUT dBFS", DIM);
+    // Actual strip result after EQ/compression, before channel mute/fader/pan.
+    // Never infer output by subtracting instantaneous GR from raw peak.
     let tap = f
         .meters
         .snapshot
         .as_ref()
-        .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:raw")));
-    let live = tap.is_some_and(|t| t.valid) && f.meters.fresh(std::time::Instant::now());
-    let peak = tap.and_then(|t| t.peak_millidbfs);
-    let n = if live {
-        peak.map_or(0., |p| ((p as f64 / 1000. + 60.) / 60.).clamp(0., 1.))
-    } else {
-        0.
-    };
-    for y in 0..16 {
-        for x in 0..4 {
-            text(
-                b,
-                145 + x,
-                4 + y,
-                1,
-                "▰",
-                if live && f64::from(16 - y) / 16. <= n {
-                    if y == 0 {
-                        RED
-                    } else if y < 3 {
-                        AMBER
-                    } else {
-                        CYAN
-                    }
-                } else {
-                    Color::Rgb(29, 39, 45)
-                },
-            );
-        }
-    }
-    for (y, s) in [
-        (4, "  0"),
-        (7, "-10"),
-        (9, "-20"),
-        (12, "-30"),
-        (14, "-40"),
-        (17, "-50"),
-        (19, "-60"),
-    ] {
-        text(b, 151, y, 5, s, DIM);
-    }
-    let value = if !live {
-        "STALE".into()
-    } else if tap.is_some_and(|t| t.silent) {
-        "-inf".into()
-    } else {
-        peak.map_or("NO SAMPLE".into(), |p| format!("{:.1}", p as f64 / 1000.))
-    };
-    text(b, 145, 20, 11, &value, if live { CYAN } else { AMBER });
+        .and_then(|s| s.taps.iter().find(|t| t.id == format!("{input}:processed")))
+        .filter(|t| t.valid && f.meters.fresh(std::time::Instant::now()));
+    channel_meter(
+        b,
+        143,
+        "PEAK",
+        tap.and_then(|t| t.peak_millidbfs),
+        false,
+        tap.is_some_and(|t| t.silent),
+    );
+    text(b, 143, 22, 14, "PRE-FADER", DIM);
     let pv = pan.and_then(|p| p.target_value.as_i64());
     pot(
         b,
